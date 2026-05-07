@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+:root {
+  --bg-primary: #f6f1e8;
+  --bg-secondary: rgba(255, 251, 245, 0.8);
+  --bg-tertiary: #ebe2d4;
+  --bg-nav: rgba(251, 246, 238, 0.78);
+  --text-primary: #19120d;
+  --text-2: #5d5148;
+  --text-muted: #88796d;
+  --text-faint: #ad9d90;
+  --border: rgba(44, 30, 19, 0.12);
+  --border-faint: rgba(44, 30, 19, 0.08);
+  --divider: rgba(44, 30, 19, 0.08);
+  --watched: #34c759;
+  --to-watch: #ff9f0a;
+  --accent: #0a84ff;
+  --danger: #ff453a;
+}
+
+@theme inline {
+  --color-background: var(--bg-primary);
+  --color-surface: var(--bg-secondary);
+  --color-surface-muted: var(--bg-tertiary);
+  --color-nav-surface: var(--bg-nav);
+  --color-foreground: var(--text-primary);
+  --color-text-2: var(--text-2);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-border: var(--border);
+  --color-border-faint: var(--border-faint);
+  --color-divider: var(--divider);
+  --color-watched: var(--watched);
+  --color-to-watch: var(--to-watch);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-manrope);
+  --font-mono: var(--font-plex-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background:
+    radial-gradient(circle at top, rgba(217, 157, 80, 0.22), transparent 34%),
+    linear-gradient(180deg, #fbf6ee 0%, #f1ebde 100%);
+}
+
+body {
+  background:
+    radial-gradient(circle at top, rgba(217, 157, 80, 0.16), transparent 28%),
+    linear-gradient(180deg, #fbf6ee 0%, #f1ebde 100%);
+  color: var(--text-primary);
+  font-family: var(--font-manrope), sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(10, 132, 255, 0.2);
+}
+
+.tabnum {
+  font-variant-numeric: tabular-nums;
+}

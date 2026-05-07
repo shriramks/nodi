@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nodi Mock Screens</title>
+    <style>
+      :root {
+        --bg: #070709;
+        --surface: #141417;
+        --surface-2: #1d1e22;
+        --surface-3: #252730;
+        --text: #f5f5f2;
+        --text-2: rgba(245, 245, 242, 0.68);
+        --text-3: rgba(245, 245, 242, 0.42);
+        --border: rgba(255, 255, 255, 0.08);
+        --accent: #ff9f0a;
+        --watched: #34c759;
+        --watchlist: #0a84ff;
+        --warning: #ffd60a;
+        --danger: #ff453a;
+        --shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(255, 159, 10, 0.14), transparent 28%),
+          radial-gradient(circle at top right, rgba(10, 132, 255, 0.12), transparent 30%),
+          linear-gradient(180deg, #0b0b0e 0%, #050507 100%);
+        color: var(--text);
+      }
+
+      .page {
+        padding: 32px 20px 60px;
+      }
+
+      .intro {
+        max-width: 980px;
+        margin: 0 auto 28px;
+      }
+
+      .eyebrow {
+        margin: 0 0 8px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--text-3);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 32px;
+        line-height: 1.1;
+      }
+
+      .sub {
+        margin: 10px 0 0;
+        max-width: 720px;
+        color: var(--text-2);
+        line-height: 1.5;
+      }
+
+      .grid {
+        max-width: 1400px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 28px;
+      }
+
+      .screen-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .screen-label {
+        font-size: 13px;
+        color: var(--text-2);
+        padding-left: 10px;
+      }
+
+      .phone {
+        width: 100%;
+        max-width: 402px;
+        min-height: 874px;
+        margin: 0 auto;
+        border-radius: 38px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        background: linear-gradient(180deg, #0b0c0f 0%, #09090b 100%);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        position: relative;
+      }
+
+      .screen {
+        padding: 18px 16px 100px;
+      }
+
+      .screen.sheet {
+        padding-bottom: 24px;
+      }
+
+      .statusbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+        color: var(--text-2);
+        padding: 4px 2px 16px;
+      }
+
+      .header h2 {
+        margin: 0;
+        font-size: 31px;
+        line-height: 1.05;
+      }
+
+      .header p {
+        margin: 6px 0 0;
+        font-size: 13px;
+        color: var(--text-2);
+      }
+
+      .toolbar,
+      .pill-row {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+        flex-wrap: wrap;
+      }
+
+      .pill,
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 36px;
+        padding: 0 14px;
+        border-radius: 999px;
+        background: var(--surface-2);
+        color: var(--text);
+        font-size: 13px;
+        border: 1px solid transparent;
+      }
+
+      .pill.active {
+        background: rgba(255, 159, 10, 0.16);
+        color: #ffd38a;
+      }
+
+      .chip {
+        min-height: 32px;
+        font-size: 12px;
+      }
+
+      .chip.watched {
+        background: rgba(52, 199, 89, 0.14);
+        color: #8fe3aa;
+      }
+
+      .chip.watchlist {
+        background: rgba(10, 132, 255, 0.14);
+        color: #7bc0ff;
+      }
+
+      .chip.warning {
+        background: rgba(255, 214, 10, 0.14);
+        color: #ffe97f;
+      }
+
+      .poster-grid {
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+        gap: 12px;
+      }
+
+      .poster-card {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+
+      .poster {
+        aspect-ratio: 2 / 3;
+        border-radius: 18px;
+        background-size: cover;
+        background-position: center;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .poster::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.34) 100%);
+      }
+
+      .poster.a {
+        background-image: linear-gradient(160deg, #5c1d31, #231321 68%, #0e0e13);
+      }
+
+      .poster.b {
+        background-image: linear-gradient(160deg, #403e7d, #18202f 68%, #0b0d13);
+      }
+
+      .poster.c {
+        background-image: linear-gradient(160deg, #5b4923, #1f1a15 70%, #090909);
+      }
+
+      .poster.d {
+        background-image: linear-gradient(160deg, #1f5b5a, #122027 68%, #0a0c11);
+      }
+
+      .poster.e {
+        background-image: linear-gradient(160deg, #6b2721, #2d1315 68%, #0c0b0b);
+      }
+
+      .poster.f {
+        background-image: linear-gradient(160deg, #6d4b2d, #261b17 68%, #0c0b0a);
+      }
+
+      .poster.g {
+        background-image: linear-gradient(160deg, #314d71, #161f2b 68%, #090b10);
+      }
+
+      .poster.h {
+        background-image: linear-gradient(160deg, #4f255f, #211327 68%, #0a090d);
+      }
+
+      .poster.i {
+        background-image: linear-gradient(160deg, #25492d, #101d14 68%, #080a08);
+      }
+
+      .poster-sub {
+        font-size: 11px;
+        color: var(--text-3);
+      }
+
+      .card {
+        margin-top: 16px;
+        padding: 16px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.035);
+        border: 1px solid var(--border);
+      }
+
+      .detail-hero {
+        margin-top: 8px;
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+      }
+
+      .detail-poster {
+        width: 126px;
+        flex: 0 0 126px;
+      }
+
+      .detail-poster .poster {
+        border-radius: 20px;
+      }
+
+      .detail-copy h3 {
+        margin: 0;
+        font-size: 21px;
+        line-height: 1.04;
+        letter-spacing: -0.03em;
+      }
+
+      .hero-meta-line {
+        margin-top: 8px;
+        font-size: 13px;
+        color: var(--text-2);
+        line-height: 1.4;
+      }
+
+      .hero-emphasis {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .meta-pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        width: fit-content;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: var(--surface-2);
+        font-size: 11px;
+        color: var(--text-2);
+      }
+
+      .meta-pill.emphasis {
+        min-height: 32px;
+        padding: 0 12px;
+        border-radius: 12px;
+        font-size: 13px;
+        font-weight: 700;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .meta-pill.emphasis.watched {
+        background: rgba(52, 199, 89, 0.14);
+        color: #8fe3aa;
+      }
+
+      .heart {
+        display: inline-flex;
+        width: 14px;
+        height: 14px;
+        margin-right: 6px;
+      }
+
+      .heart svg {
+        width: 14px;
+        height: 14px;
+        fill: currentColor;
+        stroke: none;
+      }
+
+      .tag-row {
+        margin-top: 10px;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .external-ratings {
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--text-3);
+        line-height: 1.4;
+      }
+
+      .detail-copy .overview {
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--text-2);
+      }
+
+      .overview-card {
+        margin-top: 18px;
+        padding: 16px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.035);
+        border: 1px solid var(--border);
+      }
+
+      .overview-card h4,
+      .cast-carousel h4 {
+        margin: 0 0 10px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-3);
+      }
+
+      .overview-fade {
+        position: relative;
+        max-height: 122px;
+        overflow: hidden;
+      }
+
+      .overview-fade::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 36px;
+        background: linear-gradient(180deg, rgba(20, 20, 23, 0), rgba(20, 20, 23, 1));
+      }
+
+      .more-link {
+        margin-top: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #ffd38a;
+      }
+
+      .section-title {
+        margin: 20px 0 10px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--text-3);
+      }
+
+      .rows {
+        border-top: 1px solid var(--border);
+      }
+
+      .cast-carousel {
+        margin-top: 18px;
+      }
+
+      .cast-track {
+        display: flex;
+        gap: 12px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+
+      .cast-track::-webkit-scrollbar {
+        display: none;
+      }
+
+      .cast-card {
+        min-width: 88px;
+        max-width: 88px;
+      }
+
+      .cast-avatar {
+        width: 88px;
+        height: 88px;
+        border-radius: 24px;
+        background-size: cover;
+        background-position: center;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .cast-avatar.a {
+        background-image: linear-gradient(160deg, #72554a, #2d1d19 72%, #0e0b0a);
+      }
+
+      .cast-avatar.b {
+        background-image: linear-gradient(160deg, #4a606f, #172229 72%, #0a0d10);
+      }
+
+      .cast-avatar.c {
+        background-image: linear-gradient(160deg, #6d5d44, #292116 72%, #0b0907);
+      }
+
+      .cast-avatar.d {
+        background-image: linear-gradient(160deg, #5d476b, #221628 72%, #0b090d);
+      }
+
+      .cast-name {
+        margin-top: 8px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .cast-role {
+        margin-top: 3px;
+        font-size: 11px;
+        color: var(--text-3);
+      }
+
+      .row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 13px 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .row .label {
+        color: var(--text-2);
+        font-size: 15px;
+      }
+
+      .row .value {
+        font-size: 16px;
+        font-weight: 600;
+        text-align: right;
+      }
+
+      .value.watched {
+        color: var(--watched);
+      }
+
+      .value.watchlist {
+        color: var(--watchlist);
+      }
+
+      .value.warning {
+        color: var(--warning);
+      }
+
+      .metrics {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .metric {
+        padding: 16px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--border);
+      }
+
+      .metric .num {
+        font-size: 28px;
+        font-weight: 700;
+        line-height: 1.05;
+      }
+
+      .metric .cap {
+        margin-top: 6px;
+        font-size: 13px;
+        color: var(--text-2);
+      }
+
+      .chart {
+        margin-top: 16px;
+        padding: 16px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.035);
+        border: 1px solid var(--border);
+      }
+
+      .chart h3 {
+        margin: 0 0 14px;
+        font-size: 18px;
+      }
+
+      .bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        height: 130px;
+      }
+
+      .bar {
+        flex: 1;
+        border-radius: 10px 10px 4px 4px;
+        background: linear-gradient(180deg, rgba(255, 159, 10, 0.95), rgba(255, 159, 10, 0.28));
+      }
+
+      .bar.alt {
+        background: linear-gradient(180deg, rgba(10, 132, 255, 0.95), rgba(10, 132, 255, 0.28));
+      }
+
+      .bar.watched {
+        background: linear-gradient(180deg, rgba(52, 199, 89, 0.95), rgba(52, 199, 89, 0.28));
+      }
+
+      .chart-list {
+        margin-top: 12px;
+      }
+
+      .summary-strip {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .summary-box {
+        padding: 14px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.035);
+        border: 1px solid var(--border);
+      }
+
+      .summary-box .kicker {
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-3);
+      }
+
+      .summary-box .value {
+        margin-top: 7px;
+        font-size: 22px;
+        font-weight: 700;
+      }
+
+      .chart-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        padding: 9px 0;
+        font-size: 14px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .search {
+        margin-top: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 48px;
+        padding: 0 14px;
+        border-radius: 16px;
+        background: var(--surface-2);
+        color: var(--text-3);
+      }
+
+      .search-results {
+        margin-top: 16px;
+      }
+
+      .empty-state {
+        margin-top: 22px;
+        padding: 22px 18px;
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.035);
+        border: 1px solid var(--border);
+        text-align: center;
+      }
+
+      .empty-visual {
+        width: 112px;
+        height: 156px;
+        margin: 0 auto 16px;
+        border-radius: 22px;
+        background: linear-gradient(160deg, #37253f, #16161d 72%, #0a0a0d);
+      }
+
+      .empty-title {
+        font-size: 22px;
+        font-weight: 700;
+        line-height: 1.1;
+      }
+
+      .empty-copy {
+        margin-top: 10px;
+        font-size: 14px;
+        line-height: 1.5;
+        color: var(--text-2);
+      }
+
+      .empty-actions {
+        margin-top: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .result {
+        display: flex;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .result-poster {
+        width: 56px;
+        flex: 0 0 56px;
+      }
+
+      .result-poster .poster {
+        border-radius: 14px;
+      }
+
+      .result-copy {
+        flex: 1;
+      }
+
+      .result-title {
+        font-size: 17px;
+        font-weight: 600;
+      }
+
+      .result-meta {
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--text-2);
+      }
+
+      .result-actions {
+        margin-top: 7px;
+      }
+
+      .sheet-card {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        min-height: 390px;
+        padding: 12px 20px 26px;
+        border-radius: 28px 28px 0 0;
+        background: #17181d;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .handle {
+        width: 38px;
+        height: 4px;
+        margin: 0 auto 16px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.18);
+      }
+
+      .sheet-title {
+        font-size: 22px;
+        font-weight: 700;
+        margin: 0 0 18px;
+      }
+
+      .sheet-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 0;
+        border-bottom: 1px solid var(--border);
+        font-size: 16px;
+      }
+
+      .sheet-row.active {
+        color: var(--accent);
+      }
+
+      .cta {
+        margin-top: 18px;
+        min-height: 50px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        font-weight: 700;
+        background: var(--accent);
+        color: #241605;
+      }
+
+      .split-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .ghost {
+        min-height: 48px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--surface-3);
+        color: var(--text);
+      }
+
+      .settings-group {
+        margin-top: 18px;
+        padding: 16px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.035);
+        border: 1px solid var(--border);
+      }
+
+      .settings-group h3 {
+        margin: 0 0 12px;
+        font-size: 18px;
+      }
+
+      .bottom-nav {
+        position: absolute;
+        left: 14px;
+        right: 14px;
+        bottom: 18px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        padding: 8px;
+        border-radius: 22px;
+        background: rgba(20, 20, 23, 0.86);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        backdrop-filter: blur(12px);
+      }
+
+      .nav-item {
+        min-height: 44px;
+        border-radius: 999px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 3px;
+        font-size: 11px;
+        color: var(--text-2);
+      }
+
+      .nav-icon {
+        width: 18px;
+        height: 18px;
+        display: inline-flex;
+      }
+
+      .nav-icon svg {
+        width: 18px;
+        height: 18px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .nav-item.active.movies,
+      .nav-item.active.stats,
+      .nav-item.active.search,
+      .nav-item.active.watch {
+        color: var(--text);
+      }
+
+      .nav-item.active.movies {
+        background: rgba(255, 159, 10, 0.18);
+      }
+
+      .nav-item.active.watch {
+        background: rgba(10, 132, 255, 0.18);
+      }
+
+      .nav-item.active.stats {
+        background: rgba(52, 199, 89, 0.18);
+      }
+
+      .nav-item.active.search {
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      @media (max-width: 800px) {
+        .page {
+          padding-inline: 12px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="intro">
+        <p class="eyebrow">Nodi PWA</p>
+        <h1>HTML mocks for the primary app screens</h1>
+        <p class="sub">
+          These are standalone screen mocks for flow review. They preserve the iOS-native structure
+          from the design guide and make the four-tab app concrete before implementation. The mock
+          frame is tuned to the current iPhone 16 / iPhone 17 class width.
+        </p>
+      </section>
+
+      <section class="grid">
+        <article class="screen-wrap">
+          <div class="screen-label">Movies</div>
+          <div class="phone">
+            <div class="screen">
+              <div class="statusbar"><span>9:41</span><span>Nodi</span></div>
+              <header class="header">
+                <h2>Movies</h2>
+                <p>248 watched</p>
+              </header>
+              <div class="toolbar">
+                <div class="pill active">Recent</div>
+                <div class="pill">Filter</div>
+                <div class="pill">Sort</div>
+              </div>
+              <div class="pill-row">
+                <div class="chip watched">All</div>
+                <div class="chip">Thriller</div>
+                <div class="chip">Korean</div>
+                <div class="chip">Rewatch</div>
+              </div>
+              <div class="poster-grid">
+                <div class="poster-card"><div class="poster a"></div></div>
+                <div class="poster-card"><div class="poster b"></div></div>
+                <div class="poster-card"><div class="poster c"></div></div>
+                <div class="poster-card"><div class="poster d"></div></div>
+                <div class="poster-card"><div class="poster e"></div></div>
+                <div class="poster-card"><div class="poster f"></div></div>
+                <div class="poster-card"><div class="poster g"></div></div>
+                <div class="poster-card"><div class="poster h"></div></div>
+                <div class="poster-card"><div class="poster i"></div></div>
+              </div>
+            </div>
+            <nav class="bottom-nav">
+              <div class="nav-item active movies"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg></span><span>Movies</span></div>
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M7 5h10a2 2 0 0 1 2 2v12l-7-4-7 4V7a2 2 0 0 1 2-2z"/></svg></span><span>To Watch</span></div>
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M7 16V9"/><path d="M12 16V5"/><path d="M17 16v-7"/></svg></span><span>Stats</span></div>
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.2-4.2"/></svg></span><span>Search</span></div>
+            </nav>
+          </div>
+        </article>
+
+        <article class="screen-wrap">
+          <div class="screen-label">To Watch</div>
+          <div class="phone">
+            <div class="screen">
+              <div class="statusbar"><span>9:41</span><span>Nodi</span></div>
+              <header class="header">
+                <h2>To Watch</h2>
+                <p>63 saved</p>
+              </header>
+              <div class="pill-row">
+                <div class="pill active">All</div>
+                <div class="pill">Tag</div>
+                <div class="pill">Language</div>
+              </div>
+              <div class="poster-grid">
+                <div class="poster-card"><div class="poster c"></div><div class="poster-sub">Watchlist</div></div>
+                <div class="poster-card"><div class="poster g"></div><div class="poster-sub">Watchlist</div></div>
+                <div class="poster-card"><div class="poster a"></div><div class="poster-sub">Watchlist</div></div>
+                <div class="poster-card"><div class="poster h"></div><div class="poster-sub">Watchlist</div></div>
+                <div class="poster-card"><div class="poster d"></div><div class="poster-sub">Watchlist</div></div>
+                <div class="poster-card"><div class="poster f"></div><div class="poster-sub">Watchlist</div></div>
+                <div class="poster-card"><div class="poster b"></div><div class="poster-sub">Watchlist</div></div>
+                <div class="poster-card"><div class="poster i"></div><div class="poster-sub">Watchlist</div></div>
+                <div class="poster-card"><div class="poster e"></div><div class="poster-sub">Watchlist</div></div>
+              </div>
+            </div>
+            <nav class="bottom-nav">
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg></span><span>Movies</span></div>
+              <div class="nav-item active watch"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M7 5h10a2 2 0 0 1 2 2v12l-7-4-7 4V7a2 2 0 0 1 2-2z"/></svg></span><span>To Watch</span></div>
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M7 16V9"/><path d="M12 16V5"/><path d="M17 16v-7"/></svg></span><span>Stats</span></div>
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.2-4.2"/></svg></span><span>Search</span></div>
+            </nav>
+          </div>
+        </article>
+
+        <article class="screen-wrap">
+          <div class="screen-label">Movie Detail</div>
+          <div class="phone">
+            <div class="screen">
+              <div class="statusbar"><span>9:41</span><span>Nodi</span></div>
+              <div class="screen-label" style="padding-left:0; margin-bottom:8px; color: var(--text-3);">&lt; Back</div>
+              <div class="detail-hero">
+                <div class="detail-poster">
+                  <div class="poster a"></div>
+                </div>
+                <div class="detail-copy">
+                  <h3>Memories of Murder</h3>
+                  <div class="hero-meta-line">2003 · Korean · Crime</div>
+                  <div class="hero-emphasis">
+                    <div class="meta-pill emphasis watched">Watched</div>
+                    <div class="meta-pill emphasis"><span class="heart"><svg viewBox="0 0 24 24"><path d="M12 21s-6.7-4.4-9.2-8C.6 10.1 2 6 5.8 6c2.3 0 3.6 1.3 4.2 2.2.6-.9 1.9-2.2 4.2-2.2C18 6 19.4 10.1 21.2 13c-2.5 3.6-9.2 8-9.2 8z"/></svg></span>8</div>
+                  </div>
+                  <div class="external-ratings">TMDB 8.1</div>
+                  <div class="tag-row">
+                    <div class="meta-pill">Thriller</div>
+                    <div class="meta-pill">Rewatch</div>
+                    <div class="meta-pill">+2</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="overview-card">
+                <h4>Plot</h4>
+                <div class="overview-fade">
+                  <div class="detail-copy overview">
+                    In a rural province, a string of murders draws together local detectives with
+                    incompatible methods, weak forensic support, and rising public pressure. The
+                    investigation sprawls across false leads, panic, and institutional blind spots,
+                    gradually shifting from procedural certainty into something more unsettling and
+                    emotionally unresolved than a standard crime story.
+                  </div>
+                </div>
+                <div class="more-link">More</div>
+              </div>
+
+              <div class="cast-carousel">
+                <h4>Cast</h4>
+                <div class="cast-track">
+                  <div class="cast-card"><div class="cast-avatar a"></div><div class="cast-name">Song Kang-ho</div><div class="cast-role">Park</div></div>
+                  <div class="cast-card"><div class="cast-avatar b"></div><div class="cast-name">Kim Sang-kyung</div><div class="cast-role">Seo</div></div>
+                  <div class="cast-card"><div class="cast-avatar c"></div><div class="cast-name">Bae Doona</div><div class="cast-role">Kwi-ok</div></div>
+                  <div class="cast-card"><div class="cast-avatar d"></div><div class="cast-name">Park Hae-il</div><div class="cast-role">Hyun-kyu</div></div>
+                </div>
+              </div>
+
+              <div class="section-title">Sync</div>
+              <div class="rows">
+                <div class="row"><div class="label">Trakt</div><div class="value watched">Synced</div></div>
+                <div class="row"><div class="label">Last Watched</div><div class="value">12 Mar 2026</div></div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen-wrap">
+          <div class="screen-label">Stats</div>
+          <div class="phone">
+            <div class="screen">
+              <div class="statusbar"><span>9:41</span><span>Nodi</span></div>
+              <header class="header">
+                <h2>Stats</h2>
+                <p>Your viewing profile</p>
+              </header>
+
+              <div class="metrics">
+                <div class="metric">
+                  <div class="num">248</div>
+                  <div class="cap">Movies watched</div>
+                </div>
+                <div class="metric">
+                  <div class="num">412h</div>
+                  <div class="cap">Total watch time</div>
+                </div>
+              </div>
+
+              <div class="chart">
+                <h3>Watched over time</h3>
+                <div class="bars">
+                  <div class="bar watched" style="height: 42%;"></div>
+                  <div class="bar watched" style="height: 56%;"></div>
+                  <div class="bar watched" style="height: 38%;"></div>
+                  <div class="bar watched" style="height: 75%;"></div>
+                  <div class="bar watched" style="height: 88%;"></div>
+                  <div class="bar watched" style="height: 61%;"></div>
+                  <div class="bar watched" style="height: 93%;"></div>
+                </div>
+              </div>
+
+              <div class="chart">
+                <h3>By language</h3>
+                <div class="chart-list">
+                  <div class="chart-row"><span>English</span><strong>102</strong></div>
+                  <div class="chart-row"><span>Korean</span><strong>41</strong></div>
+                  <div class="chart-row"><span>Japanese</span><strong>23</strong></div>
+                  <div class="chart-row"><span>French</span><strong>14</strong></div>
+                </div>
+              </div>
+
+              <div class="summary-strip">
+                <div class="summary-box">
+                  <div class="kicker">This month</div>
+                  <div class="value">14 watched</div>
+                </div>
+                <div class="summary-box">
+                  <div class="kicker">This year</div>
+                  <div class="value">76 watched</div>
+                </div>
+              </div>
+
+              <div class="chart">
+                <h3>By tag</h3>
+                <div class="chart-list">
+                  <div class="chart-row"><span>Thriller</span><strong>38</strong></div>
+                  <div class="chart-row"><span>Rewatch</span><strong>22</strong></div>
+                  <div class="chart-row"><span>Favorites</span><strong>17</strong></div>
+                  <div class="chart-row"><span>Slow Burn</span><strong>11</strong></div>
+                </div>
+              </div>
+
+              <div class="chart">
+                <h3>By genre</h3>
+                <div class="bars">
+                  <div class="bar" style="height: 90%;"></div>
+                  <div class="bar alt" style="height: 60%;"></div>
+                  <div class="bar watched" style="height: 47%;"></div>
+                  <div class="bar" style="height: 39%;"></div>
+                </div>
+              </div>
+            </div>
+            <nav class="bottom-nav">
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg></span><span>Movies</span></div>
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M7 5h10a2 2 0 0 1 2 2v12l-7-4-7 4V7a2 2 0 0 1 2-2z"/></svg></span><span>To Watch</span></div>
+              <div class="nav-item active stats"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M7 16V9"/><path d="M12 16V5"/><path d="M17 16v-7"/></svg></span><span>Stats</span></div>
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.2-4.2"/></svg></span><span>Search</span></div>
+            </nav>
+          </div>
+        </article>
+
+        <article class="screen-wrap">
+          <div class="screen-label">Movies Empty State</div>
+          <div class="phone">
+            <div class="screen">
+              <div class="statusbar"><span>9:41</span><span>Nodi</span></div>
+              <header class="header">
+                <h2>Movies</h2>
+                <p>No watched movies yet</p>
+              </header>
+              <div class="empty-state">
+                <div class="empty-visual"></div>
+                <div class="empty-title">Start your watched shelf</div>
+                <div class="empty-copy">
+                  Search for a movie you have seen, add a watched date, or connect Trakt to import
+                  your history.
+                </div>
+                <div class="empty-actions">
+                  <div class="cta">Search Movies</div>
+                  <div class="ghost">Connect Trakt</div>
+                </div>
+              </div>
+            </div>
+            <nav class="bottom-nav">
+              <div class="nav-item active movies"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg></span><span>Movies</span></div>
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M7 5h10a2 2 0 0 1 2 2v12l-7-4-7 4V7a2 2 0 0 1 2-2z"/></svg></span><span>To Watch</span></div>
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M7 16V9"/><path d="M12 16V5"/><path d="M17 16v-7"/></svg></span><span>Stats</span></div>
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.2-4.2"/></svg></span><span>Search</span></div>
+            </nav>
+          </div>
+        </article>
+
+        <article class="screen-wrap">
+          <div class="screen-label">Stats Empty State</div>
+          <div class="phone">
+            <div class="screen">
+              <div class="statusbar"><span>9:41</span><span>Nodi</span></div>
+              <header class="header">
+                <h2>Stats</h2>
+                <p>No timeline yet</p>
+              </header>
+              <div class="empty-state">
+                <div class="empty-visual" style="background: linear-gradient(160deg, #233243, #12161f 72%, #090a0d);"></div>
+                <div class="empty-title">Stats start with watched dates</div>
+                <div class="empty-copy">
+                  Add your first watched movie or sync Trakt to unlock monthly summaries, yearly
+                  totals, and timeline charts.
+                </div>
+                <div class="empty-actions">
+                  <div class="cta">Add Watched Movie</div>
+                  <div class="ghost">Connect Trakt</div>
+                </div>
+              </div>
+            </div>
+            <nav class="bottom-nav">
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg></span><span>Movies</span></div>
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M7 5h10a2 2 0 0 1 2 2v12l-7-4-7 4V7a2 2 0 0 1 2-2z"/></svg></span><span>To Watch</span></div>
+              <div class="nav-item active stats"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M7 16V9"/><path d="M12 16V5"/><path d="M17 16v-7"/></svg></span><span>Stats</span></div>
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.2-4.2"/></svg></span><span>Search</span></div>
+            </nav>
+          </div>
+        </article>
+
+        <article class="screen-wrap">
+          <div class="screen-label">Search</div>
+          <div class="phone">
+            <div class="screen">
+              <div class="statusbar"><span>9:41</span><span>Nodi</span></div>
+              <header class="header">
+                <h2>Search</h2>
+                <p>Find titles and add them fast</p>
+              </header>
+
+              <div class="search">Search movies...</div>
+
+              <div class="search-results">
+                <div class="result">
+                  <div class="result-poster"><div class="poster b"></div></div>
+                  <div class="result-copy">
+                    <div class="result-title">Perfect Blue</div>
+                    <div class="result-meta">1997 · Japanese</div>
+                    <div class="result-actions"><span class="chip watched">In library · Watched</span></div>
+                  </div>
+                </div>
+                <div class="result">
+                  <div class="result-poster"><div class="poster e"></div></div>
+                  <div class="result-copy">
+                    <div class="result-title">Blue Velvet</div>
+                    <div class="result-meta">1986 · English</div>
+                    <div class="result-actions"><span class="chip watchlist">Add to To Watch</span></div>
+                  </div>
+                </div>
+                <div class="result">
+                  <div class="result-poster"><div class="poster g"></div></div>
+                  <div class="result-copy">
+                    <div class="result-title">Blue Valentine</div>
+                    <div class="result-meta">2010 · English</div>
+                    <div class="result-actions"><span class="chip watchlist">Add to To Watch</span></div>
+                  </div>
+                </div>
+                <div class="result">
+                  <div class="result-poster"><div class="poster d"></div></div>
+                  <div class="result-copy">
+                    <div class="result-title">Three Colors: Blue</div>
+                    <div class="result-meta">1993 · French</div>
+                    <div class="result-actions"><span class="chip watchlist">Add to To Watch</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <nav class="bottom-nav">
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6"/><rect x="14" y="4" width="6" height="6"/><rect x="4" y="14" width="6" height="6"/><rect x="14" y="14" width="6" height="6"/></svg></span><span>Movies</span></div>
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M7 5h10a2 2 0 0 1 2 2v12l-7-4-7 4V7a2 2 0 0 1 2-2z"/></svg></span><span>To Watch</span></div>
+              <div class="nav-item"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M7 16V9"/><path d="M12 16V5"/><path d="M17 16v-7"/></svg></span><span>Stats</span></div>
+              <div class="nav-item active search"><span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.2-4.2"/></svg></span><span>Search</span></div>
+            </nav>
+          </div>
+        </article>
+
+        <article class="screen-wrap">
+          <div class="screen-label">Movie Detail Expanded Overview</div>
+          <div class="phone">
+            <div class="screen">
+              <div class="statusbar"><span>9:41</span><span>Nodi</span></div>
+              <div class="screen-label" style="padding-left:0; margin-bottom:8px; color: var(--text-3);">&lt; Back</div>
+              <div class="detail-hero">
+                <div class="detail-poster">
+                  <div class="poster b"></div>
+                </div>
+                <div class="detail-copy">
+                  <h3>Perfect Blue</h3>
+                  <div class="hero-meta-line">1997 · Japanese · Psychological</div>
+                  <div class="hero-emphasis">
+                    <div class="meta-pill emphasis watched">Watched</div>
+                    <div class="meta-pill emphasis"><span class="heart"><svg viewBox="0 0 24 24"><path d="M12 21s-6.7-4.4-9.2-8C.6 10.1 2 6 5.8 6c2.3 0 3.6 1.3 4.2 2.2.6-.9 1.9-2.2 4.2-2.2C18 6 19.4 10.1 21.2 13c-2.5 3.6-9.2 8-9.2 8z"/></svg></span>9</div>
+                  </div>
+                  <div class="external-ratings">TMDB 8.5</div>
+                </div>
+              </div>
+              <div class="overview-card">
+                <h4>Plot</h4>
+                <div class="detail-copy overview">
+                  A former pop idol leaves the stage to pursue acting, but the shift fractures the
+                  boundaries between performance, obsession, fandom, and identity. Public pressure,
+                  media fabrication, and escalating violence destabilize her sense of self, turning
+                  every scene into a question of what is memory, what is performance, and what is
+                  being imposed on her by the people watching. The expanded state should open
+                  inline and let the page grow downward rather than switching to a modal or a new
+                  screen.
+                </div>
+                <div class="more-link">Less</div>
+              </div>
+              <div class="cast-carousel">
+                <h4>Cast</h4>
+                <div class="cast-track">
+                  <div class="cast-card"><div class="cast-avatar a"></div><div class="cast-name">Junko Iwao</div><div class="cast-role">Mima</div></div>
+                  <div class="cast-card"><div class="cast-avatar b"></div><div class="cast-name">Rica Matsumoto</div><div class="cast-role">Rumi</div></div>
+                  <div class="cast-card"><div class="cast-avatar c"></div><div class="cast-name">Shinpachi Tsuji</div><div class="cast-role">Tadokoro</div></div>
+                  <div class="cast-card"><div class="cast-avatar d"></div><div class="cast-name">Masaaki Okura</div><div class="cast-role">Uchida</div></div>
+                </div>
+                <div class="more-link">View all cast</div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen-wrap">
+          <div class="screen-label">Sync Settings</div>
+          <div class="phone">
+            <div class="screen">
+              <div class="statusbar"><span>9:41</span><span>Nodi</span></div>
+              <header class="header">
+                <h2>Sync</h2>
+                <p>Provider connections</p>
+              </header>
+
+              <div class="settings-group">
+                <h3>Trakt</h3>
+                <div class="rows">
+                  <div class="row"><div class="label">Connection</div><div class="value watched">Connected</div></div>
+                  <div class="row"><div class="label">Last successful sync</div><div class="value">Today, 9:12 AM</div></div>
+                  <div class="row"><div class="label">Current status</div><div class="value watched">Synced</div></div>
+                </div>
+                <div class="split-actions">
+                  <div class="ghost">Disconnect</div>
+                  <div class="cta" style="margin-top:0;">Sync Now</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen-wrap">
+          <div class="screen-label">Sort Sheet</div>
+          <div class="phone">
+            <div class="screen sheet">
+              <div class="statusbar"><span>9:41</span><span>Nodi</span></div>
+            </div>
+            <div class="sheet-card">
+              <div class="handle"></div>
+              <h3 class="sheet-title">Sort Movies</h3>
+              <div class="sheet-row active"><span>Recently watched</span><span>✓</span></div>
+              <div class="sheet-row"><span>Rating</span><span></span></div>
+              <div class="sheet-row"><span>Alphabetical</span><span></span></div>
+              <div class="section-title" style="margin-top:18px;">Direction</div>
+              <div class="sheet-row active"><span>Descending</span><span>✓</span></div>
+              <div class="sheet-row"><span>Ascending</span><span></span></div>
+              <div class="cta">Apply</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen-wrap">
+          <div class="screen-label">Filter Sheet</div>
+          <div class="phone">
+            <div class="screen sheet">
+              <div class="statusbar"><span>9:41</span><span>Nodi</span></div>
+            </div>
+            <div class="sheet-card">
+              <div class="handle"></div>
+              <h3 class="sheet-title">Filter Movies</h3>
+              <div class="section-title">Tags</div>
+              <div class="pill-row">
+                <div class="chip watched">Thriller</div>
+                <div class="chip">Rewatch</div>
+                <div class="chip">Favorites</div>
+                <div class="chip">Slow Cinema</div>
+              </div>
+              <div class="section-title">Release language</div>
+              <div class="pill-row">
+                <div class="chip watchlist">English</div>
+                <div class="chip watchlist">Korean</div>
+                <div class="chip">Japanese</div>
+                <div class="chip">French</div>
+                <div class="chip">Hindi</div>
+              </div>
+              <div class="split-actions">
+                <div class="ghost">Reset</div>
+                <div class="cta" style="margin-top:0;">Apply</div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="screen-wrap">
+          <div class="screen-label">Tag Editor Sheet</div>
+          <div class="phone">
+            <div class="screen sheet">
+              <div class="statusbar"><span>9:41</span><span>Nodi</span></div>
+            </div>
+            <div class="sheet-card">
+              <div class="handle"></div>
+              <h3 class="sheet-title">Edit Tags</h3>
+              <div class="search">Add a tag...</div>
+              <div class="section-title">Selected</div>
+              <div class="pill-row">
+                <div class="chip watched">Korean</div>
+                <div class="chip watched">Thriller</div>
+                <div class="chip watched">Rewatch</div>
+              </div>
+              <div class="section-title">Suggested</div>
+              <div class="pill-row">
+                <div class="chip">Favorites</div>
+                <div class="chip">Watch Again</div>
+                <div class="chip">Noir</div>
+                <div class="chip">Slow Burn</div>
+              </div>
+              <div class="cta">Save</div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
