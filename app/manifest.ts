@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Nodi",
     short_name: "Nodi",
     description: "Track watched movies, manage your watchlist, and keep personal movie stats.",
-    start_url: "/movies",
+    start_url: "/",
     display: "standalone",
     background_color: "#f6f1e8",
     theme_color: "#f6f1e8",
