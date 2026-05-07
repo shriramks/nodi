@@ -143,7 +143,7 @@ docs/
   product.md
   architecture.md
   design.md
-  supabase.md
+  ../supabase/db_guide.md
   sync.md
 ```
 
