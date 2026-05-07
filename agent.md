@@ -7,9 +7,9 @@ Start from `agent.md` and local memory before doing anything substantial in this
 When making changes, giving recommendations, or answering repo-specific questions, use this order:
 - `agent.md` for repo operating rules
 - `docs/product.md` for product scope and behavior
-- `docs/reference/architecture.md` for system boundaries and request flow
-- `docs/reference/supabase.md` plus `supabase/migrations/` for database and migration rules
-- `docs/reference/design.md` for UI direction and interaction tone
+- `docs/architecture.md` for system boundaries and request flow
+- `docs/supabase.md` plus `supabase/migrations/` for database and migration rules
+- `docs/design.md` for UI direction and interaction tone
 
 If one of those documents conflicts with older assumptions, follow the Nodi docs above instead of
 generic habits from other projects.
@@ -40,7 +40,7 @@ product direction.
 - Keep secrets, tokens, local exports, imported watch-history files, and database dumps out of Git. Use `.local/` or `tmp/` for private working data.
 - Treat the worktree as user-owned; do not revert unrelated changes.
 - For substantial UI exploration, update `mocks.html` first unless the user explicitly wants direct implementation.
-- Before changing schema behavior, check `docs/reference/supabase.md` and the existing migration files first.
+- Before changing schema behavior, check `docs/supabase.md` and the existing migration files first.
 - Schema changes must be additive through new files in `supabase/migrations/`; do not rewrite an applied migration.
 
 ## Supabase rules
@@ -63,7 +63,7 @@ product direction.
 
 ## UI rules
 
-- Read `docs/reference/design.md` before any meaningful UI or interaction change.
+- Read `docs/design.md` before any meaningful UI or interaction change.
 - Preserve the app’s mobile-first posture; default thinking should optimize for phone widths first.
 - Movies and To Watch should stay poster-first rather than drifting into generic table layouts.
 - Movie detail should keep hero metadata compact, plot below, and cast presented visually.
@@ -76,5 +76,5 @@ product direction.
 - When a task is repo-specific, anchor the answer to `agent.md` and the Nodi docs instead of generic advice.
 - If a requested change would break one of the product invariants above, call that out directly before implementing.
 - When changing schema, mention the migration file and any affected Supabase documentation.
-- When changing behavior, keep the relationship between `docs/product.md`, `docs/reference/architecture.md`, and `docs/reference/supabase.md` coherent.
+- When changing behavior, keep the relationship between `docs/product.md`, `docs/architecture.md`, and `docs/supabase.md` coherent.
 - Default to discussion before implementation, even when the requested code change seems straightforward, unless the user explicitly asks for direct execution.
