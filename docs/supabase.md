@@ -1,7 +1,7 @@
 # Nodi — Supabase
 
 This document is the Supabase-specific implementation note for Nodi.
-It complements [architecture.md](/Users/shriramks/Projects/nodi/docs/reference/architecture.md) and keeps database setup,
+It complements [architecture.md](/Users/shriramks/Projects/nodi/docs/architecture.md) and keeps database setup,
 migration workflow, and Supabase responsibilities in one place.
 
 ## 1. Purpose

@@ -60,7 +60,7 @@ Reason:
   - `Vercel Cron` to trigger sync routes
   - Supabase tables for job state / cursors / logs
 
-Detailed technical decisions live in [architecture.md](/Users/shriramks/Projects/nodi/docs/reference/architecture.md).
+Detailed technical decisions live in [architecture.md](/Users/shriramks/Projects/nodi/docs/architecture.md).
 
 ## 4. Code Structure
 
@@ -141,10 +141,9 @@ public/
 
 docs/
   product.md
-  reference/
-    architecture.md
-    design.md
-    supabase.md
+  architecture.md
+  design.md
+  supabase.md
   sync.md
 ```
 
@@ -539,7 +538,7 @@ Recommended result fields:
 - local tables: `movies`, `movie_cast`, `provider_mappings`, `user_movies`
 - image configuration for TMDB poster CDN
 
-See [architecture.md](/Users/shriramks/Projects/nodi/docs/reference/architecture.md) for the concrete request flow,
+See [architecture.md](/Users/shriramks/Projects/nodi/docs/architecture.md) for the concrete request flow,
 route contracts, and service boundaries.
 
 ## 10. DB Setup Checklist
