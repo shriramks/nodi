@@ -1,6 +1,6 @@
 # Nodi — Architecture
 
-This document holds the technical architecture for Nodi. `blueprint.md` is the product document.
+This document holds the technical architecture for Nodi. `docs/product.md` is the product document.
 This file is for implementation boundaries, service responsibilities, API flow, and deployment shape.
 
 ## 1. High-Level Architecture
