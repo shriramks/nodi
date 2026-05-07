@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Manrope } from "next/font/google";
+import { AuthStateListener } from "@/components/auth/auth-state-listener";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -32,6 +33,7 @@ export default function RootLayout({
       className={`${manrope.variable} ${plexMono.variable} h-full scroll-smooth`}
     >
       <body className="min-h-full bg-background text-foreground antialiased">
+        <AuthStateListener />
         {children}
       </body>
     </html>
