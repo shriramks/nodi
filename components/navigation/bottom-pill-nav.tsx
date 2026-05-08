@@ -28,7 +28,7 @@ export function BottomPillNav() {
               className={[
                 "flex h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-full px-2 text-[11px] font-semibold transition-colors",
                 isActive
-                  ? "bg-foreground text-background"
+                  ? "bg-accent/10 text-accent"
                   : "text-text-2 hover:bg-tap-active",
               ].join(" ")}
               aria-current={isActive ? "page" : undefined}
