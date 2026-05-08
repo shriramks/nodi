@@ -11,7 +11,9 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getUser().catch(() => ({
+    data: { user: null },
+  }));
 
   return user;
 });
