@@ -1,18 +1,6 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Manrope } from "next/font/google";
 import { AuthStateListener } from "@/components/auth/auth-state-listener";
 import "./globals.css";
-
-const manrope = Manrope({
-  variable: "--font-manrope",
-  subsets: ["latin"],
-});
-
-const plexMono = IBM_Plex_Mono({
-  variable: "--font-plex-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-});
 
 export const metadata: Metadata = {
   title: {
@@ -38,10 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${manrope.variable} ${plexMono.variable} h-full scroll-smooth`}
-    >
+    <html lang="en" className="h-full scroll-smooth">
       <body className="min-h-full bg-background text-foreground antialiased">
         <AuthStateListener />
         {children}

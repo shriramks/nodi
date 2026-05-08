@@ -12,9 +12,11 @@
   --border: rgba(0, 0, 0, 0.1);
   --border-faint: rgba(0, 0, 0, 0.06);
   --divider: rgba(0, 0, 0, 0.08);
+  --tap-active: rgba(0, 0, 0, 0.04);
   --watched: #34c759;
   --to-watch: #0a84ff;
   --accent: #ff9f0a;
+  --warning: #ffd60a;
   --danger: #ff453a;
 }
 
@@ -31,6 +33,7 @@
     --border: rgba(255, 255, 255, 0.1);
     --border-faint: rgba(255, 255, 255, 0.05);
     --divider: rgba(255, 255, 255, 0.08);
+    --tap-active: rgba(255, 255, 255, 0.06);
   }
 }
 
@@ -46,12 +49,16 @@
   --color-border: var(--border);
   --color-border-faint: var(--border-faint);
   --color-divider: var(--divider);
+  --color-tap-active: var(--tap-active);
   --color-watched: var(--watched);
   --color-to-watch: var(--to-watch);
+  --color-watchlist: var(--to-watch);
   --color-accent: var(--accent);
+  --color-warning: var(--warning);
   --color-danger: var(--danger);
-  --font-sans: var(--font-manrope);
-  --font-mono: var(--font-plex-mono);
+  --color-unsynced: var(--danger);
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
 }
 
 * {
@@ -65,7 +72,7 @@ html {
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: var(--font-manrope), sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
 }
 
 a {

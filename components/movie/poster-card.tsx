@@ -1,22 +1,28 @@
+import { Film } from "lucide-react";
 import Link from "next/link";
 
 type PosterCardProps = {
   movieId: string;
   title: string;
-  year: string;
-  tone: string;
+  posterPath: string | null;
 };
 
-export function PosterCard({ movieId, title, year, tone }: PosterCardProps) {
+const posterBaseUrl = "https://image.tmdb.org/t/p/w342";
+
+export function PosterCard({ movieId, title, posterPath }: PosterCardProps) {
   return (
-    <Link href={`/movie/${movieId}`} className="group block">
+    <Link href={`/movie/${movieId}`} className="group block" aria-label={title}>
       <div
-        className={`aspect-[2/3] rounded-[24px] bg-linear-to-b ${tone} p-3 shadow-[0_14px_32px_rgba(22,14,8,0.16)] transition-transform duration-200 group-hover:-translate-y-1`}
+        className="flex aspect-[2/3] items-center justify-center rounded-2xl border border-border bg-surface-muted bg-cover bg-center transition-transform duration-200 group-hover:-translate-y-0.5"
+        style={
+          posterPath
+            ? { backgroundImage: `url(${posterBaseUrl}${posterPath})` }
+            : undefined
+        }
       >
-        <div className="flex h-full flex-col justify-between rounded-[18px] border border-white/20 bg-black/10 p-3 text-white">
-          <span className="text-[11px] uppercase tracking-[0.18em] text-white/75">{year}</span>
-          <h2 className="text-[17px] font-semibold leading-tight">{title}</h2>
-        </div>
+        {posterPath ? null : (
+          <Film aria-hidden="true" className="h-7 w-7 text-text-faint" strokeWidth={1.8} />
+        )}
       </div>
     </Link>
   );
