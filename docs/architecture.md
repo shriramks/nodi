@@ -106,15 +106,11 @@ Client Search Input
 
 ```text
 User taps search result
-  -> GET /api/movies/tmdb/[tmdbId]
+  -> /movie/tmdb/[tmdbId]
     -> fetch TMDB movie details
     -> fetch TMDB credits
-    -> map payload to local schema
-    -> upsert movies
-    -> upsert movie_cast
-    -> upsert provider_mappings
-    -> return local movie id
-  -> navigate to /movie/[localMovieId]
+    -> render read-only remote detail
+    -> no database write yet
 ```
 
 ### Watch mutation flow
@@ -205,27 +201,29 @@ This is your own app route, not a direct client-to-TMDB request.
 - show local-state badges in search results
 - tapping a result should open the detail flow first
 
-## 5. Detail Ingestion Architecture
+## 5. Detail Save Architecture
 
-When a user selects a remote result, Nodi should not keep working off the raw TMDB payload alone.
-It should ingest the movie into local storage first.
+When a user selects a remote result, Nodi should keep browsing read-only until the user explicitly
+saves the movie as watched, to-watch, rated, tagged, or synced.
 
 ### Fetch sequence
 
-1. call TMDB movie details endpoint
-2. call TMDB credits endpoint
-3. transform remote payload into local schema
-4. upsert `movies`
-5. replace/upsert `movie_cast`
-6. ensure `provider_mappings` contains `tmdb` and `imdb` references where available
-7. create or update `user_movies` only when the user explicitly changes personal state
+1. open `/movie/tmdb/[tmdbId]`
+2. call TMDB movie details endpoint
+3. call TMDB credits endpoint
+4. render remote detail without writing local rows
+5. on explicit save action, transform remote payload into local schema
+6. upsert `movies`
+7. replace/upsert `movie_cast`
+8. ensure `provider_mappings` contains `tmdb` and `imdb` references where available
+9. create or update `user_movies` / `watch_logs`
 
-### Why ingest before detail render
+### Why ingest on save
 
-- local detail pages get stable ids
-- repeated visits are faster
-- stats and filters work off local schema
-- sync and tags do not depend on a live TMDB call every time
+- explicit library actions get stable local movie ids
+- stats and filters work off local schema only after a user saves the movie
+- sync and tags do not depend on a live TMDB call for saved movies
+- casual browsing does not pollute local storage
 
 ## 6. Database Boundaries
 

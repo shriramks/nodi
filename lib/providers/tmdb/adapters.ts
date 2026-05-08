@@ -120,7 +120,7 @@ export function toMovieSearchResult(
     alreadyInLibrary: Boolean(localState?.currentStatus),
     currentStatus: localState?.currentStatus ?? null,
     personalRating: localState?.personalRating ?? null,
-    detailUrl: `/api/movies/tmdb/${result.id}`,
+    detailUrl: `/movie/tmdb/${result.id}`,
   };
 }
 
