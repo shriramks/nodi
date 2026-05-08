@@ -14,12 +14,7 @@ export default async function ShellLayout({ children }: ShellLayoutProps) {
   return (
     <div className="relative min-h-screen overflow-x-hidden">
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-28 pt-6">
-        <header className="relative mb-6 flex h-12 items-center justify-between">
-          <div className="min-w-0">
-            <p className="text-[17px] font-semibold leading-none">Nodi</p>
-            <p className="mt-1 truncate text-[13px] text-text-2">Movie tracker</p>
-          </div>
-
+        <header className="relative mb-6 flex h-12 items-center justify-end">
           <details className="group">
             <summary
               aria-label="Settings"

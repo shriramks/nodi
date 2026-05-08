@@ -4,6 +4,7 @@ import { Calendar, Clock, Film, Heart, Star } from "lucide-react";
 import { notFound } from "next/navigation";
 import { isAppError } from "@/lib/errors";
 import { getMovieDetail } from "@/lib/db/queries";
+import { BackButton } from "@/components/navigation/back-button";
 
 const posterBaseUrl = "https://image.tmdb.org/t/p/w342";
 const profileBaseUrl = "https://image.tmdb.org/t/p/w185";
@@ -43,6 +44,8 @@ export default async function MovieDetailPage({ params }: MovieDetailPageProps) 
 
   return (
     <main className="space-y-6">
+      <BackButton />
+
       <section className="grid grid-cols-[112px_minmax(0,1fr)] gap-4">
         <div
           className="flex aspect-[2/3] w-full items-center justify-center rounded-2xl border border-border bg-surface-muted bg-cover bg-center"
