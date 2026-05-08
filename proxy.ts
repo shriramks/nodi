@@ -38,7 +38,9 @@ export async function proxy(request: NextRequest) {
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getUser().catch(() => ({
+    data: { user: null },
+  }));
   const pathname = request.nextUrl.pathname;
 
   if (pathname === "/") {
