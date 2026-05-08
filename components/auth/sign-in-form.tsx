@@ -21,7 +21,7 @@ export function SignInForm({
   next,
   initialMessage,
 }: SignInFormProps) {
-  const [state, formAction, isPending] = useActionState(
+  const [state, formAction, isPending] = useActionState<SignInState, FormData>(
     signInWithEmail,
     initialMessage
       ? {

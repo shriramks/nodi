@@ -30,6 +30,7 @@ It creates:
 - `tags`
 - `user_movie_tags`
 - `provider_connections`
+- `provider_connection_secrets`
 - `provider_mappings`
 - `sync_cursors`
 - `sync_events`
@@ -39,6 +40,7 @@ It also adds:
 - helper triggers for `updated_at`
 - tag normalization trigger logic
 - row-level security policies for user-owned tables
+- a service-role-only token secret reference table for provider OAuth credentials
 
 ## 3. How To Apply It
 
@@ -81,6 +83,12 @@ These tables are scoped per authenticated user:
 - `sync_events`
 
 These are protected with RLS policies based on `auth.uid()`.
+
+### Server-only token references
+
+`provider_connection_secrets` stores Vault secret ids for provider OAuth tokens. It has RLS enabled,
+no authenticated-user policies, and explicit grants only for `service_role`, so normal user sessions
+cannot read token references through the API.
 
 ## 5. Migration Strategy
 

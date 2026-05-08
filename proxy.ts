@@ -9,7 +9,7 @@ import {
 } from "@/lib/auth/paths";
 import { publicEnv } from "@/lib/env/public";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
     request,
   });

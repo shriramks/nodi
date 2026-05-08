@@ -6,11 +6,12 @@ import { cookies } from "next/headers";
 
 import { publicEnv } from "@/lib/env/public";
 import { serverEnv } from "@/lib/env/server";
+import type { Database } from "@/lib/db/types";
 
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
 
-  return createServerClient(
+  return createServerClient<Database>(
     publicEnv.supabaseUrl,
     publicEnv.supabasePublishableKey,
     {
@@ -33,7 +34,7 @@ export async function createSupabaseServerClient() {
 }
 
 export function createSupabaseAdminClient() {
-  return createClient(publicEnv.supabaseUrl, serverEnv.supabaseSecretKey, {
+  return createClient<Database>(publicEnv.supabaseUrl, serverEnv.supabaseSecretKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
