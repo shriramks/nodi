@@ -125,7 +125,7 @@ export default async function MovieDetailPage({ params }: MovieDetailPageProps) 
               <article key={member.id} className="w-20 shrink-0">
                 <div
                   aria-hidden="true"
-                  className="flex aspect-square items-center justify-center rounded-2xl bg-surface-muted bg-cover bg-center"
+                  className="flex aspect-square items-center justify-center overflow-hidden rounded-full bg-surface-muted bg-cover bg-top"
                   style={
                     member.profile_path
                       ? { backgroundImage: `url(${profileBaseUrl}${member.profile_path})` }

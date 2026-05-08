@@ -43,12 +43,17 @@ export default async function ToWatchPage() {
                 <h2 className="truncate text-[17px] font-semibold">{movie.title}</h2>
                 <p className="mt-1 text-[11px] text-text-faint">
                   {[movie.primary_genre_name, movie.release_year].filter(Boolean).join(" · ") ||
-                    "Queued movie"}
+                    "Movie"}
                 </p>
+                {watchlisted_at ? (
+                  <p className="mt-0.5 text-[11px] text-text-faint">
+                    Added{" "}
+                    {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(
+                      new Date(watchlisted_at),
+                    )}
+                  </p>
+                ) : null}
               </div>
-              <span className="rounded-lg px-2 py-1 text-[11px] font-medium text-to-watch">
-                {watchlisted_at ? "Queued" : "Saved"}
-              </span>
             </Link>
           ))}
         </section>

@@ -223,11 +223,6 @@ function SearchResultRow({
         <p className={`mt-1 truncate text-[11px] ${statusTone}`}>
           {isOpening ? "Opening..." : meta || "Movie"}
         </p>
-        {result.overviewSnippet ? (
-          <p className="mt-2 line-clamp-2 text-[13px] leading-[1.4] text-text-2">
-            {result.overviewSnippet}
-          </p>
-        ) : null}
       </div>
     </button>
   );

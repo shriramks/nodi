@@ -18,6 +18,7 @@
   --accent: #ff9f0a;
   --warning: #ffd60a;
   --danger: #ff453a;
+  --nav-h: 64px;
 }
 
 @media (prefers-color-scheme: dark) {
