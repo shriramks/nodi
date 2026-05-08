@@ -2,10 +2,10 @@
 
 ## Primary rule
 
-Start from `agent.md` and local memory before doing anything substantial in this repo.
+Start from `docs/agent.md` and local memory before doing anything substantial in this repo.
 
 When making changes, giving recommendations, or answering repo-specific questions, use this order:
-- `agent.md` for repo operating rules
+- `docs/agent.md` for repo operating rules
 - `docs/product.md` for product scope and behavior
 - `docs/architecture.md` for system boundaries and request flow
 - `supabase/db_guide.md` plus `supabase/migrations/` for database and migration rules
@@ -32,16 +32,25 @@ product direction.
 
 ## Working approach
 
-- Read `agent.md` first, then open only the docs and files needed for the task.
+- Read `docs/agent.md` first, then open only the docs and files needed for the task.
 - Use targeted lookup with `rg`/`rg --files`; avoid broad file sweeps unless the task actually needs it.
 - Consult first before coding. State the intended approach, key assumptions, and likely files to change, then wait for confirmation before implementing.
 - Do not use `git log` or historical archaeology unless the task specifically requires history.
 - Never override ignore rules and never force-add ignored files.
 - Keep secrets, tokens, local exports, imported watch-history files, and database dumps out of Git. Use `.local/` or `tmp/` for private working data.
 - Treat the worktree as user-owned; do not revert unrelated changes.
-- For substantial UI exploration, update `mocks.html` first unless the user explicitly wants direct implementation.
+- For substantial UI exploration, use local mockups such as `mocks.html` or `.local/`, but never commit them.
 - Before changing schema behavior, check `supabase/db_guide.md` and the existing migration files first.
 - Schema changes must be additive through new files in `supabase/migrations/`; do not rewrite an applied migration.
+
+## Commit safety
+
+- Stage files explicitly; do not use broad staging unless the staged list is reviewed right after.
+- Before every commit, inspect `git diff --cached --name-status`.
+- If staged files include secrets, env files, mockups, local exports, dumps, build output, or other scratch files, stop and unstage them.
+- Do not force-add ignored files.
+- If a local-only file is needed for the task, verify it is ignored with `git check-ignore -v <path>`.
+- Treat `.env*`, `mocks.html`, `mocks/`, `.local/`, `tmp/`, `*.local.*`, and database dumps as never-commit files.
 
 ## Supabase rules
 
@@ -73,7 +82,7 @@ product direction.
 
 ## Response rules for this repo
 
-- When a task is repo-specific, anchor the answer to `agent.md` and the Nodi docs instead of generic advice.
+- When a task is repo-specific, anchor the answer to `docs/agent.md` and the Nodi docs instead of generic advice.
 - If a requested change would break one of the product invariants above, call that out directly before implementing.
 - When changing schema, mention the migration file and any affected Supabase documentation.
 - When changing behavior, keep the relationship between `docs/product.md`, `docs/architecture.md`, and `supabase/db_guide.md` coherent.
