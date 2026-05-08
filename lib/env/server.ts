@@ -1,17 +1,19 @@
 import "server-only";
 
 import { publicEnv } from "@/lib/env/public";
-import { readRequiredString } from "@/lib/env/shared";
+import { requireValue } from "@/lib/env/shared";
 
 export const serverEnv = {
   ...publicEnv,
-  supabaseSecretKey: readRequiredString(
+  supabaseSecretKey: requireValue(
+    process.env.SUPABASE_SECRET_KEY,
     "SUPABASE_SECRET_KEY",
     "Supabase secret key",
   ),
-  tmdbApiToken: readRequiredString("TMDB_API_TOKEN", "TMDB API token"),
-  traktClientId: readRequiredString("TRAKT_CLIENT_ID", "Trakt client ID"),
-  traktClientSecret: readRequiredString(
+  tmdbApiToken: requireValue(process.env.TMDB_API_TOKEN, "TMDB_API_TOKEN", "TMDB API token"),
+  traktClientId: requireValue(process.env.TRAKT_CLIENT_ID, "TRAKT_CLIENT_ID", "Trakt client ID"),
+  traktClientSecret: requireValue(
+    process.env.TRAKT_CLIENT_SECRET,
     "TRAKT_CLIENT_SECRET",
     "Trakt client secret",
   ),
