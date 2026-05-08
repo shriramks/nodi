@@ -3,11 +3,12 @@ import "server-only";
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError } from "@/lib/db/errors";
 import type {
+  Tag,
   LibraryStats,
   LibraryStatsBreakdownItem,
   LibraryStatsTimeBucket,
   Movie,
-  UserMovie,
+  UserMovieTag,
   WatchLog,
 } from "@/lib/db/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -28,28 +29,25 @@ type WatchLogAnalyticsRow = Pick<WatchLog, "id" | "movie_id" | "watched_at"> & {
   movies: WatchLogAnalyticsMovie | null;
 };
 
-type RatingRow = Pick<UserMovie, "movie_id" | "personal_rating">;
+type WatchedMovieSummary = {
+  movieId: string;
+  originalLanguage: string | null;
+  primaryGenreName: string | null;
+};
+
+type TagAnalyticsRow = Pick<UserMovieTag, "movie_id"> & {
+  tags: Pick<Tag, "id" | "name"> | null;
+};
 
 export async function getLibraryStats(): Promise<LibraryStats> {
   const user = await requireUser();
-  const supabase = await createSupabaseServerClient();
 
-  const [{ count: toWatchCount, error: toWatchCountError }, watchRows, ratingRows] =
-    await Promise.all([
-      supabase
-        .from("user_movies")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("status", "to_watch"),
-      listWatchLogAnalyticsRows(user.id),
-      listRatingRows(user.id),
-    ]);
+  const [watchRows, tagRows] = await Promise.all([
+    listWatchLogAnalyticsRows(user.id),
+    listTagAnalyticsRows(user.id),
+  ]);
 
-  if (toWatchCountError) {
-    throwDatabaseError("Failed to count to-watch movies.", toWatchCountError);
-  }
-
-  return buildLibraryStats(watchRows, ratingRows, toWatchCount ?? 0);
+  return buildLibraryStats(watchRows, tagRows);
 }
 
 async function listWatchLogAnalyticsRows(userId: string) {
@@ -77,24 +75,23 @@ async function listWatchLogAnalyticsRows(userId: string) {
   }
 }
 
-async function listRatingRows(userId: string) {
+async function listTagAnalyticsRows(userId: string) {
   const supabase = await createSupabaseServerClient();
-  const rows: RatingRow[] = [];
+  const rows: TagAnalyticsRow[] = [];
 
   for (let offset = 0; ; offset += analyticsPageSize) {
     const { data, error } = await supabase
-      .from("user_movies")
-      .select("movie_id, personal_rating")
+      .from("user_movie_tags")
+      .select("movie_id, tags(id, name)")
       .eq("user_id", userId)
-      .not("personal_rating", "is", null)
-      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
       .range(offset, offset + analyticsPageSize - 1);
 
     if (error) {
-      throwDatabaseError("Failed to load ratings.", error);
+      throwDatabaseError("Failed to load tag analytics rows.", error);
     }
 
-    const page = (data ?? []) as RatingRow[];
+    const page = (data ?? []) as unknown as TagAnalyticsRow[];
     rows.push(...page);
 
     if (page.length < analyticsPageSize) {
@@ -103,65 +100,55 @@ async function listRatingRows(userId: string) {
   }
 }
 
-function buildLibraryStats(
-  watchRows: WatchLogAnalyticsRow[],
-  ratingRows: RatingRow[],
-  toWatchCount: number,
-): LibraryStats {
-  const watchedMovieIds = new Set(watchRows.map((row) => row.movie_id));
+function buildLibraryStats(watchRows: WatchLogAnalyticsRow[], tagRows: TagAnalyticsRow[]): LibraryStats {
+  const watchedMovies = buildWatchedMovies(watchRows);
+  const watchedMovieIds = new Set(watchedMovies.map((movie) => movie.movieId));
   const runtimeMinutes = watchRows.reduce(
     (total, row) => total + (row.movies?.runtime_minutes ?? 0),
     0,
   );
-  const watchedLanguages = new Set(
-    watchRows.flatMap((row) => {
-      const language = row.movies?.original_language;
-      return language ? [language] : [];
-    }),
-  );
-  const ratingValues = ratingRows.flatMap((row) => {
-    if (!watchedMovieIds.has(row.movie_id) || row.personal_rating === null) {
-      return [];
-    }
-
-    return [row.personal_rating];
-  });
 
   return {
-    watchedCount: watchedMovieIds.size,
+    watchedCount: watchedMovies.length,
     watchEventCount: watchRows.length,
-    toWatchCount,
     runtimeMinutes,
-    hoursWatched: Math.round(runtimeMinutes / 60),
-    averageRating: averageRating(ratingValues),
-    rewatchCount: Math.max(watchRows.length - watchedMovieIds.size, 0),
-    languageCount: watchedLanguages.size,
     timeBuckets: buildTimeBuckets(watchRows),
-    genreBreakdown: buildBreakdown(watchRows, (row) => {
-      const genre = row.movies?.primary_genre_name?.trim();
+    genreBreakdown: buildMovieBreakdown(watchedMovies, (movie) => {
+      const genre = movie.primaryGenreName?.trim();
 
       return {
         key: genre ? genre.toLowerCase() : unknownKey,
         label: genre || unknownLabel,
       };
     }),
-    languageBreakdown: buildBreakdown(watchRows, (row) => {
-      const language = row.movies?.original_language?.trim();
+    languageBreakdown: buildMovieBreakdown(watchedMovies, (movie) => {
+      const language = movie.originalLanguage?.trim();
 
       return {
         key: language ? language.toLowerCase() : unknownKey,
         label: formatLanguageLabel(language),
       };
     }),
+    tagBreakdown: buildTagBreakdown(tagRows, watchedMovieIds, watchedMovies.length),
   };
 }
 
-function averageRating(values: number[]) {
-  if (values.length === 0) {
-    return null;
+function buildWatchedMovies(rows: WatchLogAnalyticsRow[]): WatchedMovieSummary[] {
+  const movies = new Map<string, WatchedMovieSummary>();
+
+  for (const row of rows) {
+    if (movies.has(row.movie_id)) {
+      continue;
+    }
+
+    movies.set(row.movie_id, {
+      movieId: row.movie_id,
+      originalLanguage: row.movies?.original_language ?? null,
+      primaryGenreName: row.movies?.primary_genre_name ?? null,
+    });
   }
 
-  return Math.round((values.reduce((total, value) => total + value, 0) / values.length) * 10) / 10;
+  return Array.from(movies.values());
 }
 
 function buildTimeBuckets(rows: WatchLogAnalyticsRow[]): LibraryStatsTimeBucket[] {
@@ -207,38 +194,70 @@ function buildTimeBuckets(rows: WatchLogAnalyticsRow[]): LibraryStatsTimeBucket[
   return Array.from(buckets.values());
 }
 
-function buildBreakdown(
-  rows: WatchLogAnalyticsRow[],
-  getGroup: (row: WatchLogAnalyticsRow) => Pick<LibraryStatsBreakdownItem, "key" | "label">,
+function buildMovieBreakdown(
+  movies: WatchedMovieSummary[],
+  getGroup: (movie: WatchedMovieSummary) => Pick<LibraryStatsBreakdownItem, "key" | "label">,
 ): LibraryStatsBreakdownItem[] {
   const groups = new Map<string, LibraryStatsBreakdownItem>();
 
-  for (const row of rows) {
-    const group = getGroup(row);
+  for (const movie of movies) {
+    const group = getGroup(movie);
     const item = groups.get(group.key) ?? {
       ...group,
       count: 0,
-      runtimeMinutes: 0,
       percentage: 0,
     };
 
     item.count += 1;
-    item.runtimeMinutes += row.movies?.runtime_minutes ?? 0;
     groups.set(group.key, item);
   }
 
+  return finalizeBreakdown(groups, movies.length);
+}
+
+function buildTagBreakdown(
+  rows: TagAnalyticsRow[],
+  watchedMovieIds: Set<string>,
+  watchedMovieCount: number,
+): LibraryStatsBreakdownItem[] {
+  const groups = new Map<string, LibraryStatsBreakdownItem>();
+  const countedPairs = new Set<string>();
+
+  for (const row of rows) {
+    if (!row.tags || !watchedMovieIds.has(row.movie_id)) {
+      continue;
+    }
+
+    const pairKey = `${row.tags.id}:${row.movie_id}`;
+
+    if (countedPairs.has(pairKey)) {
+      continue;
+    }
+
+    const item = groups.get(row.tags.id) ?? {
+      key: row.tags.id,
+      label: row.tags.name,
+      count: 0,
+      percentage: 0,
+    };
+
+    item.count += 1;
+    countedPairs.add(pairKey);
+    groups.set(row.tags.id, item);
+  }
+
+  return finalizeBreakdown(groups, watchedMovieCount);
+}
+
+function finalizeBreakdown(groups: Map<string, LibraryStatsBreakdownItem>, totalCount: number) {
   return Array.from(groups.values())
     .map((item) => ({
       ...item,
-      percentage: rows.length > 0 ? Math.round((item.count / rows.length) * 100) : 0,
+      percentage: totalCount > 0 ? Math.round((item.count / totalCount) * 100) : 0,
     }))
     .sort((left, right) => {
       if (right.count !== left.count) {
         return right.count - left.count;
-      }
-
-      if (right.runtimeMinutes !== left.runtimeMinutes) {
-        return right.runtimeMinutes - left.runtimeMinutes;
       }
 
       return left.label.localeCompare(right.label);
