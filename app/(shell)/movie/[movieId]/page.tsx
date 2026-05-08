@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { isAppError } from "@/lib/errors";
 import { getMovieDetail } from "@/lib/db/queries";
 
+const posterBaseUrl = "https://image.tmdb.org/t/p/w342";
+
 type MovieDetailPageProps = {
   params: Promise<{
     movieId: string;
@@ -33,7 +35,14 @@ export default async function MovieDetailPage({ params }: MovieDetailPageProps) 
   return (
     <main className="space-y-6">
       <section className="space-y-4">
-        <div className="aspect-[4/5] w-full rounded-[28px] bg-[linear-gradient(140deg,#1f2630_0%,#88514c_100%)]" />
+        <div
+          className="aspect-[4/5] w-full rounded-[28px] bg-[linear-gradient(140deg,#1f2630_0%,#88514c_100%)] bg-cover bg-center shadow-[0_18px_44px_rgba(22,14,8,0.16)]"
+          style={
+            movie.poster_path
+              ? { backgroundImage: `url(${posterBaseUrl}${movie.poster_path})` }
+              : undefined
+          }
+        />
         <div className="space-y-2">
           <p className="text-[11px] uppercase tracking-[0.24em] text-text-faint">
             {statusLabel}
@@ -71,6 +80,24 @@ export default async function MovieDetailPage({ params }: MovieDetailPageProps) 
           </p>
         </article>
       </section>
+
+      {movie.cast.length > 0 ? (
+        <section className="rounded-[24px] border border-border bg-surface p-4 shadow-[0_12px_32px_rgba(30,22,14,0.06)]">
+          <h2 className="text-[18px] font-semibold">Cast</h2>
+          <div className="mt-3 space-y-3">
+            {movie.cast.map((member) => (
+              <article key={member.id} className="min-w-0">
+                <p className="truncate text-[14px] font-semibold">{member.name}</p>
+                {member.character_name ? (
+                  <p className="mt-0.5 truncate text-[12px] text-text-2">
+                    {member.character_name}
+                  </p>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {movie.tags.length > 0 ? (
         <section className="flex flex-wrap gap-2">
