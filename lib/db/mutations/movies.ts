@@ -181,6 +181,22 @@ export async function setMovieWatchStatus(payload: unknown): Promise<{
   };
 }
 
+export async function removeUserMovie(movieId: string): Promise<void> {
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const id = validateUuid(movieId, "movieId");
+
+  const { error } = await supabase
+    .from("user_movies")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("movie_id", id);
+
+  if (error) {
+    throwDatabaseError("Failed to remove movie from library.", error);
+  }
+}
+
 export async function updateMovieRating(movieId: string, payload: unknown): Promise<UserMovie> {
   const user = await requireUser();
   const supabase = await createSupabaseServerClient();

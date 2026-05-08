@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
-import { Film } from "lucide-react";
-import Link from "next/link";
+import { PosterCard } from "@/components/movie/poster-card";
 import { listUserMovies } from "@/lib/db/queries";
-
-const posterBaseUrl = "https://image.tmdb.org/t/p/w185";
 
 export const metadata: Metadata = {
   title: "To Watch",
@@ -14,52 +11,27 @@ export default async function ToWatchPage() {
 
   return (
     <main className="space-y-6">
-      <section className="space-y-2">
+      <section>
         <h1 className="text-[32px] font-bold leading-[1.1]">To Watch</h1>
+        <p className="mt-1 text-[13px] text-text-2">
+          <span className="tabnum">{queue.length}</span> queued
+        </p>
       </section>
 
       {queue.length > 0 ? (
-        <section className="overflow-hidden rounded-2xl border border-border bg-surface">
-          {queue.map(({ movie, watchlisted_at }) => (
-            <Link
-              href={`/movie/${movie.id}`}
+        <section className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-3">
+          {queue.map(({ movie }) => (
+            <PosterCard
               key={movie.id}
-              className="flex min-h-12 items-center gap-4 border-b border-divider px-4 py-3 last:border-b-0 hover:bg-tap-active"
-            >
-              <div
-                aria-hidden="true"
-                className="flex aspect-[2/3] w-14 shrink-0 items-center justify-center rounded-2xl bg-surface-muted bg-cover bg-center"
-                style={
-                  movie.poster_path
-                    ? { backgroundImage: `url(${posterBaseUrl}${movie.poster_path})` }
-                    : undefined
-                }
-              >
-                {movie.poster_path ? null : (
-                  <Film className="h-5 w-5 text-text-faint" strokeWidth={1.8} />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="truncate text-[17px] font-semibold">{movie.title}</h2>
-                <p className="mt-1 text-[11px] text-text-faint">
-                  {[movie.primary_genre_name, movie.release_year].filter(Boolean).join(" · ") ||
-                    "Movie"}
-                </p>
-                {watchlisted_at ? (
-                  <p className="mt-0.5 text-[11px] text-text-faint">
-                    Added{" "}
-                    {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(
-                      new Date(watchlisted_at),
-                    )}
-                  </p>
-                ) : null}
-              </div>
-            </Link>
+              movieId={movie.id}
+              title={movie.title}
+              posterPath={movie.poster_path}
+            />
           ))}
         </section>
       ) : (
         <section className="rounded-2xl border border-dashed border-border bg-surface p-4 text-[15px] leading-[1.4] text-text-2">
-          No queued movies yet.
+          No queued movies yet. Search for a film to add it to your watchlist.
         </section>
       )}
     </main>
