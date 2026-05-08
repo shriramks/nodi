@@ -11,7 +11,7 @@ import type {
 
 type SearchStatus = "idle" | "loading" | "success" | "error";
 
-const posterBaseUrl = "https://image.tmdb.org/t/p/w185";
+const posterBaseUrl = "https://image.tmdb.org/t/p/w342";
 const minimumQueryLength = 2;
 
 export function MovieSearch() {
@@ -121,10 +121,11 @@ export function MovieSearch() {
       ) : null}
 
       {results.length > 0 ? (
-        <section className="overflow-hidden rounded-2xl border border-border bg-surface">
+        <section className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-3">
           {results.map((result) => (
-            <SearchResultRow
+            <SearchResultPoster
               key={result.tmdbId}
+              isDisabled={openingTmdbId !== null}
               isOpening={openingTmdbId === result.tmdbId}
               onOpen={openMovie}
               result={result}
@@ -136,11 +137,13 @@ export function MovieSearch() {
   );
 }
 
-function SearchResultRow({
+function SearchResultPoster({
+  isDisabled,
   isOpening,
   onOpen,
   result,
 }: {
+  isDisabled: boolean;
   isOpening: boolean;
   onOpen: (result: MovieSearchResult) => void;
   result: MovieSearchResult;
@@ -151,31 +154,26 @@ function SearchResultRow({
       : result.currentStatus === "to_watch"
         ? "To watch"
         : "Not saved";
-  const meta = [
+  const ariaLabel = [
+    result.title,
     result.releaseYear,
-    result.originalLanguage,
     localStateLabel,
     result.personalRating !== null ? `${result.personalRating}/10` : null,
   ]
     .filter(Boolean)
-    .join(" · ");
-  const statusTone =
-    result.currentStatus === "watched"
-      ? "text-watched"
-      : result.currentStatus === "to_watch"
-        ? "text-to-watch"
-        : "text-text-2";
+    .join(", ");
 
   return (
     <button
-      className="flex min-h-12 w-full items-center gap-4 border-b border-divider px-4 py-3 text-left last:border-b-0 hover:bg-tap-active disabled:cursor-wait disabled:opacity-70"
-      disabled={isOpening}
+      aria-label={isOpening ? `Opening ${result.title}` : ariaLabel}
+      className="group block min-w-0 text-left disabled:cursor-wait disabled:opacity-70"
+      disabled={isDisabled}
       onClick={() => onOpen(result)}
       type="button"
     >
       <div
         aria-hidden="true"
-        className="flex aspect-[2/3] w-14 shrink-0 items-center justify-center rounded-2xl bg-surface-muted bg-cover bg-center"
+        className="flex aspect-[2/3] w-full items-center justify-center rounded-2xl border border-border bg-surface-muted bg-cover bg-center transition-transform duration-200 group-hover:-translate-y-0.5"
         style={
           result.posterPath
             ? { backgroundImage: `url(${posterBaseUrl}${result.posterPath})` }
@@ -186,12 +184,9 @@ function SearchResultRow({
           <Film className="h-5 w-5 text-text-faint" strokeWidth={1.8} />
         )}
       </div>
-      <div className="min-w-0 flex-1">
-        <h2 className="truncate text-[17px] font-semibold">{result.title}</h2>
-        <p className={`mt-1 truncate text-[11px] ${statusTone}`}>
-          {isOpening ? "Opening..." : meta || "Movie"}
-        </p>
-      </div>
+      <p className="mt-2 truncate text-[13px] font-semibold leading-tight text-foreground">
+        {result.title}
+      </p>
     </button>
   );
 }

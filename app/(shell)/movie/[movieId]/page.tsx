@@ -6,7 +6,9 @@ import { isAppError } from "@/lib/errors";
 import { getMovieDetail } from "@/lib/db/queries";
 import {
   RatingPicker,
+  TagEditor,
   UserStateActions,
+  WatchDateForm,
 } from "./movie-detail-client";
 
 type MovieDetailPageProps = {
@@ -41,6 +43,12 @@ export default async function MovieDetailPage({
         />
       }
       status={status}
+      tagEditor={
+        status ? <TagEditor movieId={movie.id} tags={movie.tags} /> : null
+      }
+      watchDateForm={
+        status === "watched" ? <WatchDateForm movieId={movie.id} /> : null
+      }
     />
   );
 }

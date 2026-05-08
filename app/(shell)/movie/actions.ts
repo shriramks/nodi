@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 
 import {
+  addMovieWatchDate,
+  createAndAttachTag,
+  detachTagFromMovie,
   ingestTmdbMovie,
   removeUserMovie,
   setMovieWatchStatus,
@@ -25,6 +28,37 @@ function normalizeTmdbId(value: number) {
   return value;
 }
 
+function watchDateToTimestamp(value: string) {
+  if (typeof value !== "string") {
+    throw new AppError("Invalid watch date.", {
+      code: "VALIDATION_ERROR",
+      status: 400,
+    });
+  }
+
+  const watchedDate = value.trim();
+
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(watchedDate) ||
+    Number.isNaN(Date.parse(`${watchedDate}T00:00:00.000Z`))
+  ) {
+    throw new AppError("Invalid watch date.", {
+      code: "VALIDATION_ERROR",
+      status: 400,
+    });
+  }
+
+  return `${watchedDate}T12:00:00.000Z`;
+}
+
+function revalidateMovieState(movieId: string) {
+  revalidatePath(`/movie/${movieId}`);
+  revalidatePath("/movies");
+  revalidatePath("/to-watch");
+  revalidatePath("/search");
+  revalidatePath("/stats");
+}
+
 export async function markWatchedAction(movieId: string): Promise<void> {
   await setMovieWatchStatus({
     movieId,
@@ -32,8 +66,7 @@ export async function markWatchedAction(movieId: string): Promise<void> {
     watchedAt: new Date().toISOString(),
     source: "manual",
   });
-  revalidatePath(`/movie/${movieId}`);
-  revalidatePath("/movies");
+  revalidateMovieState(movieId);
 }
 
 export async function addToWatchlistAction(movieId: string): Promise<void> {
@@ -42,8 +75,7 @@ export async function addToWatchlistAction(movieId: string): Promise<void> {
     status: "to_watch",
     source: "manual",
   });
-  revalidatePath(`/movie/${movieId}`);
-  revalidatePath("/to-watch");
+  revalidateMovieState(movieId);
 }
 
 export async function markTmdbWatchedAction(tmdbId: number): Promise<string> {
@@ -62,9 +94,7 @@ export async function addTmdbToWatchlistAction(tmdbId: number): Promise<string> 
 
 export async function removeFromLibraryAction(movieId: string): Promise<void> {
   await removeUserMovie(movieId);
-  revalidatePath(`/movie/${movieId}`);
-  revalidatePath("/movies");
-  revalidatePath("/to-watch");
+  revalidateMovieState(movieId);
 }
 
 export async function updateRatingAction(
@@ -72,7 +102,31 @@ export async function updateRatingAction(
   rating: number | null,
 ): Promise<void> {
   await updateMovieRating(movieId, { personalRating: rating });
-  revalidatePath(`/movie/${movieId}`);
+  revalidateMovieState(movieId);
+}
+
+export async function addWatchDateAction(
+  movieId: string,
+  watchedDate: string,
+): Promise<void> {
+  await addMovieWatchDate(movieId, {
+    watchedAt: watchDateToTimestamp(watchedDate),
+    source: "manual",
+  });
+  revalidateMovieState(movieId);
+}
+
+export async function addTagAction(movieId: string, name: string): Promise<void> {
+  await createAndAttachTag(movieId, { name });
+  revalidateMovieState(movieId);
+}
+
+export async function removeTagAction(
+  movieId: string,
+  tagId: string,
+): Promise<void> {
+  await detachTagFromMovie(movieId, tagId);
+  revalidateMovieState(movieId);
 }
 
 async function saveTmdbMovie(tmdbIdValue: number, status: "watched" | "to_watch") {
