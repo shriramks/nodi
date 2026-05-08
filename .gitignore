@@ -39,6 +39,7 @@ yarn-error.log*
 tmp/
 mocks.html
 mocks/
+progress.md
 *.local.json
 *.local.csv
 *.local.txt
