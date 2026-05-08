@@ -473,11 +473,31 @@ export type MovieDetail = Movie & {
   tags: Tag[];
 };
 
+export type LibraryStatsTimeBucket = {
+  key: string;
+  label: string;
+  count: number;
+  runtimeMinutes: number;
+};
+
+export type LibraryStatsBreakdownItem = {
+  key: string;
+  label: string;
+  count: number;
+  runtimeMinutes: number;
+  percentage: number;
+};
+
 export type LibraryStats = {
   watchedCount: number;
+  watchEventCount: number;
   toWatchCount: number;
+  runtimeMinutes: number;
   hoursWatched: number;
   averageRating: number | null;
   rewatchCount: number;
   languageCount: number;
+  timeBuckets: LibraryStatsTimeBucket[];
+  genreBreakdown: LibraryStatsBreakdownItem[];
+  languageBreakdown: LibraryStatsBreakdownItem[];
 };

@@ -3,7 +3,6 @@ import "server-only";
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError, throwNotFound } from "@/lib/db/errors";
 import type {
-  LibraryStats,
   Movie,
   MovieCastMember,
   MovieDetail,
@@ -162,85 +161,4 @@ export async function listRecentWatchLogs(limit = 20) {
   }
 
   return (data ?? []) as unknown as WatchLogJoinRow[];
-}
-
-export async function getLibraryStats(): Promise<LibraryStats> {
-  const user = await requireUser();
-  const supabase = await createSupabaseServerClient();
-
-  const [
-    { count: watchedCount, error: watchedCountError },
-    { count: toWatchCount, error: toWatchCountError },
-    { data: watchedRows, error: watchedRowsError },
-  ] = await Promise.all([
-    supabase
-      .from("user_movies")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("status", "watched"),
-    supabase
-      .from("user_movies")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("status", "to_watch"),
-    supabase
-      .from("watch_logs")
-      .select("*, movies(id, title, release_year, runtime_minutes, original_language)")
-      .eq("user_id", user.id),
-  ]);
-
-  if (watchedCountError) {
-    throwDatabaseError("Failed to count watched movies.", watchedCountError);
-  }
-
-  if (toWatchCountError) {
-    throwDatabaseError("Failed to count to-watch movies.", toWatchCountError);
-  }
-
-  if (watchedRowsError) {
-    throwDatabaseError("Failed to load stats rows.", watchedRowsError);
-  }
-
-  const rows = (watchedRows ?? []) as unknown as WatchLogJoinRow[];
-  const ratings = rows
-    .map((row) => row.movies)
-    .filter((movie): movie is NonNullable<WatchLogJoinRow["movies"]> => Boolean(movie));
-
-  const hoursWatched = Math.round(
-    rows.reduce((total, row) => total + (row.movies?.runtime_minutes ?? 0), 0) / 60,
-  );
-
-  const languageCount = new Set(
-    ratings.flatMap((movie) => (movie.original_language ? [movie.original_language] : [])),
-  ).size;
-
-  const { data: ratedMovies, error: ratingsError } = await supabase
-    .from("user_movies")
-    .select("personal_rating")
-    .eq("user_id", user.id)
-    .eq("status", "watched")
-    .not("personal_rating", "is", null);
-
-  if (ratingsError) {
-    throwDatabaseError("Failed to load ratings.", ratingsError);
-  }
-
-  const ratingValues = (ratedMovies ?? []).flatMap((row) =>
-    row.personal_rating === null ? [] : [row.personal_rating],
-  );
-  const averageRating =
-    ratingValues.length > 0
-      ? Math.round(
-          (ratingValues.reduce((total, rating) => total + rating, 0) / ratingValues.length) * 10,
-        ) / 10
-      : null;
-
-  return {
-    watchedCount: watchedCount ?? 0,
-    toWatchCount: toWatchCount ?? 0,
-    hoursWatched,
-    averageRating,
-    rewatchCount: Math.max(rows.length - (watchedCount ?? 0), 0),
-    languageCount,
-  };
 }
