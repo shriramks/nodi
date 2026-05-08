@@ -2,7 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth/server";
 import { AUTH_ROUTE } from "@/lib/auth/paths";
-import { ingestTmdbMovie } from "@/lib/db/mutations";
 import { AppError, isAppError } from "@/lib/errors";
 import {
   getTmdbMovieCredits,
@@ -32,13 +31,12 @@ export async function GET(request: NextRequest, context: TmdbMovieRouteContext) 
       getTmdbMovieDetails(tmdbId, language),
       getTmdbMovieCredits(tmdbId, language),
     ]);
-    const movie = await ingestTmdbMovie(detail, credits);
-    const detailUrl = `/movie/${movie.id}`;
+    const detailUrl = `/movie/tmdb/${tmdbId}`;
 
     if (request.headers.get("accept")?.includes("application/json")) {
       return NextResponse.json({
-        movieId: movie.id,
-        tmdbId: movie.tmdb_id,
+        detail,
+        credits,
         detailUrl,
       });
     }
@@ -50,7 +48,7 @@ export async function GET(request: NextRequest, context: TmdbMovieRouteContext) 
     }
 
     return NextResponse.json(
-      { error: "Failed to ingest TMDB movie." },
+      { error: "Failed to load TMDB movie." },
       { status: 500 },
     );
   }

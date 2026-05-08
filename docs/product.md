@@ -505,11 +505,14 @@ For Nodi, online search is not just a text box. It needs:
    - remote metadata from TMDB
    - local status from `user_movies` if it already exists
    - local tags/rating summary if present
-7. When the user taps a result:
+7. When the user taps an unsaved result:
    - fetch TMDB movie details plus credits using `GET /3/movie/{movie_id}` and
      `GET /3/movie/{movie_id}/credits`
+   - render a read-only TMDB-backed detail page
+   - do not write local rows yet
+8. When the user explicitly marks watched, watchlists, rates, tags, or syncs the movie:
    - upsert into `movies`, `movie_cast`, and `provider_mappings`
-   - then open or return the local movie detail route
+   - create or update the user-owned row/event
 
 ### Why not search the local DB only
 Because the app needs discovery outside the current library.

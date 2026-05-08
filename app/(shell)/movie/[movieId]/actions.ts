@@ -1,44 +1,27 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import {
-  removeUserMovie,
-  setMovieWatchStatus,
-  updateMovieRating,
-} from "@/lib/db/mutations";
+  addToWatchlistAction as addToWatchlist,
+  markWatchedAction as markWatched,
+  removeFromLibraryAction as removeFromLibrary,
+  updateRatingAction as updateRating,
+} from "../actions";
 
 export async function markWatchedAction(movieId: string): Promise<void> {
-  await setMovieWatchStatus({
-    movieId,
-    status: "watched",
-    watchedAt: new Date().toISOString(),
-    source: "manual",
-  });
-  revalidatePath(`/movie/${movieId}`);
-  revalidatePath("/movies");
+  return markWatched(movieId);
 }
 
 export async function addToWatchlistAction(movieId: string): Promise<void> {
-  await setMovieWatchStatus({
-    movieId,
-    status: "to_watch",
-    source: "manual",
-  });
-  revalidatePath(`/movie/${movieId}`);
-  revalidatePath("/to-watch");
+  return addToWatchlist(movieId);
 }
 
 export async function removeFromLibraryAction(movieId: string): Promise<void> {
-  await removeUserMovie(movieId);
-  revalidatePath(`/movie/${movieId}`);
-  revalidatePath("/movies");
-  revalidatePath("/to-watch");
+  return removeFromLibrary(movieId);
 }
 
 export async function updateRatingAction(
   movieId: string,
   rating: number | null,
 ): Promise<void> {
-  await updateMovieRating(movieId, { personalRating: rating });
-  revalidatePath(`/movie/${movieId}`);
+  return updateRating(movieId, rating);
 }

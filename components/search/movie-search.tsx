@@ -11,12 +11,6 @@ import type {
 
 type SearchStatus = "idle" | "loading" | "success" | "error";
 
-type IngestMovieResponse = {
-  movieId: string;
-  tmdbId: number;
-  detailUrl: string;
-};
-
 const posterBaseUrl = "https://image.tmdb.org/t/p/w185";
 const minimumQueryLength = 2;
 
@@ -93,31 +87,7 @@ export function MovieSearch() {
     setOpeningTmdbId(result.tmdbId);
     setSelectionErrorMessage(null);
 
-    if (result.localMovieId) {
-      router.push(`/movie/${result.localMovieId}`);
-      return;
-    }
-
-    try {
-      const ingestResponse = await fetch(result.detailUrl, {
-        headers: {
-          accept: "application/json",
-        },
-      });
-      const payload = (await ingestResponse.json()) as IngestMovieResponse | { error?: string };
-
-      if (!ingestResponse.ok) {
-        throw new Error(
-          "error" in payload ? (payload.error ?? "Failed to open movie.") : "Failed to open movie.",
-        );
-      }
-
-      router.push((payload as IngestMovieResponse).detailUrl);
-      router.refresh();
-    } catch (error) {
-      setOpeningTmdbId(null);
-      setSelectionErrorMessage(error instanceof Error ? error.message : "Failed to open movie.");
-    }
+    router.push(result.localMovieId ? `/movie/${result.localMovieId}` : result.detailUrl);
   }
 
   return (
@@ -180,9 +150,7 @@ function SearchResultRow({
       ? "Already watched"
       : result.currentStatus === "to_watch"
         ? "To watch"
-        : result.localMovieId
-          ? "Available locally"
-          : "Not in library";
+        : "Not saved";
   const meta = [
     result.releaseYear,
     result.originalLanguage,

@@ -116,20 +116,12 @@ async function loadLocalMovieState(tmdbIds: number[], userId: string) {
   }
 
   const movieRows = (movies ?? []) as LocalMovieRow[];
-  const localStateByTmdbId = new Map<number, LocalMovieSearchState>();
-
-  movieRows.forEach((movie) => {
-    localStateByTmdbId.set(movie.tmdb_id, {
-      localMovieId: movie.id,
-      currentStatus: null,
-      personalRating: null,
-    });
-  });
 
   if (movieRows.length === 0) {
-    return localStateByTmdbId;
+    return new Map<number, LocalMovieSearchState>();
   }
 
+  const localStateByTmdbId = new Map<number, LocalMovieSearchState>();
   const movieIdByLocalId = new Map(movieRows.map((movie) => [movie.id, movie.tmdb_id]));
   const { data: userMovies, error: userMoviesError } = await supabase
     .from("user_movies")
@@ -143,14 +135,13 @@ async function loadLocalMovieState(tmdbIds: number[], userId: string) {
 
   ((userMovies ?? []) as UserMovieStateRow[]).forEach((userMovie) => {
     const tmdbId = movieIdByLocalId.get(userMovie.movie_id);
-    const existingState = tmdbId ? localStateByTmdbId.get(tmdbId) : null;
 
-    if (!tmdbId || !existingState) {
+    if (!tmdbId) {
       return;
     }
 
     localStateByTmdbId.set(tmdbId, {
-      ...existingState,
+      localMovieId: userMovie.movie_id,
       currentStatus: userMovie.status,
       personalRating: userMovie.personal_rating,
     });
