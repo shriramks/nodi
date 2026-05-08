@@ -1,13 +1,3 @@
-function readRequiredString(name: string, label: string) {
-  const value = process.env[name];
-
-  if (!value) {
-    throw new Error(`Missing ${label}. Set ${name} in your environment.`);
-  }
-
-  return value;
-}
-
 function requireValue(value: string | undefined, name: string, label: string) {
   if (!value) {
     throw new Error(`Missing ${label}. Set ${name} in your environment.`);
@@ -34,4 +24,4 @@ export const sharedEnv = {
   ),
 } as const;
 
-export { readRequiredString, requireValue };
+export { requireValue };
