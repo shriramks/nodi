@@ -485,7 +485,7 @@ System font - SF Pro on iOS/macOS, Segoe UI on Windows, Roboto on Android. No we
   --border-faint: rgba(0,0,0,0.06);
   --tap-active:   rgba(0,0,0,0.04);
   --divider:      rgba(0,0,0,0.08);
-  --nav-h:        64px;
+  --nav-h:        72px;
 }
 
 @media (prefers-color-scheme: dark) {
