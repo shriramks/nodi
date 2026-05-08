@@ -62,15 +62,19 @@ export default async function StatsPage() {
           <span className="text-[11px] text-text-faint">Recent 6 weeks</span>
         </div>
         <div className="mt-5 flex h-40 items-end gap-2">
-          {weeklyCounts.map((value, index) => (
-            <div key={value + index} className="flex flex-1 flex-col items-center gap-2">
-              <div
-                className="w-full rounded-t-xl bg-to-watch"
-                style={{ height: `${Math.max((value / maxWeeklyCount) * 120, value ? 16 : 4)}px` }}
-              />
-              <span className="text-[11px] text-text-faint">{index + 1}</span>
-            </div>
-          ))}
+          {weeklyCounts.map((value, index) => {
+            const weeksAgo = 5 - index;
+            const label = weeksAgo === 0 ? "Now" : `-${weeksAgo}w`;
+            return (
+              <div key={index} className="flex flex-1 flex-col items-center gap-2">
+                <div
+                  className="w-full rounded-t-xl bg-to-watch"
+                  style={{ height: `${Math.max((value / maxWeeklyCount) * 120, value ? 16 : 4)}px` }}
+                />
+                <span className="text-[11px] text-text-faint">{label}</span>
+              </div>
+            );
+          })}
         </div>
       </section>
     </main>
