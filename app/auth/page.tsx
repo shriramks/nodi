@@ -21,17 +21,14 @@ export default async function AuthPage({ searchParams }: AuthPageProps) {
   const message = params.error ?? params.message;
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-10 sm:px-5">
-      <section className="rounded-[32px] border border-border bg-surface px-5 py-6 shadow-[0_24px_60px_rgba(30,22,14,0.08)]">
-        <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-text-faint">
-          Supabase auth
+    <main className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-4 py-10">
+      <section className="rounded-2xl border border-border bg-surface p-4">
+        <p className="text-[11px] font-medium uppercase text-text-faint">
+          Nodi
         </p>
-        <h1 className="mt-3 text-[34px] font-bold leading-none tracking-[-0.04em]">
-          Sign in to your library
-        </h1>
-        <p className="mt-3 max-w-sm text-[14px] leading-6 text-text-2">
-          Nodi keeps watched history, watchlists, and stats scoped to the authenticated user from the
-          start. Sign in with your email and password to enter the app shell.
+        <h1 className="mt-2 text-[32px] font-bold leading-[1.1]">Sign in</h1>
+        <p className="mt-3 max-w-sm text-[15px] leading-[1.4] text-text-2">
+          Continue to your watched movies, watchlist, and stats.
         </p>
 
         <div className="mt-8">
