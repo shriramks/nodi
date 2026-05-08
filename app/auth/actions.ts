@@ -1,6 +1,5 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import {
@@ -14,30 +13,9 @@ export type SignInState = {
   message: string;
 };
 
-function buildRequestOrigin(
-  requestHeaders: Awaited<ReturnType<typeof headers>>,
-) {
-  const origin = requestHeaders.get("origin");
+const minimumPasswordLength = 8;
 
-  if (origin) {
-    return origin;
-  }
-
-  const host =
-    requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host");
-
-  if (!host) {
-    throw new Error("Unable to determine the request host for auth redirects.");
-  }
-
-  const protocol =
-    requestHeaders.get("x-forwarded-proto") ??
-    (host.startsWith("localhost") ? "http" : "https");
-
-  return `${protocol}://${host}`;
-}
-
-export async function signInWithEmail(
+export async function signInWithPassword(
   _previousState: SignInState,
   formData: FormData,
 ): Promise<SignInState> {
@@ -52,19 +30,46 @@ export async function signInWithEmail(
     };
   }
 
+  const password = String(formData.get("password") ?? "");
+
+  if (password.length < minimumPasswordLength) {
+    return {
+      status: "error",
+      message: `Enter a password with at least ${minimumPasswordLength} characters.`,
+    };
+  }
+
   const next = normalizeNextPath(formData.get("next"));
-  const callbackUrl = new URL(
-    "/auth/callback",
-    buildRequestOrigin(await headers()),
-  );
-  callbackUrl.searchParams.set("next", next);
+  const intent = formData.get("intent") === "sign-up" ? "sign-up" : "sign-in";
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithOtp({
+
+  if (intent === "sign-up") {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      return {
+        status: "error",
+        message: error.message,
+      };
+    }
+
+    if (!data.session) {
+      return {
+        status: "success",
+        message: "Check your email to confirm your account, then sign in.",
+      };
+    }
+
+    redirect(next);
+  }
+
+  const { error } = await supabase.auth.signInWithPassword({
     email,
-    options: {
-      emailRedirectTo: callbackUrl.toString(),
-    },
+    password,
   });
 
   if (error) {
@@ -74,10 +79,7 @@ export async function signInWithEmail(
     };
   }
 
-  return {
-    status: "success",
-    message: "Check your email for the sign-in link.",
-  };
+  redirect(next);
 }
 
 export async function signOut() {
