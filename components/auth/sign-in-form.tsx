@@ -35,7 +35,7 @@ export function SignInForm({
     <form action={formAction} className="space-y-4">
       <div className="space-y-2">
         <label
-          className="text-[12px] font-medium uppercase tracking-[0.22em] text-text-faint"
+          className="text-[15px] leading-[1.4] text-text-2"
           htmlFor="email"
         >
           Email
@@ -47,13 +47,13 @@ export function SignInForm({
           autoComplete="email"
           required
           placeholder="you@example.com"
-          className="h-13 w-full rounded-[20px] border border-border bg-surface px-4 text-[16px] outline-none transition-colors placeholder:text-text-muted focus:border-foreground"
+          className="h-[50px] w-full rounded-xl border border-border bg-surface-muted px-4 text-[17px] outline-none transition-colors placeholder:text-text-muted focus:border-accent"
         />
       </div>
 
       <div className="space-y-2">
         <label
-          className="text-[12px] font-medium uppercase tracking-[0.22em] text-text-faint"
+          className="text-[15px] leading-[1.4] text-text-2"
           htmlFor="password"
         >
           Password
@@ -66,7 +66,7 @@ export function SignInForm({
           required
           minLength={8}
           placeholder="••••••••"
-          className="h-13 w-full rounded-[20px] border border-border bg-surface px-4 text-[16px] outline-none transition-colors placeholder:text-text-muted focus:border-foreground"
+          className="h-[50px] w-full rounded-xl border border-border bg-surface-muted px-4 text-[17px] outline-none transition-colors placeholder:text-text-muted focus:border-accent"
         />
       </div>
 
@@ -77,7 +77,7 @@ export function SignInForm({
         name="intent"
         value="sign-in"
         disabled={isPending}
-        className="flex h-12 w-full items-center justify-center rounded-full bg-foreground px-4 text-[14px] font-semibold text-background transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex h-[50px] w-full items-center justify-center rounded-xl bg-accent px-4 text-[15px] font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isPending ? "Signing in..." : "Sign in"}
       </button>
@@ -87,7 +87,7 @@ export function SignInForm({
         name="intent"
         value="sign-up"
         disabled={isPending}
-        className="flex h-12 w-full items-center justify-center rounded-full border border-border bg-surface px-4 text-[14px] font-semibold text-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex h-[50px] w-full items-center justify-center rounded-xl border border-border bg-surface px-4 text-[15px] font-semibold text-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
       >
         Create account
       </button>
