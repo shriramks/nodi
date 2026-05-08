@@ -1,13 +1,13 @@
 "use client";
 
-import { BarChart3, Binoculars, Clapperboard, Search } from "lucide-react";
+import { BarChart2, Bookmark, Film, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const items = [
-  { href: "/movies", label: "Movies", Icon: Clapperboard },
-  { href: "/to-watch", label: "To Watch", Icon: Binoculars },
-  { href: "/stats", label: "Stats", Icon: BarChart3 },
+  { href: "/movies", label: "Movies", Icon: Film },
+  { href: "/to-watch", label: "To Watch", Icon: Bookmark },
+  { href: "/stats", label: "Stats", Icon: BarChart2 },
   { href: "/search", label: "Search", Icon: Search },
 ];
 

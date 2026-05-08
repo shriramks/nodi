@@ -77,10 +77,17 @@ export default async function MovieDetailPage({ params }: MovieDetailPageProps) 
               <Heart aria-hidden="true" className="h-4 w-4" />
               {statusLabel}
             </p>
-            <p className="flex items-center gap-2 text-[13px] text-text-muted">
-              <Star aria-hidden="true" className="h-4 w-4" />
-              {movie.userMovie?.personal_rating ?? "-"} personal · {movie.tmdb_vote_average ?? "-"} TMDB
+            <p className="flex items-center gap-2 text-[15px] text-text-2">
+              <Star aria-hidden="true" className="h-4 w-4 text-text-muted" />
+              {movie.userMovie?.personal_rating !== null && movie.userMovie?.personal_rating !== undefined
+                ? movie.userMovie.personal_rating
+                : "Not rated"}
             </p>
+            {movie.tmdb_vote_average !== null && movie.tmdb_vote_average !== undefined ? (
+              <p className="text-[13px] text-text-faint">
+                TMDB {movie.tmdb_vote_average}
+              </p>
+            ) : null}
           </div>
         </div>
       </section>
