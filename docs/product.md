@@ -186,7 +186,10 @@ docs/
 - many-to-many join
 
 `provider_connections`
-- per-user OAuth/session details for Trakt and optional TMDB auth
+- per-user OAuth/session metadata for Trakt and optional TMDB auth
+
+`provider_connection_secrets`
+- server-only Vault secret references for provider OAuth tokens
 
 `provider_mappings`
 - stable external IDs per movie and provider
@@ -296,8 +299,6 @@ Indexes:
 - `user_id uuid not null references auth.users(id) on delete cascade`
 - `provider text not null check (provider in ('trakt', 'tmdb'))`
 - `provider_user_id text null`
-- `access_token text null`
-- `refresh_token text null`
 - `token_expires_at timestamptz null`
 - `scopes text[] null`
 - `status text not null default 'active' check (status in ('active', 'revoked', 'error'))`
@@ -307,6 +308,21 @@ Indexes:
 
 Indexes:
 - unique index on `(user_id, provider)`
+
+`public.provider_connection_secrets`
+- `id uuid primary key default gen_random_uuid()`
+- `connection_id uuid not null unique references public.provider_connections(id) on delete cascade`
+- `user_id uuid not null references auth.users(id) on delete cascade`
+- `provider text not null check (provider in ('trakt', 'tmdb'))`
+- `access_token_secret_id uuid null`
+- `refresh_token_secret_id uuid null`
+- `created_at timestamptz not null default now()`
+- `updated_at timestamptz not null default now()`
+
+Access:
+- RLS enabled with no authenticated-user policies
+- token values should live in Supabase Vault, with only Vault secret ids stored here
+- explicit table grants are limited to `service_role`
 
 `public.provider_mappings`
 - `movie_id uuid not null references public.movies(id) on delete cascade`
@@ -370,6 +386,7 @@ RLS needed on:
 - `tags`
 - `user_movie_tags`
 - `provider_connections`
+- `provider_connection_secrets`
 - `sync_cursors`
 - `sync_events`
 

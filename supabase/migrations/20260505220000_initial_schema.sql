@@ -154,12 +154,24 @@ create table public.provider_connections (
   user_id uuid not null references auth.users(id) on delete cascade,
   provider text not null check (provider in ('trakt', 'tmdb')),
   provider_user_id text null,
-  access_token text null,
-  refresh_token text null,
   token_expires_at timestamptz null,
   scopes text[] null,
   status text not null default 'active' check (status in ('active', 'revoked', 'error')),
   last_validated_at timestamptz null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, provider)
+);
+
+-- OAuth tokens must not be readable through normal user-authenticated API paths.
+-- Store encrypted token values in Supabase Vault and reference their secret ids here.
+create table public.provider_connection_secrets (
+  id uuid primary key default gen_random_uuid(),
+  connection_id uuid not null unique references public.provider_connections(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  provider text not null check (provider in ('trakt', 'tmdb')),
+  access_token_secret_id uuid null,
+  refresh_token_secret_id uuid null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, provider)
@@ -213,6 +225,11 @@ before update on public.provider_connections
 for each row
 execute function public.set_updated_at();
 
+create trigger set_provider_connection_secrets_updated_at
+before update on public.provider_connection_secrets
+for each row
+execute function public.set_updated_at();
+
 create trigger set_sync_cursors_updated_at
 before update on public.sync_cursors
 for each row
@@ -230,9 +247,13 @@ alter table public.watch_logs enable row level security;
 alter table public.tags enable row level security;
 alter table public.user_movie_tags enable row level security;
 alter table public.provider_connections enable row level security;
+alter table public.provider_connection_secrets enable row level security;
 alter table public.provider_mappings enable row level security;
 alter table public.sync_cursors enable row level security;
 alter table public.sync_events enable row level security;
+
+revoke all on table public.provider_connection_secrets from anon, authenticated;
+grant select, insert, update, delete on table public.provider_connection_secrets to service_role;
 
 create policy "movies are readable by authenticated users"
 on public.movies

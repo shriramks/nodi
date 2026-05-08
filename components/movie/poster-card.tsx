@@ -1,14 +1,13 @@
 import Link from "next/link";
 
 type PosterCardProps = {
+  movieId: string;
   title: string;
   year: string;
   tone: string;
 };
 
-export function PosterCard({ title, year, tone }: PosterCardProps) {
-  const movieId = title.toLowerCase().replaceAll(" ", "-");
-
+export function PosterCard({ movieId, title, year, tone }: PosterCardProps) {
   return (
     <Link href={`/movie/${movieId}`} className="group block">
       <div
