@@ -37,6 +37,8 @@ yarn-error.log*
 # local-only app data, exports, and scratch work
 .local/
 tmp/
+mocks.html
+mocks/
 *.local.json
 *.local.csv
 *.local.txt
