@@ -72,7 +72,9 @@ product direction.
 
 ## UI rules
 
-- Read `docs/design.md` before any meaningful UI or interaction change.
+- Read `docs/design.md` before any meaningful UI or interaction change. Before committing UI code,
+  cross-check the relevant component contracts, colour rules, and token reference in that doc —
+  do not rely on memory or convention alone.
 - Preserve the app’s mobile-first posture; default thinking should optimize for phone widths first.
 - Movies and To Watch should stay poster-first rather than drifting into generic table layouts.
 - Movie detail should keep hero metadata compact, plot below, and cast presented visually.
