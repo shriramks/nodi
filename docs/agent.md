@@ -34,6 +34,8 @@ product direction.
 
 - Read `docs/agent.md` first, then open only the docs and files needed for the task.
 - Use targeted lookup with `rg`/`rg --files`; avoid broad file sweeps unless the task actually needs it.
+- Do not start routine changes by scanning the whole repo. Use the lookup map below first, then search
+  narrowly inside the relevant directory or feature surface.
 - Consult first before coding. State the intended approach, key assumptions, and likely files to change, then wait for confirmation before implementing.
 - Do not use `git log` or historical archaeology unless the task specifically requires history.
 - Never override ignore rules and never force-add ignored files.
@@ -42,6 +44,48 @@ product direction.
 - For substantial UI exploration, use local mockups such as `mocks.html` or `.local/`, but never commit them.
 - Before changing schema behavior, check `supabase/db_guide.md` and the existing migration files first.
 - Schema changes must be additive through new files in `supabase/migrations/`; do not rewrite an applied migration.
+
+## Fast lookup map
+
+Use this map before reaching for broad search. If the user asks for a change in one of these areas,
+start with the listed files and only expand outward if those files point elsewhere.
+
+| Task area | Start here | Then check |
+| --- | --- | --- |
+| App shell, protected routes, global layout | `app/(shell)/layout.tsx`, `components/navigation/` | `app/globals.css`, `components/settings/settings-sheet.tsx` |
+| Auth and session behavior | `lib/auth/server.ts`, `lib/auth/paths.ts` | `app/auth/`, `components/auth/`, `lib/supabase/` |
+| Supabase clients and env wiring | `lib/supabase/server.ts`, `lib/supabase/client.ts` | `lib/env/`, `.env.example` |
+| Database schema, RLS, grants | `supabase/db_guide.md`, `supabase/migrations/` | `lib/db/types.ts` |
+| DB validation | `lib/db/validation.ts` | calling mutation or route handler |
+| Movie read queries and stats basics | `lib/db/queries/movies.ts` | `lib/db/queries/tags.ts`, `lib/db/queries/sync.ts` |
+| Movie write mutations | `lib/db/mutations/movies.ts` | `lib/db/mutations/tags.ts`, `lib/db/mutations/sync.ts` |
+| Tags | `lib/db/mutations/tags.ts`, `lib/db/queries/tags.ts` | movie detail client/page files |
+| Sync events and provider connection state | `lib/db/mutations/sync.ts`, `lib/db/queries/sync.ts` | `supabase/migrations/`, future `app/api/sync/` routes |
+| TMDB provider logic | `lib/providers/tmdb/client.ts`, `lib/providers/tmdb/adapters.ts` | search/detail routes that call them |
+| Search UI and API | `components/search/movie-search.tsx`, `app/(shell)/search/page.tsx` | `app/api/search/movies/route.ts`, TMDB adapter/client |
+| Remote TMDB detail before ingestion | `app/(shell)/movie/tmdb/[tmdbId]/page.tsx` | `app/(shell)/movie/tmdb/[tmdbId]/tmdb-movie-detail-client.tsx`, `app/(shell)/movie/actions.ts` |
+| Local movie detail | `app/(shell)/movie/[movieId]/page.tsx` | `app/(shell)/movie/[movieId]/movie-detail-client.tsx`, `components/movie/movie-detail-view.tsx`, `app/(shell)/movie/[movieId]/actions.ts` |
+| Shared movie detail presentation | `components/movie/movie-detail-view.tsx` | `components/movie/overview-text.tsx` |
+| Watched Movies page | `app/(shell)/movies/page.tsx` | `components/movie/movie-library-grid.tsx`, `components/movie/poster-card.tsx` |
+| To Watch page | `app/(shell)/to-watch/page.tsx` | `components/movie/poster-card.tsx` |
+| Poster grid/card behavior | `components/movie/poster-card.tsx`, `components/movie/movie-library-grid.tsx` | `components/search/movie-search.tsx` if search posters are involved |
+| Stats page | `app/(shell)/stats/page.tsx` | `lib/db/queries/movies.ts` |
+| PWA manifest and icons | `app/manifest.ts`, `public/` | `app/layout.tsx` |
+| Design decisions | `docs/design.md` | the component being changed |
+| Product or architecture questions | `docs/product.md`, `docs/architecture.md` | `supabase/db_guide.md` for DB-specific questions |
+| Progress tracking | `progress.md` | no code lookup unless progress and code disagree |
+
+## Search discipline
+
+- For routine changes, use path-specific search, for example `rg "sync_events" lib/db supabase`
+  instead of `rg "sync_events" .`.
+- Search the whole repo only when:
+  - the lookup map has no relevant owner,
+  - a symbol is called from unknown places and the change may affect callers,
+  - the task is explicitly a refactor or audit,
+  - docs and code disagree and the source of truth must be found.
+- If a broad scan is necessary, state why in the working update and keep the query specific.
+- Prefer reading the direct owner file first, then its imports/callers, over inventorying every file.
 
 ## Commit safety
 

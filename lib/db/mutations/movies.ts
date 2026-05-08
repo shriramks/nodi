@@ -3,6 +3,7 @@ import "server-only";
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError, throwNotFound } from "@/lib/db/errors";
 import type {
+  Json,
   Movie,
   MovieCastMemberInsert,
   ProviderMappingInsert,
@@ -20,6 +21,37 @@ import {
 import { toMovieCastPayloads, toMoviePayload } from "@/lib/providers/tmdb/adapters";
 import type { TmdbMovieCredits, TmdbMovieDetails } from "@/lib/providers/tmdb/client";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSyncEvent } from "./sync";
+
+type TraktSyncPayload = Record<string, Json>;
+
+function shouldQueueOutboundSync(source: string | null | undefined) {
+  return source !== "trakt_sync";
+}
+
+async function queueTraktSyncEvent(eventType: string, payload: TraktSyncPayload) {
+  await createSyncEvent({
+    provider: "trakt",
+    direction: "push",
+    eventType,
+    status: "pending",
+    payload,
+  });
+}
+
+function objectPayload(payload: unknown): Record<string, unknown> {
+  return payload && typeof payload === "object" && !Array.isArray(payload)
+    ? (payload as Record<string, unknown>)
+    : {};
+}
+
+function latestTimestamp(left: string | null | undefined, right: string) {
+  if (!left) {
+    return right;
+  }
+
+  return Date.parse(left) > Date.parse(right) ? left : right;
+}
 
 export async function upsertMovieMetadata(payload: unknown): Promise<Movie> {
   const supabase = createSupabaseAdminClient();
@@ -152,6 +184,14 @@ export async function setMovieWatchStatus(payload: unknown): Promise<{
   }
 
   if (action.status !== "watched" || !action.watchedAt) {
+    if (shouldQueueOutboundSync(action.source)) {
+      await queueTraktSyncEvent("movie.add_to_watchlist", {
+        movieId: action.movieId,
+        userMovieId: userMovie.id,
+        watchlistedAt: userMovie.watchlisted_at ?? now,
+      });
+    }
+
     return {
       userMovie,
       watchLog: null,
@@ -175,6 +215,97 @@ export async function setMovieWatchStatus(payload: unknown): Promise<{
     throwDatabaseError("Failed to append watch log.", watchLogError);
   }
 
+  if (shouldQueueOutboundSync(action.source)) {
+    await queueTraktSyncEvent("movie.mark_watched", {
+      movieId: action.movieId,
+      userMovieId: userMovie.id,
+      watchLogId: watchLog.id,
+      watchedAt: action.watchedAt,
+      personalRating: Object.hasOwn(action, "personalRating")
+        ? (action.personalRating ?? null)
+        : null,
+    });
+  }
+
+  return {
+    userMovie,
+    watchLog,
+  };
+}
+
+export async function addMovieWatchDate(
+  movieId: string,
+  payload: unknown,
+): Promise<{
+  userMovie: UserMovie;
+  watchLog: WatchLog;
+}> {
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const id = validateUuid(movieId, "movieId");
+  const action = validateWatchActionPayload({
+    ...objectPayload(payload),
+    movieId: id,
+    status: "watched",
+  });
+  const watchedAt = action.watchedAt as string;
+
+  const { data: existingUserMovie, error: existingUserMovieError } = await supabase
+    .from("user_movies")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("movie_id", id)
+    .maybeSingle();
+
+  if (existingUserMovieError) {
+    throwDatabaseError("Failed to load existing movie watch state.", existingUserMovieError);
+  }
+
+  const { data: userMovie, error: userMovieError } = await supabase
+    .from("user_movies")
+    .upsert(
+      {
+        user_id: user.id,
+        movie_id: id,
+        status: "watched",
+        watchlisted_at: null,
+        last_watched_at: latestTimestamp(existingUserMovie?.last_watched_at, watchedAt),
+      },
+      { onConflict: "user_id,movie_id" },
+    )
+    .select("*")
+    .single();
+
+  if (userMovieError) {
+    throwDatabaseError("Failed to update movie watch state.", userMovieError);
+  }
+
+  const { data: watchLog, error: watchLogError } = await supabase
+    .from("watch_logs")
+    .insert({
+      user_id: user.id,
+      movie_id: id,
+      watched_at: watchedAt,
+      source: action.source ?? "manual",
+      provider_event_id: action.providerEventId ?? null,
+      notes: action.notes ?? null,
+    })
+    .select("*")
+    .single();
+
+  if (watchLogError) {
+    throwDatabaseError("Failed to append watch date.", watchLogError);
+  }
+
+  if (shouldQueueOutboundSync(action.source)) {
+    await queueTraktSyncEvent("movie.add_watch_date", {
+      movieId: id,
+      userMovieId: userMovie.id,
+      watchLogId: watchLog.id,
+      watchedAt,
+    });
+  }
+
   return {
     userMovie,
     watchLog,
@@ -186,6 +317,17 @@ export async function removeUserMovie(movieId: string): Promise<void> {
   const supabase = await createSupabaseServerClient();
   const id = validateUuid(movieId, "movieId");
 
+  const { data: existingUserMovie, error: existingUserMovieError } = await supabase
+    .from("user_movies")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("movie_id", id)
+    .maybeSingle();
+
+  if (existingUserMovieError) {
+    throwDatabaseError("Failed to load existing movie watch state.", existingUserMovieError);
+  }
+
   const { error } = await supabase
     .from("user_movies")
     .delete()
@@ -194,6 +336,18 @@ export async function removeUserMovie(movieId: string): Promise<void> {
 
   if (error) {
     throwDatabaseError("Failed to remove movie from library.", error);
+  }
+
+  if (existingUserMovie?.status === "to_watch") {
+    await queueTraktSyncEvent("movie.remove_from_watchlist", {
+      movieId: id,
+      userMovieId: existingUserMovie.id,
+    });
+  } else if (existingUserMovie?.status === "watched") {
+    await queueTraktSyncEvent("movie.remove_from_library", {
+      movieId: id,
+      userMovieId: existingUserMovie.id,
+    });
   }
 }
 
@@ -218,6 +372,15 @@ export async function updateMovieRating(movieId: string, payload: unknown): Prom
   if (!data) {
     throwNotFound("Movie is not in the user's library.");
   }
+
+  await queueTraktSyncEvent(
+    rating.personalRating === null ? "movie.rating.clear" : "movie.rating.set",
+    {
+      movieId: id,
+      userMovieId: data.id,
+      personalRating: rating.personalRating,
+    },
+  );
 
   return data;
 }

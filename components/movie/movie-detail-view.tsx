@@ -41,6 +41,8 @@ type MovieDetailViewProps = {
   personalRating: number | null;
   actions: ReactNode;
   ratingPicker?: ReactNode;
+  tagEditor?: ReactNode;
+  watchDateForm?: ReactNode;
 };
 
 export function MovieDetailView({
@@ -49,6 +51,8 @@ export function MovieDetailView({
   personalRating,
   ratingPicker,
   status,
+  tagEditor,
+  watchDateForm,
 }: MovieDetailViewProps) {
   const statusLabel =
     status === "watched" ? "Watched" : status === "to_watch" ? "To Watch" : null;
@@ -145,6 +149,8 @@ export function MovieDetailView({
       {actions}
 
       {status === "watched" ? ratingPicker : null}
+      {status === "watched" ? watchDateForm : null}
+      {status ? tagEditor : null}
 
       <section className="space-y-2">
         <p className="text-[11px] uppercase tracking-wide text-text-faint">Plot</p>
