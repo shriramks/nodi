@@ -9,7 +9,7 @@ export default function SearchPage() {
   return (
     <main className="space-y-6">
       <section className="space-y-2">
-        <h1 className="text-[32px] font-bold leading-none tracking-[-0.03em]">Search</h1>
+        <h1 className="text-[32px] font-bold leading-[1.1]">Search</h1>
       </section>
 
       <MovieSearch />

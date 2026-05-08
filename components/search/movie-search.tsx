@@ -1,5 +1,6 @@
 "use client";
 
+import { Film, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type {
@@ -75,7 +76,8 @@ export function MovieSearch() {
 
   return (
     <div className="space-y-5">
-      <section className="rounded-[24px] border border-border bg-surface px-4 py-3 shadow-[0_12px_32px_rgba(30,22,14,0.06)]">
+      <section className="flex h-[50px] items-center gap-3 rounded-xl border border-border bg-surface-muted px-4">
+        <Search aria-hidden="true" className="h-5 w-5 shrink-0 text-text-muted" />
         <input
           aria-label="Search movies"
           className="w-full bg-transparent text-[17px] text-foreground outline-none placeholder:text-text-muted"
@@ -98,7 +100,7 @@ export function MovieSearch() {
         <p className="px-1 text-[13px] text-text-2">No movies found.</p>
       ) : null}
 
-      <section className="space-y-2">
+      <section className="overflow-hidden rounded-2xl border border-border bg-surface">
         {results.map((result) => (
           <SearchResultRow key={result.tmdbId} result={result} />
         ))}
@@ -130,23 +132,27 @@ function SearchResultRow({ result }: { result: MovieSearchResult }) {
 
   return (
     <a
-      className="flex items-center gap-4 rounded-[24px] border border-border bg-surface p-3 shadow-[0_12px_32px_rgba(30,22,14,0.06)] transition-transform duration-200 hover:-translate-y-0.5"
+      className="flex min-h-12 items-center gap-4 border-b border-divider px-4 py-3 last:border-b-0 hover:bg-tap-active"
       href={result.detailUrl}
     >
       <div
         aria-hidden="true"
-        className="aspect-[2/3] w-14 shrink-0 rounded-2xl bg-surface-muted bg-cover bg-center"
+        className="flex aspect-[2/3] w-14 shrink-0 items-center justify-center rounded-2xl bg-surface-muted bg-cover bg-center"
         style={
           result.posterPath
             ? { backgroundImage: `url(${posterBaseUrl}${result.posterPath})` }
             : undefined
         }
-      />
+      >
+        {result.posterPath ? null : (
+          <Film className="h-5 w-5 text-text-faint" strokeWidth={1.8} />
+        )}
+      </div>
       <div className="min-w-0 flex-1">
         <h2 className="truncate text-[17px] font-semibold">{result.title}</h2>
         <p className={`mt-1 truncate text-[11px] ${statusTone}`}>{meta || "Movie"}</p>
         {result.overviewSnippet ? (
-          <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-text-2">
+          <p className="mt-2 line-clamp-2 text-[13px] leading-[1.4] text-text-2">
             {result.overviewSnippet}
           </p>
         ) : null}

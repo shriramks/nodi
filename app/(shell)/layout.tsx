@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Settings } from "lucide-react";
 import { signOut } from "@/app/auth/actions";
 import { BottomPillNav } from "@/components/navigation/bottom-pill-nav";
 import { requireUser } from "@/lib/auth/server";
@@ -12,29 +13,35 @@ export default async function ShellLayout({ children }: ShellLayoutProps) {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_top,_rgba(11,132,255,0.15),_transparent_58%)]" />
-      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-28 pt-6 sm:px-5">
-        <header className="mb-6 flex items-start justify-between gap-4 rounded-[26px] border border-border bg-surface px-4 py-4 shadow-[0_12px_32px_rgba(30,22,14,0.06)]">
+      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-28 pt-6">
+        <header className="relative mb-6 flex h-12 items-center justify-between">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-text-faint">
-              Signed in
-            </p>
-            <p className="mt-2 truncate text-[15px] font-semibold">
-              {user.email ?? "Supabase account"}
-            </p>
-            <p className="mt-1 text-[11px] leading-5 text-text-2">
-              User-scoped library, watchlists, and stats resolve against this session.
-            </p>
+            <p className="text-[17px] font-semibold leading-none">Nodi</p>
+            <p className="mt-1 truncate text-[13px] text-text-2">Movie tracker</p>
           </div>
 
-          <form action={signOut}>
-            <button
-              type="submit"
-              className="inline-flex h-10 shrink-0 items-center rounded-full border border-border bg-background px-4 text-[12px] font-semibold text-foreground"
+          <details className="group">
+            <summary
+              aria-label="Settings"
+              className="flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-xl border border-border bg-surface text-foreground marker:hidden transition-colors group-open:bg-tap-active"
             >
-              Sign out
-            </button>
-          </form>
+              <Settings aria-hidden="true" className="h-5 w-5" />
+            </summary>
+            <div className="absolute right-0 top-14 z-50 w-72 rounded-2xl border border-border bg-surface p-4">
+              <p className="text-[11px] uppercase text-text-faint">Signed in</p>
+              <p className="mt-2 truncate text-[15px] text-foreground">
+                {user.email ?? "Supabase account"}
+              </p>
+              <form action={signOut} className="mt-4">
+                <button
+                  type="submit"
+                  className="flex h-11 w-full items-center justify-center rounded-xl border border-border bg-background px-4 text-[15px] font-semibold text-foreground"
+                >
+                  Sign out
+                </button>
+              </form>
+            </div>
+          </details>
         </header>
         {children}
       </div>
