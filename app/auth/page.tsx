@@ -31,7 +31,7 @@ export default async function AuthPage({ searchParams }: AuthPageProps) {
         </h1>
         <p className="mt-3 max-w-sm text-[14px] leading-6 text-text-2">
           Nodi keeps watched history, watchlists, and stats scoped to the authenticated user from the
-          start. Use your email link to enter the app shell.
+          start. Sign in with your email and password to enter the app shell.
         </p>
 
         <div className="mt-8">
