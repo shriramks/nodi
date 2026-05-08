@@ -446,6 +446,7 @@ export type Movie = TableRow<"movies">;
 export type MovieInsert = TableInsert<"movies">;
 export type MovieUpdate = TableUpdate<"movies">;
 export type MovieCastMember = TableRow<"movie_cast">;
+export type MovieCastMemberInsert = TableInsert<"movie_cast">;
 export type UserMovie = TableRow<"user_movies">;
 export type UserMovieInsert = TableInsert<"user_movies">;
 export type UserMovieUpdate = TableUpdate<"user_movies">;
@@ -457,6 +458,7 @@ export type UserMovieTag = TableRow<"user_movie_tags">;
 export type ProviderConnection = TableRow<"provider_connections">;
 export type ProviderConnectionSecret = TableRow<"provider_connection_secrets">;
 export type ProviderMapping = TableRow<"provider_mappings">;
+export type ProviderMappingInsert = TableInsert<"provider_mappings">;
 export type SyncCursor = TableRow<"sync_cursors">;
 export type SyncEvent = TableRow<"sync_events">;
 

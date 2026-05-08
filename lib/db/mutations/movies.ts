@@ -2,7 +2,14 @@ import "server-only";
 
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError, throwNotFound } from "@/lib/db/errors";
-import type { Movie, UserMovie, UserMovieInsert, WatchLog } from "@/lib/db/types";
+import type {
+  Movie,
+  MovieCastMemberInsert,
+  ProviderMappingInsert,
+  UserMovie,
+  UserMovieInsert,
+  WatchLog,
+} from "@/lib/db/types";
 import {
   toMovieInsert,
   validateMoviePayload,
@@ -10,6 +17,8 @@ import {
   validateUuid,
   validateWatchActionPayload,
 } from "@/lib/db/validation";
+import { toMovieCastPayloads, toMoviePayload } from "@/lib/providers/tmdb/adapters";
+import type { TmdbMovieCredits, TmdbMovieDetails } from "@/lib/providers/tmdb/client";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function upsertMovieMetadata(payload: unknown): Promise<Movie> {
@@ -24,6 +33,82 @@ export async function upsertMovieMetadata(payload: unknown): Promise<Movie> {
 
   if (error) {
     throwDatabaseError("Failed to upsert movie metadata.", error);
+  }
+
+  return data;
+}
+
+export async function ingestTmdbMovie(
+  detail: TmdbMovieDetails,
+  credits: TmdbMovieCredits,
+): Promise<Movie> {
+  const supabase = createSupabaseAdminClient();
+  const movie = toMovieInsert(toMoviePayload(detail));
+
+  const { data, error } = await supabase
+    .from("movies")
+    .upsert(movie, { onConflict: "tmdb_id" })
+    .select("*")
+    .single();
+
+  if (error) {
+    throwDatabaseError("Failed to ingest TMDB movie metadata.", error);
+  }
+
+  const { error: deleteCastError } = await supabase
+    .from("movie_cast")
+    .delete()
+    .eq("movie_id", data.id);
+
+  if (deleteCastError) {
+    throwDatabaseError("Failed to replace TMDB movie cast.", deleteCastError);
+  }
+
+  const castRows: MovieCastMemberInsert[] = toMovieCastPayloads(credits).map((member) => ({
+    movie_id: data.id,
+    ...member,
+  }));
+
+  if (castRows.length > 0) {
+    const { error: castError } = await supabase.from("movie_cast").insert(castRows);
+
+    if (castError) {
+      throwDatabaseError("Failed to insert TMDB movie cast.", castError);
+    }
+  }
+
+  const mappingRows: ProviderMappingInsert[] = [
+    {
+      movie_id: data.id,
+      provider: "tmdb",
+      provider_movie_id: String(detail.id),
+    },
+  ];
+
+  if (detail.imdb_id) {
+    mappingRows.push({
+      movie_id: data.id,
+      provider: "imdb",
+      provider_movie_id: detail.imdb_id,
+    });
+  }
+
+  const { error: deleteMappingsError } = await supabase
+    .from("provider_mappings")
+    .delete()
+    .eq("movie_id", data.id)
+    .in("provider", ["tmdb", "imdb"]);
+
+  if (deleteMappingsError) {
+    throwDatabaseError("Failed to replace movie provider mappings.", deleteMappingsError);
+  }
+
+  const { error: mappingError } = await supabase
+    .from("provider_mappings")
+    .upsert(mappingRows, { onConflict: "provider,provider_movie_id" });
+
+  if (mappingError) {
+    throwDatabaseError("Failed to upsert movie provider mappings.", mappingError);
   }
 
   return data;
