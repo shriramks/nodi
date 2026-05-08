@@ -102,6 +102,9 @@ state.error     -> color.unsynced
 ### Rules
 - Watched state: `color.watched`. To Watch state: `color.watchlist`. Never reuse the same colour.
 - Interactive elements (buttons with actions, links): `color.accent` only. Not the state colours.
+- **Active / selected state** (nav pills, filter chips, segmented controls): `bg-accent/10 text-accent`.
+  Never use `bg-foreground text-background` for selected state — full inversion creates harsh contrast
+  that masks icons and looks wrong in dark mode.
 - Sync warning and sync error must be visually distinct.
 - Poster art already introduces enough colour noise; UI colours stay disciplined and semantic.
 
@@ -179,6 +182,34 @@ A button that looks small can still have a 44px tap target:
 
 Recurring patterns that must be consistent across the app.
 
+### NavigationShell
+
+The shell layout is a thin wrapper: bottom nav + page padding only. It carries no app title,
+no persistent header, and no global controls.
+
+Rules:
+- Each page owns its own full-width large-title header row (`display` size, font-bold, left-aligned).
+- The shell never renders an app name or subtitle above the page's own title.
+- Per-page controls (settings, filters, sort) live in the page's header row, not in the shell.
+- Detail pages that sit inside the shell must provide an explicit back button — a `ChevronLeft`
+  icon + "Back" label at `body` size, coloured `text-accent`, with a 44px touch target.
+
+### BottomPillNav
+
+```text
+[Film  Movies] [Bookmark  To Watch] [BarChart2  Stats] [Search  Search]  <- inactive
+[Film  Movies] [Bookmark  To Watch] ...                                  <- active tab: bg-accent/10 text-accent
+```
+
+Icon assignments (lucide-react):
+- Movies → `Film`
+- To Watch → `Bookmark`
+- Stats → `BarChart2`
+- Search → `Search`
+
+Active state: `bg-accent/10 text-accent` on the individual pill. Icon and label share the same
+`text-accent` colour — no separate fill behind the icon. Never invert the whole pill.
+
 ### PosterCard
 ```text
 [2:3 poster]
@@ -204,6 +235,9 @@ Height: 36-40px
 Scroll: horizontal when needed
 ```
 
+Active chip: `bg-accent/15 font-semibold text-accent` (consistent with active state rule in §2).
+Inactive chip: `border border-border bg-surface text-text-2`.
+
 Use for:
 - browsing watched movies by tag
 - browsing watched movies by language when filter mode is active
@@ -224,6 +258,10 @@ Use for:
 - tag lists
 - cast rows
 - stat breakdown rows
+
+Search results specifically: title (headline) + one footnote metadata line only. No overview
+snippet — plot belongs on the detail page, not in search. Consistent row height is more important
+than extra context.
 
 ### CastCarousel
 ```text
@@ -321,7 +359,9 @@ Use for:
 
 - **Icons**: Use SF Symbols naming conventions mentally; implement with SVG or lucide-react.
   Size: 20px in list rows, 20-22px in bottom navigation, 28px in empty states.
+  Nav icon assignments are specified in §6 BottomPillNav.
 - **Charts/visualisations**: Bar and line charts follow colour tokens but sizing is contextual.
+  Time-axis labels must be human-readable (e.g. `-5w … Now`), not ordinal positions.
 - **Loading states**: Skeleton screens preferred over spinners for content areas.
 
 ---
