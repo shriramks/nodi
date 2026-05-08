@@ -20,6 +20,16 @@ export const metadata: Metadata = {
     template: "%s | Nodi",
   },
   description: "Mobile-first movie tracking with watched history, watchlists, and personal stats.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/icon.png", sizes: "512x512", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 export default function RootLayout({
