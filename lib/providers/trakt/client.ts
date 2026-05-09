@@ -84,6 +84,18 @@ export type TraktRequestOptions = {
   accessToken?: string;
 };
 
+export type TraktPagination = {
+  itemCount: number | null;
+  limit: number | null;
+  page: number | null;
+  pageCount: number | null;
+};
+
+export type TraktPaginatedResponse<T> = {
+  items: T;
+  pagination: TraktPagination;
+};
+
 function traktUrl(
   path: string,
   params: Record<string, string | number | boolean | null | undefined> = {},
@@ -126,6 +138,44 @@ export async function fetchTraktJson<T>(
   });
 
   return parseJsonResponse<T>(response);
+}
+
+export async function fetchTraktJsonPage<T>(
+  path: string,
+  options: TraktRequestOptions,
+): Promise<TraktPaginatedResponse<T>> {
+  const response = await fetch(traktUrl(path, options.query), {
+    method: options.method ?? "GET",
+    headers: withTraktHeaders(options.clientId, options.accessToken),
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+  });
+  const items = await parseJsonResponse<T>(response);
+
+  return {
+    items,
+    pagination: parseTraktPagination(response.headers),
+  };
+}
+
+function parseTraktPagination(headers: Headers): TraktPagination {
+  return {
+    itemCount: readPositiveHeader(headers, "x-pagination-item-count"),
+    limit: readPositiveHeader(headers, "x-pagination-limit"),
+    page: readPositiveHeader(headers, "x-pagination-page"),
+    pageCount: readPositiveHeader(headers, "x-pagination-page-count"),
+  };
+}
+
+function readPositiveHeader(headers: Headers, name: string) {
+  const rawValue = headers.get(name);
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const value = Number(rawValue);
+
+  return Number.isInteger(value) && value > 0 ? value : null;
 }
 
 export function getTraktAuthorizeUrl({
@@ -231,6 +281,21 @@ export function listTraktHistoryMovies(
   });
 }
 
+export function listTraktHistoryMoviesPage(
+  auth: TraktAuth,
+  options: { page: number; limit: number; startAt?: string | null },
+) {
+  return fetchTraktJsonPage<TraktHistoryMovie[]>("/users/me/history/movies", {
+    accessToken: auth.accessToken,
+    clientId: auth.clientId,
+    query: {
+      page: options.page,
+      limit: options.limit,
+      start_at: options.startAt,
+    },
+  });
+}
+
 export function listTraktWatchlistMovies(
   auth: TraktAuth,
   options: { page: number; limit: number },
@@ -245,10 +310,45 @@ export function listTraktWatchlistMovies(
   });
 }
 
-export function listTraktRatedMovies(auth: TraktAuth) {
+export function listTraktWatchlistMoviesPage(
+  auth: TraktAuth,
+  options: { page: number; limit: number },
+) {
+  return fetchTraktJsonPage<TraktWatchlistMovie[]>("/users/me/watchlist/movies/added", {
+    accessToken: auth.accessToken,
+    clientId: auth.clientId,
+    query: {
+      page: options.page,
+      limit: options.limit,
+    },
+  });
+}
+
+export function listTraktRatedMovies(
+  auth: TraktAuth,
+  options?: { page?: number; limit?: number },
+) {
   return fetchTraktJson<TraktRatedMovie[]>("/users/me/ratings/movies", {
     accessToken: auth.accessToken,
     clientId: auth.clientId,
+    query: {
+      page: options?.page,
+      limit: options?.limit,
+    },
+  });
+}
+
+export function listTraktRatedMoviesPage(
+  auth: TraktAuth,
+  options: { page: number; limit: number },
+) {
+  return fetchTraktJsonPage<TraktRatedMovie[]>("/users/me/ratings/movies", {
+    accessToken: auth.accessToken,
+    clientId: auth.clientId,
+    query: {
+      page: options.page,
+      limit: options.limit,
+    },
   });
 }
 
