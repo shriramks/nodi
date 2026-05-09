@@ -299,6 +299,11 @@ export type Database = {
           provider: Provider;
           access_token_secret_id: string | null;
           refresh_token_secret_id: string | null;
+          client_id_encrypted: string | null;
+          client_secret_encrypted: string | null;
+          api_token_encrypted: string | null;
+          access_token_encrypted: string | null;
+          refresh_token_encrypted: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -309,6 +314,11 @@ export type Database = {
           provider: Provider;
           access_token_secret_id?: string | null;
           refresh_token_secret_id?: string | null;
+          client_id_encrypted?: string | null;
+          client_secret_encrypted?: string | null;
+          api_token_encrypted?: string | null;
+          access_token_encrypted?: string | null;
+          refresh_token_encrypted?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -319,6 +329,11 @@ export type Database = {
           provider?: Provider;
           access_token_secret_id?: string | null;
           refresh_token_secret_id?: string | null;
+          client_id_encrypted?: string | null;
+          client_secret_encrypted?: string | null;
+          api_token_encrypted?: string | null;
+          access_token_encrypted?: string | null;
+          refresh_token_encrypted?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -461,6 +476,7 @@ export type ProviderMapping = TableRow<"provider_mappings">;
 export type ProviderMappingInsert = TableInsert<"provider_mappings">;
 export type SyncCursor = TableRow<"sync_cursors">;
 export type SyncEvent = TableRow<"sync_events">;
+export type SyncEventUpdate = TableUpdate<"sync_events">;
 
 export type UserMovieWithMovie = UserMovie & {
   movie: Movie;
