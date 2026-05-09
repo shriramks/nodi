@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth/server";
 import { AUTH_ROUTE } from "@/lib/auth/paths";
+import { providerErrorRedirect } from "@/lib/providers/provider-error-redirect";
 import { getTraktAuthorizeUrl } from "@/lib/providers/trakt/client";
 import {
   getTraktRedirectUri,
@@ -38,10 +39,11 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (error) {
     const url = new URL("/settings/sync/trakt", request.url);
-    url.searchParams.set(
-      "error",
-      error instanceof Error ? error.message : "Unable to start Trakt authorization.",
-    );
-    return NextResponse.redirect(url);
+    return providerErrorRedirect({
+      action: "start Trakt authorization",
+      error,
+      label: "Trakt OAuth connect failed",
+      redirectUrl: url,
+    });
   }
 }

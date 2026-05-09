@@ -1,6 +1,6 @@
 /* global self, caches, fetch, URL, Request, Response */
 
-const VERSION = "2026-05-09";
+const VERSION = "2026-05-09-2";
 const PRECACHE = `nodi-precache-${VERSION}`;
 const RUNTIME = `nodi-runtime-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
@@ -65,6 +65,10 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
 
   if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/")) {
     return;
   }
 

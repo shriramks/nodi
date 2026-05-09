@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 
 import { BackButton } from "@/components/navigation/back-button";
+import { SettingsErrorModal } from "@/components/settings/settings-error-modal";
 import { TraktSyncControls } from "@/components/settings/trakt-sync-controls";
 import { getProviderSyncSettings } from "@/lib/db/queries";
 import { getTraktRedirectUri } from "@/lib/providers/trakt/credentials";
@@ -18,6 +19,9 @@ type TraktSyncPageProps = {
   searchParams: Promise<{
     connected?: string;
     error?: string;
+    errorAction?: string;
+    errorDetail?: string;
+    errorLogKey?: string;
   }>;
 };
 
@@ -49,9 +53,11 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
       ) : null}
 
       {params.error ? (
-        <p className="rounded-2xl border border-border bg-surface p-3 text-[13px] leading-[1.4] text-unsynced">
-          {params.error}
-        </p>
+        <SettingsErrorModal
+          action={params.errorAction ?? "update Trakt settings"}
+          detail={params.errorDetail ?? params.error}
+          logKey={params.errorLogKey}
+        />
       ) : null}
 
       <section className="space-y-3 rounded-2xl border border-border bg-surface p-4">
@@ -119,12 +125,14 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
         </div>
 
         {hasAppCredentials ? (
-          <a
-            href="/api/providers/trakt/connect"
-            className="flex h-11 items-center justify-center rounded-xl border border-border bg-background px-4 text-[15px] font-semibold text-foreground"
-          >
-            {connected ? "Reconnect Trakt" : "Authorize Trakt"}
-          </a>
+          <form action="/api/providers/trakt/connect" method="get">
+            <button
+              className="flex h-11 w-full items-center justify-center rounded-xl border border-border bg-background px-4 text-[15px] font-semibold text-foreground"
+              type="submit"
+            >
+              {connected ? "Reconnect Trakt" : "Authorize Trakt"}
+            </button>
+          </form>
         ) : (
           <button
             type="button"

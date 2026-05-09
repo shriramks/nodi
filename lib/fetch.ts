@@ -23,16 +23,28 @@ async function parseErrorPayload(response: Response) {
 
   if (contentType?.includes("application/json")) {
     const payload = (await response.json()) as { error?: string; message?: string };
-    return payload.message ?? payload.error ?? response.statusText;
+    return {
+      details: payload,
+      message: payload.message ?? payload.error ?? httpErrorMessage(response),
+    };
   }
 
   const payload = await response.text();
-  return payload || response.statusText;
+  return {
+    details: {
+      body: payload,
+      contentType,
+    },
+    message: httpErrorMessage(response),
+  };
 }
 
 export async function parseJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    throw new AppError(await parseErrorPayload(response), {
+    const errorPayload = await parseErrorPayload(response);
+
+    throw new AppError(errorPayload.message, {
+      cause: errorPayload.details,
       code: "HTTP_ERROR",
       status: response.status,
     });
@@ -52,6 +64,12 @@ export async function parseJsonResponse<T>(response: Response): Promise<T> {
   }
 
   return (await response.json()) as T;
+}
+
+function httpErrorMessage(response: Response) {
+  return response.statusText
+    ? `HTTP ${response.status}: ${response.statusText}`
+    : `HTTP ${response.status} request failed.`;
 }
 
 export async function fetchJson<T>(

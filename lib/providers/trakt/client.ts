@@ -5,6 +5,7 @@ import { parseJsonResponse } from "@/lib/fetch";
 const traktBaseUrl = "https://api.trakt.tv";
 const traktWebBaseUrl = "https://trakt.tv";
 const traktApiVersion = "2";
+const traktUserAgent = "Nodi/0.1 (+https://movienodi.vercel.app)";
 
 export type TraktMovieIds = {
   trakt?: number | null;
@@ -104,6 +105,7 @@ function withTraktHeaders(clientId: string, accessToken?: string) {
     "content-type": "application/json",
     "trakt-api-key": clientId,
     "trakt-api-version": traktApiVersion,
+    "user-agent": traktUserAgent,
   });
 
   if (accessToken) {
@@ -159,6 +161,9 @@ export async function exchangeTraktCode({
     headers: {
       accept: "application/json",
       "content-type": "application/json",
+      "trakt-api-key": clientId,
+      "trakt-api-version": traktApiVersion,
+      "user-agent": traktUserAgent,
     },
     body: JSON.stringify({
       code,
@@ -188,6 +193,9 @@ export async function refreshTraktToken({
     headers: {
       accept: "application/json",
       "content-type": "application/json",
+      "trakt-api-key": clientId,
+      "trakt-api-version": traktApiVersion,
+      "user-agent": traktUserAgent,
     },
     body: JSON.stringify({
       refresh_token: refreshToken,

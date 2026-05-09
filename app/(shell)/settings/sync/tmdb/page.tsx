@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { BackButton } from "@/components/navigation/back-button";
+import { SettingsErrorModal } from "@/components/settings/settings-error-modal";
 import { getProviderSyncSettings } from "@/lib/db/queries";
 import { disconnectTmdbAction, saveTmdbTokenAction } from "../actions";
 
@@ -11,6 +12,9 @@ export const metadata: Metadata = {
 type TmdbSettingsPageProps = {
   searchParams: Promise<{
     error?: string;
+    errorAction?: string;
+    errorDetail?: string;
+    errorLogKey?: string;
   }>;
 };
 
@@ -32,9 +36,11 @@ export default async function TmdbSettingsPage({ searchParams }: TmdbSettingsPag
       </section>
 
       {params.error ? (
-        <p className="rounded-2xl border border-border bg-surface p-3 text-[13px] leading-[1.4] text-unsynced">
-          {params.error}
-        </p>
+        <SettingsErrorModal
+          action={params.errorAction ?? "update TMDB settings"}
+          detail={params.errorDetail ?? params.error}
+          logKey={params.errorLogKey}
+        />
       ) : null}
 
       <section className="space-y-3 rounded-2xl border border-border bg-surface p-4">
