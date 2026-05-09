@@ -5,6 +5,7 @@ import type { ProviderConnection } from "@/lib/db/types";
 import { AppError } from "@/lib/errors";
 import {
   getProviderConnectionForUser,
+  loadProviderSecretRefs,
   readProviderSecret,
   updateProviderConnectionForUser,
   updateProviderEncryptedSecrets,
@@ -171,6 +172,19 @@ export async function loadTraktSyncCredentials(
     connection: refreshedConnection,
     refreshToken: refreshedTokens.refresh_token,
   };
+}
+
+export async function hasActiveTraktOAuthConnection(userId: string) {
+  const [connection, secrets] = await Promise.all([
+    getProviderConnectionForUser(userId, "trakt"),
+    loadProviderSecretRefs(userId, "trakt"),
+  ]);
+
+  return Boolean(
+    connection?.status === "active" &&
+      secrets.access_token_encrypted &&
+      secrets.refresh_token_encrypted,
+  );
 }
 
 export async function disconnectCurrentUserTrakt() {

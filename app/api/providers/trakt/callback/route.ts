@@ -3,10 +3,12 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth/server";
 import { AUTH_ROUTE } from "@/lib/auth/paths";
+import { isAppError } from "@/lib/errors";
 import { providerErrorRedirect } from "@/lib/providers/provider-error-redirect";
 import { exchangeTraktCode, getTraktUserSettings } from "@/lib/providers/trakt/client";
 import {
   getTraktRedirectUri,
+  hasActiveTraktOAuthConnection,
   loadTraktAppCredentials,
   saveTraktOAuthTokens,
 } from "@/lib/providers/trakt/credentials";
@@ -41,6 +43,10 @@ export async function GET(request: NextRequest) {
   const expectedState = cookieStore.get(stateCookieName)?.value;
 
   if (!code || !state || !expectedState || state !== expectedState) {
+    if (code && state && await hasActiveTraktOAuthConnection(user.id)) {
+      return redirectConnected(redirectUrl);
+    }
+
     return withClearedStateCookie(providerErrorRedirect({
       action: "validate Trakt authorization state",
       error: {
@@ -71,6 +77,13 @@ export async function GET(request: NextRequest) {
     await saveTraktOAuthTokens(user.id, tokens, { providerUserId });
     redirectUrl.searchParams.set("connected", "1");
   } catch (callbackError) {
+    if (
+      isInvalidGrant(callbackError) &&
+      await hasActiveTraktOAuthConnection(user.id)
+    ) {
+      return redirectConnected(redirectUrl);
+    }
+
     return withClearedStateCookie(providerErrorRedirect({
       action: "finish Trakt authorization",
       error: callbackError,
@@ -87,10 +100,34 @@ export async function GET(request: NextRequest) {
   return response;
 }
 
+function redirectConnected(redirectUrl: URL) {
+  redirectUrl.searchParams.set("connected", "1");
+  return withClearedStateCookie(NextResponse.redirect(redirectUrl));
+}
+
 function withClearedStateCookie(response: Response) {
   response.headers.append(
     "set-cookie",
     `${stateCookieName}=; Max-Age=0; Path=/api/providers/trakt/callback; SameSite=Lax`,
   );
   return response;
+}
+
+function isInvalidGrant(error: unknown) {
+  if (!isAppError(error)) {
+    return false;
+  }
+
+  if (error.message === "invalid_grant") {
+    return true;
+  }
+
+  const cause = error.cause;
+
+  return Boolean(
+    cause &&
+      typeof cause === "object" &&
+      "error" in cause &&
+      cause.error === "invalid_grant",
+  );
 }

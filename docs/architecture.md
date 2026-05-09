@@ -128,11 +128,14 @@ User marks watched / changes rating / adds to watchlist
 ```text
 Vercel Cron
   -> /api/sync/trakt/pull
+    -> create sync_runs row
     -> load provider connection + cursors
     -> pull latest ratings/history/watchlist changes
+    -> check cancellation at phase and batch checkpoints
     -> resolve provider ids
     -> upsert local rows
     -> update cursors
+    -> finish sync_runs row
     -> log sync_events
 ```
 
@@ -388,6 +391,7 @@ For v1, online-first is fine. No offline mutation support is required.
 - `GET /api/providers/trakt/callback`
 - `POST /api/sync/trakt/push`
 - `POST /api/sync/trakt/pull`
+- `POST /api/sync/trakt/stop`
 - `GET /api/sync/trakt/status`
 
 Movie status, rating, watch-date, tag, TMDB save, and provider credential writes are implemented as
@@ -420,11 +424,13 @@ Minimum v1 requirements:
 - show provider connection state
 - show last successful sync timestamp
 - show current sync health: synced, pending, error
+- allow stopping the active sync run
 - allow manual sync retry
 
 Recommended data sources:
 - `provider_connections.status`
-- latest successful `sync_events.processed_at`
+- latest successful `sync_runs.finished_at`
+- current active `sync_runs` progress
 - count of pending/error `sync_events`
 
 ## 13. Recommended v1 Technical Scope

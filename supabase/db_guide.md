@@ -80,6 +80,7 @@ These tables are scoped per authenticated user:
 - `user_movie_tags`
 - `provider_connections`
 - `sync_cursors`
+- `sync_runs`
 - `sync_events`
 
 These are protected with RLS policies based on `auth.uid()`.
@@ -119,7 +120,14 @@ Likely follow-up migrations:
 
 If a change affects live data behavior, create a new migration even if the SQL looks small.
 
-## 7. Operational Notes
+## 7. Later Sync Migrations
+
+`supabase/migrations/20260509223000_stabilize_sync_runs.sql` adds `sync_runs` as durable lifecycle
+state for provider sync jobs. `sync_events` remains the append-only queue/audit table, while
+`sync_runs` owns active progress, cancellation, stale-run failure marking, and the one-active-run
+constraint per user/provider.
+
+## 8. Operational Notes
 
 Keep these server-side only:
 - `SUPABASE_SECRET_KEY`

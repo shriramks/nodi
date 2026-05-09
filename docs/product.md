@@ -211,6 +211,10 @@ docs/
 `sync_cursors`
 - last pulled timestamps / checkpoints per provider and user
 
+`sync_runs`
+- active and historical provider sync run lifecycle state, including cancellation and stale-run
+  recovery
+
 `sync_events`
 - audit log of push/pull operations, failures, and conflicts
 
@@ -378,6 +382,16 @@ Indexes:
 - index on `(user_id, provider, status, created_at desc)`
 - index on `(user_id, created_at desc)`
 
+`public.sync_runs`
+- `id uuid primary key default gen_random_uuid()`
+- `user_id uuid not null references auth.users(id) on delete cascade`
+- `provider text not null`
+- `direction text not null check (direction in ('push', 'pull'))`
+- `status text not null check (status in ('running', 'success', 'error', 'cancelled'))`
+- progress fields: `phase`, `label`, `current`, `total`
+- terminal fields: `summary`, `error_message`, `finished_at`, `cancelled_at`
+- unique active-run index on `(user_id, provider) where status = 'running'`
+
 ## 6. Why This Data Model Matters
 
 ### Watched status is not watch history
@@ -498,6 +512,7 @@ These all become cleaner if runtime and watch logs are stored explicitly.
   - connect Trakt
   - see current sync status
   - see last successful sync time
+  - stop the active sync run
   - manually retry sync
 
 ## 9. Online Search Requirements
