@@ -225,7 +225,46 @@ saves the movie as watched, to-watch, rated, tagged, or synced.
 - sync and tags do not depend on a live TMDB call for saved movies
 - casual browsing does not pollute local storage
 
-## 6. Database Boundaries
+## 6. Hardening Boundaries
+
+### Validation
+
+All app-owned writes pass through `lib/db/validation.ts` before reaching Supabase. Validation is
+kept in the server data layer rather than in individual UI components so Server Actions, API routes,
+and sync code share the same rules.
+
+Important validation choices:
+- `YYYY-MM-DD` dates are checked by regex and UTC round-trip so impossible calendar dates are
+  rejected.
+- Watch actions require `watchedAt` when `status` is `watched`.
+- Ratings are nullable and constrained to `0-10` with at most one decimal place.
+- Payload validation preserves whether `personalRating` was omitted or explicitly cleared, because
+  mutation code uses that distinction to avoid clobbering an existing rating.
+
+### Pure transform seams
+
+Provider and analytics transformations should stay easy to test without a live Supabase or provider
+request. Current pure modules are:
+- `lib/providers/tmdb/adapters.ts`
+- `lib/providers/trakt/adapters.ts`
+- `lib/db/queries/stats-transforms.ts`
+- `lib/db/mutations/movie-state.ts`
+
+Tests live under `tests/` and run with `npm run test`. Vitest aliases `@/` to the repo root and
+maps Next's `server-only` marker to an empty test stub so pure server modules can be imported safely
+in a Node test environment.
+
+### Route errors and empty states
+
+The protected app shell has route-level fallbacks:
+- `app/(shell)/error.tsx` for recoverable route rendering failures with retry and Movies actions.
+- `app/(shell)/not-found.tsx` for missing movies or unknown shell routes.
+
+Primary list and analytics routes render explicit empty states when there is no watched library,
+watchlist, search result, or watch history. Movie detail also handles sparse provider metadata by
+rendering empty cast/details copy instead of blank panels.
+
+## 7. Database Boundaries
 
 ### App-owned data
 
@@ -261,7 +300,7 @@ Nodi needs explicit watched dates in `watch_logs` because:
 - monthly and yearly summaries depend on real event dates
 - backfilled history must not collapse into a generic `watched=true` state
 
-## 7. Security Model
+## 8. Security Model
 
 ### Secrets
 
@@ -300,7 +339,7 @@ That means:
 - no admin dashboards or moderation tooling are required for v1
 - auth and RLS still need to be treated as first-class because the product is not single-user
 
-## 8. Deployment Shape
+## 9. Deployment Shape
 
 ### Vercel
 
@@ -325,30 +364,54 @@ Use:
 
 For v1, online-first is fine. No offline mutation support is required.
 
-## 9. Initial Route Map
+## 10. Current Route Map
 
 ### App routes
 
+- `/auth`
 - `/movies`
 - `/to-watch`
 - `/stats`
 - `/search`
 - `/movie/[movieId]`
+- `/movie/tmdb/[tmdbId]`
 - `/settings`
 - `/settings/sync`
+- `/settings/sync/tmdb`
+- `/settings/sync/trakt`
 
 ### API routes
 
 - `GET /api/search/movies`
 - `GET /api/movies/tmdb/[tmdbId]`
-- `POST /api/movies/[movieId]/status`
-- `POST /api/movies/[movieId]/rating`
-- `POST /api/movies/[movieId]/watched-date`
-- `POST /api/movies/[movieId]/tags`
+- `GET /api/providers/trakt/connect`
+- `GET /api/providers/trakt/callback`
 - `POST /api/sync/trakt/push`
 - `POST /api/sync/trakt/pull`
+- `GET /api/sync/trakt/status`
 
-## 10. Sync UI Requirements
+Movie status, rating, watch-date, tag, TMDB save, and provider credential writes are implemented as
+authenticated Server Actions. They share the same validation and mutation modules as route handlers.
+
+## 11. Verification
+
+Use these commands before considering hardening work complete:
+
+```bash
+npm run test
+npm run lint
+npm run build
+```
+
+Basic production smoke checks should include:
+- `/auth` renders.
+- Protected shell routes such as `/movies` redirect unauthenticated users to `/auth?next=...`.
+- PWA public assets such as `/manifest.webmanifest` and `/offline.html` return `200`.
+
+Authenticated happy-path checks still require a Supabase session plus user-owned TMDB/Trakt
+credentials.
+
+## 12. Sync UI Requirements
 
 The app should expose sync state in a dedicated settings area.
 
@@ -364,7 +427,7 @@ Recommended data sources:
 - latest successful `sync_events.processed_at`
 - count of pending/error `sync_events`
 
-## 11. Recommended v1 Technical Scope
+## 13. Recommended v1 Technical Scope
 
 Build v1 as:
 - lightweight multi-user
