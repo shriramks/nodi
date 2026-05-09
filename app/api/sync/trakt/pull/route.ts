@@ -6,6 +6,8 @@ import { createSyncEvent } from "@/lib/db/mutations";
 import { getErrorMessage, isAppError } from "@/lib/errors";
 import { pullTraktSync } from "@/lib/providers/trakt/sync";
 
+export const maxDuration = 300;
+
 export async function POST(request: NextRequest) {
   let authenticated = false;
 

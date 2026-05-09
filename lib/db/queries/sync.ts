@@ -51,6 +51,7 @@ export type ProviderSyncSettings = {
 
 const syncSummaryEventTypes = ["trakt.push.summary", "trakt.pull.summary"];
 const syncProgressEventTypes = ["trakt.push.progress", "trakt.pull.progress"];
+const activeProgressMaxAgeMs = 2 * 60 * 1000;
 
 export async function listProviderConnections() {
   const user = await requireUser();
@@ -257,14 +258,16 @@ export async function getProviderSyncSettings(
     throwDatabaseError("Failed to load active sync progress.", activeProgressResult.error);
   }
 
+  const activeProgress = activeProgressResult.data
+    ? toProviderSyncProgress(
+        activeProgressResult.data.direction,
+        activeProgressResult.data.payload,
+        activeProgressResult.data.processed_at,
+      )
+    : null;
+
   return {
-    activeProgress: activeProgressResult.data
-      ? toProviderSyncProgress(
-          activeProgressResult.data.direction,
-          activeProgressResult.data.payload,
-          activeProgressResult.data.processed_at,
-        )
-      : null,
+    activeProgress: isFreshProgress(activeProgress) ? activeProgress : null,
     connection: connectionResult.data
       ? {
           providerUserId: connectionResult.data.provider_user_id,
@@ -300,6 +303,14 @@ export async function getProviderSyncSettings(
     lastSuccessAt: lastSuccessResult.data?.processed_at ?? null,
     pendingCount: pendingCountResult.count ?? 0,
   };
+}
+
+function isFreshProgress(progress: ProviderSyncProgress | null) {
+  if (!progress?.updatedAt) {
+    return false;
+  }
+
+  return Date.now() - Date.parse(progress.updatedAt) <= activeProgressMaxAgeMs;
 }
 
 function toProviderSyncProgress(
