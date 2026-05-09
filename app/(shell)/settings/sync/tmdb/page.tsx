@@ -8,8 +8,17 @@ export const metadata: Metadata = {
   title: "TMDB Settings",
 };
 
-export default async function TmdbSettingsPage() {
-  const sync = await getProviderSyncSettings("tmdb");
+type TmdbSettingsPageProps = {
+  searchParams: Promise<{
+    error?: string;
+  }>;
+};
+
+export default async function TmdbSettingsPage({ searchParams }: TmdbSettingsPageProps) {
+  const [sync, params] = await Promise.all([
+    getProviderSyncSettings("tmdb"),
+    searchParams,
+  ]);
   const connected = sync.connection?.status === "active" && sync.credentials.hasApiToken;
 
   return (
@@ -21,6 +30,12 @@ export default async function TmdbSettingsPage() {
           Store your TMDB API Read Access Token for search and movie metadata.
         </p>
       </section>
+
+      {params.error ? (
+        <p className="rounded-2xl border border-border bg-surface p-3 text-[13px] leading-[1.4] text-unsynced">
+          {params.error}
+        </p>
+      ) : null}
 
       <section className="space-y-3 rounded-2xl border border-border bg-surface p-4">
         <div className="flex items-start justify-between gap-3">
