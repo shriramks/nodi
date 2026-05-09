@@ -2,25 +2,22 @@ import "server-only";
 
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError } from "@/lib/db/errors";
-import type { Json, Provider, SyncDirection, SyncEventStatus } from "@/lib/db/types";
+import type { Provider, SyncDirection, SyncRunStatus } from "@/lib/db/types";
+import {
+  activeSyncRunMaxAgeMs,
+  toSyncRunProgress,
+  type SyncRunProgress,
+} from "@/lib/db/queries/sync-run-state";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type ProviderSyncProgress = {
-  current: number;
-  direction: SyncDirection;
-  label: string;
-  percent: number;
-  phase: string;
-  total: number;
-  updatedAt: string | null;
-};
+export type ProviderSyncProgress = SyncRunProgress;
 
 export type ProviderLastSyncRun = {
   direction: SyncDirection;
   errorMessage: string | null;
   eventType: string;
   processedAt: string | null;
-  status: SyncEventStatus;
+  status: SyncRunStatus;
 };
 
 export type ProviderSyncSettings = {
@@ -51,7 +48,7 @@ export type ProviderSyncSettings = {
 
 const syncSummaryEventTypes = ["trakt.push.summary", "trakt.pull.summary"];
 const syncProgressEventTypes = ["trakt.push.progress", "trakt.pull.progress"];
-const activeProgressMaxAgeMs = 2 * 60 * 1000;
+const staleSyncMessage = "Sync run stopped reporting progress and was marked failed.";
 
 export async function listProviderConnections() {
   const user = await requireUser();
@@ -146,14 +143,18 @@ export async function getProviderSyncSettings(
   const supabase = await createSupabaseServerClient();
   const admin = createSupabaseAdminClient();
 
+  await markStaleSyncState(admin, user.id, provider);
+
   const [
     connectionResult,
     secretRefsResult,
     lastSuccessResult,
+    legacyLastSuccessResult,
     pendingCountResult,
     errorCountResult,
     lastFailureResult,
     lastRunResult,
+    legacyLastRunResult,
     activeProgressResult,
   ] = await Promise.all([
     supabase
@@ -169,6 +170,16 @@ export async function getProviderSyncSettings(
       )
       .eq("user_id", user.id)
       .eq("provider", provider)
+      .maybeSingle(),
+    supabase
+      .from("sync_runs")
+      .select("finished_at")
+      .eq("user_id", user.id)
+      .eq("provider", provider)
+      .eq("status", "success")
+      .not("finished_at", "is", null)
+      .order("finished_at", { ascending: false })
+      .limit(1)
       .maybeSingle(),
     supabase
       .from("sync_events")
@@ -205,6 +216,14 @@ export async function getProviderSyncSettings(
       .limit(1)
       .maybeSingle(),
     supabase
+      .from("sync_runs")
+      .select("direction, status, error_message, finished_at")
+      .eq("user_id", user.id)
+      .eq("provider", provider)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
       .from("sync_events")
       .select("direction, event_type, status, error_message, processed_at")
       .eq("user_id", user.id)
@@ -215,13 +234,12 @@ export async function getProviderSyncSettings(
       .limit(1)
       .maybeSingle(),
     supabase
-      .from("sync_events")
-      .select("direction, event_type, payload, processed_at")
+      .from("sync_runs")
+      .select("id, direction, status, phase, label, current, total, updated_at")
       .eq("user_id", user.id)
       .eq("provider", provider)
-      .eq("status", "pending")
-      .in("event_type", syncProgressEventTypes)
-      .order("created_at", { ascending: false })
+      .eq("status", "running")
+      .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
   ]);
@@ -232,6 +250,10 @@ export async function getProviderSyncSettings(
 
   if (lastSuccessResult.error) {
     throwDatabaseError("Failed to load last sync success.", lastSuccessResult.error);
+  }
+
+  if (legacyLastSuccessResult.error) {
+    throwDatabaseError("Failed to load legacy last sync success.", legacyLastSuccessResult.error);
   }
 
   if (secretRefsResult.error) {
@@ -254,20 +276,44 @@ export async function getProviderSyncSettings(
     throwDatabaseError("Failed to load last sync run.", lastRunResult.error);
   }
 
+  if (legacyLastRunResult.error) {
+    throwDatabaseError("Failed to load legacy last sync run.", legacyLastRunResult.error);
+  }
+
   if (activeProgressResult.error) {
     throwDatabaseError("Failed to load active sync progress.", activeProgressResult.error);
   }
 
   const activeProgress = activeProgressResult.data
-    ? toProviderSyncProgress(
-        activeProgressResult.data.direction,
-        activeProgressResult.data.payload,
-        activeProgressResult.data.processed_at,
-      )
+    ? toSyncRunProgress({
+        current: activeProgressResult.data.current,
+        direction: activeProgressResult.data.direction,
+        id: activeProgressResult.data.id,
+        label: activeProgressResult.data.label,
+        phase: activeProgressResult.data.phase,
+        status: activeProgressResult.data.status,
+        total: activeProgressResult.data.total,
+        updatedAt: activeProgressResult.data.updated_at,
+      })
     : null;
 
+  const legacyLastRun = legacyLastRunResult.data?.status === "success" ||
+    legacyLastRunResult.data?.status === "error"
+    ? {
+        direction: legacyLastRunResult.data.direction,
+        errorMessage: legacyLastRunResult.data.error_message,
+        eventType: legacyLastRunResult.data.event_type,
+        processedAt: legacyLastRunResult.data.processed_at,
+        status: legacyLastRunResult.data.status,
+      }
+    : null;
+  const lastSuccessAt = latestTimestamp(
+    lastSuccessResult.data?.finished_at ?? null,
+    legacyLastSuccessResult.data?.processed_at ?? null,
+  );
+
   return {
-    activeProgress: isFreshProgress(activeProgress) ? activeProgress : null,
+    activeProgress,
     connection: connectionResult.data
       ? {
           providerUserId: connectionResult.data.provider_user_id,
@@ -295,62 +341,68 @@ export async function getProviderSyncSettings(
       ? {
           direction: lastRunResult.data.direction,
           errorMessage: lastRunResult.data.error_message,
-          eventType: lastRunResult.data.event_type,
-          processedAt: lastRunResult.data.processed_at,
+          eventType: `trakt.${lastRunResult.data.direction}.run`,
+          processedAt: lastRunResult.data.finished_at,
           status: lastRunResult.data.status,
         }
-      : null,
-    lastSuccessAt: lastSuccessResult.data?.processed_at ?? null,
+      : legacyLastRun,
+    lastSuccessAt,
     pendingCount: pendingCountResult.count ?? 0,
   };
 }
 
-function isFreshProgress(progress: ProviderSyncProgress | null) {
-  if (!progress?.updatedAt) {
-    return false;
+function latestTimestamp(left: string | null, right: string | null) {
+  if (!left) {
+    return right;
   }
 
-  return Date.now() - Date.parse(progress.updatedAt) <= activeProgressMaxAgeMs;
+  if (!right) {
+    return left;
+  }
+
+  return Date.parse(left) > Date.parse(right) ? left : right;
 }
 
-function toProviderSyncProgress(
-  direction: SyncDirection,
-  payload: Json,
-  updatedAt: string | null,
-): ProviderSyncProgress {
-  const record = payload && typeof payload === "object" && !Array.isArray(payload)
-    ? (payload as Record<string, unknown>)
-    : {};
-  const current = numberValue(record.current);
-  const total = numberValue(record.total);
+async function markStaleSyncState(
+  admin: ReturnType<typeof createSupabaseAdminClient>,
+  userId: string,
+  provider: Provider,
+) {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - activeSyncRunMaxAgeMs).toISOString();
+  const timestamp = now.toISOString();
+  const { error: runError } = await admin
+    .from("sync_runs")
+    .update({
+      error_message: staleSyncMessage,
+      finished_at: timestamp,
+      label: "Sync timed out",
+      phase: "error",
+      status: "error",
+    })
+    .eq("user_id", userId)
+    .eq("provider", provider)
+    .eq("status", "running")
+    .lt("updated_at", cutoff);
 
-  return {
-    current,
-    direction,
-    label: stringValue(record.label) ?? "Syncing",
-    percent: clampPercent(record.percent, current, total),
-    phase: stringValue(record.phase) ?? "sync",
-    total,
-    updatedAt,
-  };
-}
+  if (runError) {
+    throwDatabaseError("Failed to mark stale sync runs.", runError);
+  }
 
-function numberValue(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.max(Math.floor(value), 0)
-    : 0;
-}
+  const { error: eventError } = await admin
+    .from("sync_events")
+    .update({
+      error_message: staleSyncMessage,
+      processed_at: timestamp,
+      status: "error",
+    })
+    .eq("user_id", userId)
+    .eq("provider", provider)
+    .eq("status", "pending")
+    .in("event_type", syncProgressEventTypes)
+    .lt("processed_at", cutoff);
 
-function stringValue(value: unknown) {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-function clampPercent(value: unknown, current: number, total: number) {
-  const percent = typeof value === "number" && Number.isFinite(value)
-    ? value
-    : total > 0
-      ? (current / total) * 100
-      : 0;
-
-  return Math.min(Math.max(Math.round(percent), 0), 100);
+  if (eventError) {
+    throwDatabaseError("Failed to mark stale sync progress events.", eventError);
+  }
 }

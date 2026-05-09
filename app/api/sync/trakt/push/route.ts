@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/server";
 import { createSyncEvent } from "@/lib/db/mutations";
 import { getErrorMessage, isAppError } from "@/lib/errors";
-import { pushTraktSync } from "@/lib/providers/trakt/sync";
+import { isTraktSyncControlError, pushTraktSync } from "@/lib/providers/trakt/sync";
 
 export async function POST(request: NextRequest) {
   let authenticated = false;
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    if (authenticated) {
+    if (authenticated && !isTraktSyncControlError(error)) {
       await logSyncRouteFailure("push", getErrorMessage(error));
     }
 

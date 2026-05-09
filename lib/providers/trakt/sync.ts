@@ -4,16 +4,19 @@ import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError } from "@/lib/db/errors";
 import { createSyncEvent, updateSyncEventStatus, upsertSyncCursor } from "@/lib/db/mutations";
 import { listPendingSyncEvents } from "@/lib/db/queries";
+import { activeSyncRunMaxAgeMs } from "@/lib/db/queries/sync-run-state";
 import type {
   Json,
   Movie,
   MovieInsert,
   ProviderMapping,
   ProviderMappingInsert,
+  SyncDirection,
   SyncEvent,
+  SyncRunStatus,
   UserMovie,
 } from "@/lib/db/types";
-import { AppError, getErrorMessage } from "@/lib/errors";
+import { AppError, getErrorMessage, isAppError } from "@/lib/errors";
 import {
   toRemoteTraktMovieState,
   toRemoteTraktRatingState,
@@ -59,8 +62,6 @@ type PullResult = {
   watchlistRemoved: number;
 };
 
-type SyncProgressDirection = "pull" | "push";
-
 type SyncProgressPayload = {
   current: number;
   label: string;
@@ -69,15 +70,17 @@ type SyncProgressPayload = {
 };
 
 type CursorMap = Map<string, string>;
+type SyncRunTerminalStatus = Exclude<SyncRunStatus, "running">;
 
 const provider = "trakt" as const;
 const pageLimit = 100;
 const maxHistoryPages = 20;
 const maxWatchlistPages = 20;
+const staleSyncMessage = "Sync run stopped reporting progress and was marked failed.";
 
 export async function pushTraktSync(origin: string, limit = 50): Promise<PushResult> {
   const user = await requireUser();
-  const progress = await createSyncProgress("push", {
+  const run = await createTraktSyncRun(user.id, "push", {
     current: 0,
     label: "Connecting to Trakt",
     phase: "connect",
@@ -87,12 +90,13 @@ export async function pushTraktSync(origin: string, limit = 50): Promise<PushRes
   let progressTotal = 0;
 
   try {
+    await assertTraktSyncRunActive(user.id, run.id);
     const connection = await loadTraktSyncCredentials(user.id, origin);
     await refreshTraktConnection(user.id, connection);
 
     const events = await listPendingSyncEvents(provider, "push", limit);
     progressTotal = events.length;
-    await updateSyncProgress(progress, {
+    await updateTraktSyncRunProgress(user.id, run.id, {
       current: 0,
       label: events.length > 0 ? `Pushing ${events.length} change(s)` : "No changes to push",
       phase: "push",
@@ -107,6 +111,8 @@ export async function pushTraktSync(origin: string, limit = 50): Promise<PushRes
     };
 
     for (const event of events) {
+      await assertTraktSyncRunActive(user.id, run.id);
+
       try {
         const pushResponse = await pushSyncEvent(connection, event);
         const skipped = Boolean(readRecord(pushResponse).skipped);
@@ -133,7 +139,7 @@ export async function pushTraktSync(origin: string, limit = 50): Promise<PushRes
       }
 
       progressCurrent += 1;
-      await updateSyncProgress(progress, {
+      await updateTraktSyncRunProgress(user.id, run.id, {
         current: progressCurrent,
         label: `Processed ${progressCurrent} of ${progressTotal}`,
         phase: "push",
@@ -152,29 +158,34 @@ export async function pushTraktSync(origin: string, limit = 50): Promise<PushRes
       errorMessage: result.failed > 0 ? `${result.failed} Trakt push event(s) failed.` : null,
       processedAt,
     });
-    await updateSyncProgress(
-      progress,
+    await finishTraktSyncRun(
+      user.id,
+      run.id,
+      result.failed > 0 ? "error" : "success",
       {
         current: progressTotal,
         label: result.failed > 0 ? "Push completed with failures" : "Push complete",
         phase: "complete",
         total: progressTotal,
       },
-      result.failed > 0 ? "error" : "success",
+      result as unknown as Json,
       result.failed > 0 ? `${result.failed} Trakt push event(s) failed.` : null,
     );
 
     return result;
   } catch (error) {
-    await updateSyncProgress(
-      progress,
+    const cancelled = isSyncRunCancelledError(error);
+    await finishTraktSyncRun(
+      user.id,
+      run.id,
+      cancelled ? "cancelled" : "error",
       {
         current: progressCurrent,
-        label: "Push failed",
-        phase: "error",
+        label: cancelled ? "Push stopped" : "Push failed",
+        phase: cancelled ? "cancelled" : "error",
         total: progressTotal,
       },
-      "error",
+      {},
       getErrorMessage(error),
     );
     throw error;
@@ -183,7 +194,7 @@ export async function pushTraktSync(origin: string, limit = 50): Promise<PushRes
 
 export async function pullTraktSync(origin: string): Promise<PullResult> {
   const user = await requireUser();
-  const progress = await createSyncProgress("pull", {
+  const run = await createTraktSyncRun(user.id, "pull", {
     current: 0,
     label: "Connecting to Trakt",
     phase: "connect",
@@ -193,6 +204,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
   let progressTotal = 4;
 
   try {
+    await assertTraktSyncRunActive(user.id, run.id);
     const connection = await loadTraktSyncCredentials(user.id, origin);
     await refreshTraktConnection(user.id, connection);
 
@@ -208,36 +220,43 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     };
 
     const historyCursor = cursors.get("history.last_watched_at") ?? null;
-    await updateSyncProgress(progress, {
+    await updateTraktSyncRunProgress(user.id, run.id, {
       current: 0,
       label: "Loading history",
       phase: "fetch",
       total: 4,
     });
-    const historyItems = await listAllHistory(connection, historyCursor);
-    await updateSyncProgress(progress, {
+    const historyItems = await listAllHistory(connection, historyCursor, {
+      runId: run.id,
+      userId: user.id,
+    });
+    await updateTraktSyncRunProgress(user.id, run.id, {
       current: 1,
       label: `Loaded ${historyItems.length} history item(s)`,
       phase: "fetch",
       total: 4,
     });
 
-    const watchlistItems = await listAllWatchlist(connection);
+    const watchlistItems = await listAllWatchlist(connection, {
+      runId: run.id,
+      userId: user.id,
+    });
     const watchlistStates = watchlistItems
       .map(toRemoteTraktWatchlistState)
       .filter((item): item is RemoteTraktWatchlistState => item !== null);
-    await updateSyncProgress(progress, {
+    await updateTraktSyncRunProgress(user.id, run.id, {
       current: 2,
       label: `Loaded ${watchlistStates.length} watchlist item(s)`,
       phase: "fetch",
       total: 4,
     });
 
+    await assertTraktSyncRunActive(user.id, run.id);
     const ratingItems = await listTraktRatedMovies(connection);
     const ratingStates = ratingItems
       .map(toRemoteTraktRatingState)
       .filter((item): item is RemoteTraktRatingState => item !== null);
-    await updateSyncProgress(progress, {
+    await updateTraktSyncRunProgress(user.id, run.id, {
       current: 3,
       label: `Loaded ${ratingStates.length} rating(s)`,
       phase: "fetch",
@@ -261,7 +280,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       ratingStates.length +
       removedRatingKeys.length;
     progressCurrent = 0;
-    await updateSyncProgress(progress, {
+    await updateTraktSyncRunProgress(user.id, run.id, {
       current: 0,
       label: progressTotal > 0 ? `Reconciling ${progressTotal} item(s)` : "Nothing to import",
       phase: "reconcile",
@@ -269,12 +288,13 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     });
 
     for (const item of historyItems) {
+      await assertTraktSyncRunActive(user.id, run.id);
       const remoteMovie = toRemoteTraktMovieState(item.movie);
 
       if (!remoteMovie) {
         result.skipped += 1;
         progressCurrent += 1;
-        await updateSyncProgressCheckpoint(progress, progressCurrent, progressTotal, "History");
+        await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "History");
         continue;
       }
 
@@ -283,14 +303,14 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       if (!localMovie) {
         result.skipped += 1;
         progressCurrent += 1;
-        await updateSyncProgressCheckpoint(progress, progressCurrent, progressTotal, "History");
+        await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "History");
         continue;
       }
 
       await applyRemoteHistory(user.id, localMovie.id, item);
       result.historyImported += 1;
       progressCurrent += 1;
-      await updateSyncProgressCheckpoint(progress, progressCurrent, progressTotal, "History");
+      await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "History");
 
       if (!newestWatchedAt || Date.parse(item.watched_at) > Date.parse(newestWatchedAt)) {
         newestWatchedAt = item.watched_at;
@@ -302,12 +322,13 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     }
 
     for (const item of watchlistStates) {
+      await assertTraktSyncRunActive(user.id, run.id);
       const localMovie = await resolveLocalMovie(item);
 
       if (!localMovie) {
         result.skipped += 1;
         progressCurrent += 1;
-        await updateSyncProgressCheckpoint(progress, progressCurrent, progressTotal, "Watchlist");
+        await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Watchlist");
         continue;
       }
 
@@ -318,15 +339,16 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       }
 
       progressCurrent += 1;
-      await updateSyncProgressCheckpoint(progress, progressCurrent, progressTotal, "Watchlist");
+      await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Watchlist");
     }
 
     for (const key of removedWatchlistKeys) {
+      await assertTraktSyncRunActive(user.id, run.id);
       const movieId = await findLocalMovieIdByRemoteKey(key);
 
       if (!movieId || pendingMovieIds.has(movieId)) {
         progressCurrent += 1;
-        await updateSyncProgressCheckpoint(progress, progressCurrent, progressTotal, "Watchlist");
+        await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Watchlist");
         continue;
       }
 
@@ -337,7 +359,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       }
 
       progressCurrent += 1;
-      await updateSyncProgressCheckpoint(progress, progressCurrent, progressTotal, "Watchlist");
+      await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Watchlist");
     }
 
     await upsertSyncCursor(
@@ -347,27 +369,29 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     );
 
     for (const item of ratingStates) {
+      await assertTraktSyncRunActive(user.id, run.id);
       const localMovie = await resolveLocalMovie(item);
 
       if (!localMovie) {
         result.skipped += 1;
         progressCurrent += 1;
-        await updateSyncProgressCheckpoint(progress, progressCurrent, progressTotal, "Ratings");
+        await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Ratings");
         continue;
       }
 
       await applyRemoteRating(user.id, localMovie.id, item);
       result.ratingsImported += 1;
       progressCurrent += 1;
-      await updateSyncProgressCheckpoint(progress, progressCurrent, progressTotal, "Ratings");
+      await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Ratings");
     }
 
     for (const key of removedRatingKeys) {
+      await assertTraktSyncRunActive(user.id, run.id);
       const movieId = await findLocalMovieIdByRemoteKey(key);
 
       if (!movieId || pendingMovieIds.has(movieId)) {
         progressCurrent += 1;
-        await updateSyncProgressCheckpoint(progress, progressCurrent, progressTotal, "Ratings");
+        await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Ratings");
         continue;
       }
 
@@ -378,7 +402,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       }
 
       progressCurrent += 1;
-      await updateSyncProgressCheckpoint(progress, progressCurrent, progressTotal, "Ratings");
+      await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Ratings");
     }
 
     await upsertSyncCursor(
@@ -397,64 +421,42 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       payload: result as unknown as Json,
       processedAt,
     });
-    await updateSyncProgress(
-      progress,
+    await finishTraktSyncRun(
+      user.id,
+      run.id,
+      "success",
       {
         current: progressTotal,
         label: "Pull complete",
         phase: "complete",
         total: progressTotal,
       },
-      "success",
+      result as unknown as Json,
     );
 
     return result;
   } catch (error) {
-    await updateSyncProgress(
-      progress,
+    const cancelled = isSyncRunCancelledError(error);
+    await finishTraktSyncRun(
+      user.id,
+      run.id,
+      cancelled ? "cancelled" : "error",
       {
         current: progressCurrent,
-        label: "Pull failed",
-        phase: "error",
+        label: cancelled ? "Pull stopped" : "Pull failed",
+        phase: cancelled ? "cancelled" : "error",
         total: progressTotal,
       },
-      "error",
+      {},
       getErrorMessage(error),
     );
     throw error;
   }
 }
 
-async function createSyncProgress(
-  direction: SyncProgressDirection,
-  payload: SyncProgressPayload,
-) {
-  return createSyncEvent({
-    provider,
-    direction,
-    eventType: `trakt.${direction}.progress`,
-    status: "pending",
-    payload: toSyncProgressJson(payload),
-    processedAt: new Date().toISOString(),
-  });
-}
-
-async function updateSyncProgress(
-  progress: SyncEvent,
-  payload: SyncProgressPayload,
-  status: "error" | "pending" | "success" = "pending",
-  errorMessage: string | null = null,
-) {
-  await updateSyncEventStatus(progress.id, {
-    errorMessage,
-    payload: toSyncProgressJson(payload),
-    processedAt: new Date().toISOString(),
-    status,
-  });
-}
-
-async function updateSyncProgressCheckpoint(
-  progress: SyncEvent,
+async function updateSyncRunProgressCheckpoint(
+  userId: string,
+  runId: string,
   current: number,
   total: number,
   label: string,
@@ -463,7 +465,7 @@ async function updateSyncProgressCheckpoint(
     return;
   }
 
-  await updateSyncProgress(progress, {
+  await updateTraktSyncRunProgress(userId, runId, {
     current,
     label: `${label} ${current} of ${total}`,
     phase: "reconcile",
@@ -471,22 +473,208 @@ async function updateSyncProgressCheckpoint(
   });
 }
 
-function toSyncProgressJson(payload: SyncProgressPayload): Json {
+export async function cancelActiveTraktSync() {
+  const user = await requireUser();
+  const cancelledAt = new Date().toISOString();
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("sync_runs")
+    .update({
+      cancelled_at: cancelledAt,
+      error_message: "Sync was stopped by the user.",
+      finished_at: cancelledAt,
+      label: "Sync stopped",
+      phase: "cancelled",
+      status: "cancelled",
+    })
+    .eq("user_id", user.id)
+    .eq("provider", provider)
+    .eq("status", "running")
+    .select("*")
+    .maybeSingle();
+
+  if (error) {
+    throwDatabaseError("Failed to stop Trakt sync.", error);
+  }
+
+  return data;
+}
+
+export function isTraktSyncControlError(error: unknown) {
+  return isAppError(error) && (
+    error.code === "SYNC_ALREADY_RUNNING" ||
+    error.code === "SYNC_CANCELLED"
+  );
+}
+
+function isSyncRunCancelledError(error: unknown) {
+  return isAppError(error) && error.code === "SYNC_CANCELLED";
+}
+
+async function createTraktSyncRun(
+  userId: string,
+  direction: SyncDirection,
+  payload: SyncProgressPayload,
+) {
+  await markStaleTraktRuns(userId);
+
+  const fields = toSyncRunFields(payload);
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("sync_runs")
+    .insert({
+      user_id: userId,
+      provider,
+      direction,
+      status: "running",
+      ...fields,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    if (isUniqueConstraintError(error)) {
+      throw new AppError("A Trakt sync is already running.", {
+        cause: error,
+        code: "SYNC_ALREADY_RUNNING",
+        status: 409,
+      });
+    }
+
+    throwDatabaseError("Failed to start Trakt sync run.", error);
+  }
+
+  return data;
+}
+
+async function updateTraktSyncRunProgress(
+  userId: string,
+  runId: string,
+  payload: SyncProgressPayload,
+) {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("sync_runs")
+    .update(toSyncRunFields(payload))
+    .eq("id", runId)
+    .eq("user_id", userId)
+    .eq("status", "running")
+    .select("*")
+    .maybeSingle();
+
+  if (error) {
+    throwDatabaseError("Failed to update Trakt sync run.", error);
+  }
+
+  if (!data) {
+    await assertTraktSyncRunActive(userId, runId);
+  }
+
+  return data;
+}
+
+async function finishTraktSyncRun(
+  userId: string,
+  runId: string,
+  status: SyncRunTerminalStatus,
+  payload: SyncProgressPayload,
+  summary: Json = {},
+  errorMessage: string | null = null,
+) {
+  const timestamp = new Date().toISOString();
+  const fields = toSyncRunFields(payload);
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("sync_runs")
+    .update({
+      ...fields,
+      cancelled_at: status === "cancelled" ? timestamp : null,
+      error_message: errorMessage,
+      finished_at: timestamp,
+      status,
+      summary,
+    })
+    .eq("id", runId)
+    .eq("user_id", userId)
+    .select("*")
+    .single();
+
+  if (error) {
+    throwDatabaseError("Failed to finish Trakt sync run.", error);
+  }
+
+  return data;
+}
+
+async function assertTraktSyncRunActive(userId: string, runId: string) {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("sync_runs")
+    .select("status")
+    .eq("id", runId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throwDatabaseError("Failed to read Trakt sync run.", error);
+  }
+
+  if (data?.status === "cancelled") {
+    throw new AppError("Sync was stopped by the user.", {
+      code: "SYNC_CANCELLED",
+      status: 409,
+    });
+  }
+
+  if (data?.status !== "running") {
+    throw new AppError("Sync run is no longer active.", {
+      code: "SYNC_NOT_ACTIVE",
+      status: 409,
+    });
+  }
+}
+
+async function markStaleTraktRuns(userId: string) {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - activeSyncRunMaxAgeMs).toISOString();
+  const { error } = await createSupabaseAdminClient()
+    .from("sync_runs")
+    .update({
+      error_message: staleSyncMessage,
+      finished_at: now.toISOString(),
+      label: "Sync timed out",
+      phase: "error",
+      status: "error",
+    })
+    .eq("user_id", userId)
+    .eq("provider", provider)
+    .eq("status", "running")
+    .lt("updated_at", cutoff);
+
+  if (error) {
+    throwDatabaseError("Failed to mark stale Trakt sync runs.", error);
+  }
+}
+
+function toSyncRunFields(payload: SyncProgressPayload) {
   const current = Math.max(Math.floor(payload.current), 0);
   const total = Math.max(Math.floor(payload.total), 0);
-  const percent = total > 0
-    ? Math.min(Math.round((current / total) * 100), 100)
-    : payload.phase === "complete"
-      ? 100
-      : 0;
 
   return {
     current,
     label: payload.label,
-    percent,
     phase: payload.phase,
     total,
   };
+}
+
+function isUniqueConstraintError(error: unknown) {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "23505"
+  );
 }
 
 async function pushSyncEvent(auth: TraktAuth, event: SyncEvent) {
@@ -573,10 +761,15 @@ async function refreshTraktConnection(userId: string, auth: TraktAuth) {
   }
 }
 
-async function listAllHistory(auth: TraktAuth, startAt: string | null) {
+async function listAllHistory(
+  auth: TraktAuth,
+  startAt: string | null,
+  run: { runId: string; userId: string },
+) {
   const items: TraktHistoryMovie[] = [];
 
   for (let page = 1; page <= maxHistoryPages; page += 1) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
     const pageItems = await listTraktHistoryMovies(auth, {
       page,
       limit: pageLimit,
@@ -584,6 +777,7 @@ async function listAllHistory(auth: TraktAuth, startAt: string | null) {
     });
 
     items.push(...pageItems);
+    await assertTraktSyncRunActive(run.userId, run.runId);
 
     if (pageItems.length < pageLimit) {
       break;
@@ -593,16 +787,21 @@ async function listAllHistory(auth: TraktAuth, startAt: string | null) {
   return items;
 }
 
-async function listAllWatchlist(auth: TraktAuth) {
+async function listAllWatchlist(
+  auth: TraktAuth,
+  run: { runId: string; userId: string },
+) {
   const items = [];
 
   for (let page = 1; page <= maxWatchlistPages; page += 1) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
     const pageItems = await listTraktWatchlistMovies(auth, {
       page,
       limit: pageLimit,
     });
 
     items.push(...pageItems);
+    await assertTraktSyncRunActive(run.userId, run.runId);
 
     if (pageItems.length < pageLimit) {
       break;

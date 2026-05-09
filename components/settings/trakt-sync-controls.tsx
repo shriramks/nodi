@@ -1,6 +1,6 @@
 "use client";
 
-import { DownloadCloud, RefreshCcw, UploadCloud } from "lucide-react";
+import { CircleStop, DownloadCloud, RefreshCcw, UploadCloud } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { ProviderSyncSettings } from "@/lib/db/queries/sync";
@@ -15,6 +15,7 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
   const router = useRouter();
   const [syncState, setSyncState] = useState(initialSync);
   const [runningAction, setRunningAction] = useState<SyncAction | null>(null);
+  const [stopping, setStopping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const connected = syncState.connection?.status === "active";
   const progress = syncState.activeProgress;
@@ -76,10 +77,37 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
       await refreshSyncStatus();
       router.refresh();
     } catch (syncError) {
-      setError(syncError instanceof Error ? syncError.message : "Sync failed.");
+      const message = syncError instanceof Error ? syncError.message : "Sync failed.";
+
+      setError(message === "Sync was stopped by the user." ? null : message);
       await refreshSyncStatus();
     } finally {
       setRunningAction(null);
+    }
+  }
+
+  async function stopSync() {
+    setError(null);
+    setStopping(true);
+
+    try {
+      const response = await fetch("/api/sync/trakt/stop", {
+        method: "POST",
+      });
+      const payload = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Could not stop sync.");
+      }
+
+      setRunningAction(null);
+      await refreshSyncStatus();
+      router.refresh();
+    } catch (stopError) {
+      setError(stopError instanceof Error ? stopError.message : "Could not stop sync.");
+      await refreshSyncStatus();
+    } finally {
+      setStopping(false);
     }
   }
 
@@ -153,9 +181,24 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
       ) : null}
 
       <div className="grid grid-cols-2 gap-3">
+        {progress || runningAction ? (
+          <button
+            type="button"
+            disabled={stopping}
+            onClick={stopSync}
+            className="col-span-2 flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 text-[15px] font-semibold text-unsynced disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {stopping ? (
+              <RefreshCcw aria-hidden="true" className="h-5 w-5 animate-spin" />
+            ) : (
+              <CircleStop aria-hidden="true" className="h-5 w-5" />
+            )}
+            {stopping ? "Stopping" : "Stop sync"}
+          </button>
+        ) : null}
         <button
           type="button"
-          disabled={!connected || runningAction !== null || Boolean(progress)}
+          disabled={!connected || stopping || runningAction !== null || Boolean(progress)}
           onClick={() => runSync("push")}
           className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl border border-border bg-surface px-3 text-[13px] font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-45"
         >
@@ -168,7 +211,7 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
         </button>
         <button
           type="button"
-          disabled={!connected || runningAction !== null || Boolean(progress)}
+          disabled={!connected || stopping || runningAction !== null || Boolean(progress)}
           onClick={() => runSync("pull")}
           className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl border border-border bg-surface px-3 text-[13px] font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-45"
         >

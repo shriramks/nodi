@@ -9,6 +9,7 @@ export type ProviderMappingProvider = Provider | "imdb";
 export type ProviderConnectionStatus = "active" | "revoked" | "error";
 export type SyncDirection = "push" | "pull";
 export type SyncEventStatus = "pending" | "success" | "error";
+export type SyncRunStatus = "running" | "success" | "error" | "cancelled";
 
 export type Database = {
   public: {
@@ -442,6 +443,60 @@ export type Database = {
         };
         Relationships: [];
       };
+      sync_runs: {
+        Row: {
+          id: string;
+          user_id: string;
+          provider: Provider;
+          direction: SyncDirection;
+          status: SyncRunStatus;
+          phase: string;
+          label: string;
+          current: number;
+          total: number;
+          summary: Json;
+          error_message: string | null;
+          started_at: string;
+          updated_at: string;
+          finished_at: string | null;
+          cancelled_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          provider: Provider;
+          direction: SyncDirection;
+          status?: SyncRunStatus;
+          phase?: string;
+          label?: string;
+          current?: number;
+          total?: number;
+          summary?: Json;
+          error_message?: string | null;
+          started_at?: string;
+          updated_at?: string;
+          finished_at?: string | null;
+          cancelled_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          provider?: Provider;
+          direction?: SyncDirection;
+          status?: SyncRunStatus;
+          phase?: string;
+          label?: string;
+          current?: number;
+          total?: number;
+          summary?: Json;
+          error_message?: string | null;
+          started_at?: string;
+          updated_at?: string;
+          finished_at?: string | null;
+          cancelled_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -477,6 +532,7 @@ export type ProviderMappingInsert = TableInsert<"provider_mappings">;
 export type SyncCursor = TableRow<"sync_cursors">;
 export type SyncEvent = TableRow<"sync_events">;
 export type SyncEventUpdate = TableUpdate<"sync_events">;
+export type SyncRun = TableRow<"sync_runs">;
 
 export type UserMovieWithMovie = UserMovie & {
   movie: Movie;
