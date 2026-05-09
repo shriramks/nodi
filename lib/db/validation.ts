@@ -147,11 +147,21 @@ function optionalIsoDate(payload: RecordPayload, key: string): string | null {
     return null;
   }
 
-  if (!isoDatePattern.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00.000Z`))) {
+  if (!isValidIsoDate(value)) {
     validationError(`Expected ${key} to be an ISO date in YYYY-MM-DD format.`);
   }
 
   return value;
+}
+
+function isValidIsoDate(value: string) {
+  if (!isoDatePattern.test(value)) {
+    return false;
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
 function optionalIsoTimestamp(payload: RecordPayload, key: string): string | null {

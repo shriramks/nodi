@@ -8,9 +8,13 @@ import type {
   MovieCastMemberInsert,
   ProviderMappingInsert,
   UserMovie,
-  UserMovieInsert,
   WatchLog,
 } from "@/lib/db/types";
+import {
+  buildUserMovieStatusPayload,
+  latestTimestamp,
+  shouldQueueOutboundSync,
+} from "@/lib/db/mutations/movie-state";
 import {
   toMovieInsert,
   validateMoviePayload,
@@ -24,10 +28,6 @@ import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/sup
 import { createSyncEvent } from "./sync";
 
 type TraktSyncPayload = Record<string, Json>;
-
-function shouldQueueOutboundSync(source: string | null | undefined) {
-  return source !== "trakt_sync";
-}
 
 async function queueTraktSyncEvent(eventType: string, payload: TraktSyncPayload) {
   await createSyncEvent({
@@ -43,14 +43,6 @@ function objectPayload(payload: unknown): Record<string, unknown> {
   return payload && typeof payload === "object" && !Array.isArray(payload)
     ? (payload as Record<string, unknown>)
     : {};
-}
-
-function latestTimestamp(left: string | null | undefined, right: string) {
-  if (!left) {
-    return right;
-  }
-
-  return Date.parse(left) > Date.parse(right) ? left : right;
 }
 
 export async function upsertMovieMetadata(payload: unknown): Promise<Movie> {
@@ -155,23 +147,11 @@ export async function setMovieWatchStatus(payload: unknown): Promise<{
   const action = validateWatchActionPayload(payload);
   const now = new Date().toISOString();
 
-  const userMoviePayload: UserMovieInsert = {
-    user_id: user.id,
-    movie_id: action.movieId,
-    status: action.status,
-  };
-
-  if (action.status === "watched") {
-    userMoviePayload.last_watched_at = action.watchedAt;
-    userMoviePayload.watchlisted_at = null;
-  } else {
-    userMoviePayload.watchlisted_at = now;
-    userMoviePayload.last_watched_at = null;
-  }
-
-  if (Object.hasOwn(action, "personalRating")) {
-    userMoviePayload.personal_rating = action.personalRating ?? null;
-  }
+  const userMoviePayload = buildUserMovieStatusPayload({
+    action,
+    now,
+    userId: user.id,
+  });
 
   const { data: userMovie, error: userMovieError } = await supabase
     .from("user_movies")

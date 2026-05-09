@@ -56,6 +56,8 @@ Reason:
 - App shell / auth / DB: `Supabase`
 - Deployment: `Vercel`
 - PWA: manifest + service worker + offline shell caching
+- Tests: `Vitest` for provider transforms, validation, analytics transforms, and mutation state
+  helpers
 - Background jobs:
   - `Vercel Cron` to trigger sync routes
   - Supabase tables for job state / cursors / logs
@@ -72,12 +74,18 @@ app/
     stats/page.tsx
     search/page.tsx
     movie/[movieId]/page.tsx
+    movie/tmdb/[tmdbId]/page.tsx
+    error.tsx
+    not-found.tsx
     layout.tsx
   api/
     sync/trakt/push/route.ts
     sync/trakt/pull/route.ts
-    tmdb/search/route.ts
-    webhooks/route.ts
+    sync/trakt/status/route.ts
+    search/movies/route.ts
+    movies/tmdb/[tmdbId]/route.ts
+    providers/trakt/connect/route.ts
+    providers/trakt/callback/route.ts
   layout.tsx
   manifest.ts
 
@@ -130,6 +138,10 @@ lib/
     movie.ts
     tag.ts
   utils/
+
+tests/
+  db/
+  providers/
 
 supabase/
   db_guide.md

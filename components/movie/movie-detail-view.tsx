@@ -71,6 +71,16 @@ export function MovieDetailView({
     .join(" · ");
   const visibleTags = (movie.tags ?? []).slice(0, 3);
   const watchLogs = movie.watchLogs ?? [];
+  const detailRows = [
+    movie.release_date ? { label: "Release", value: movie.release_date } : null,
+    movie.runtime_minutes ? { label: "Runtime", value: `${movie.runtime_minutes} min` } : null,
+    movie.original_language
+      ? { label: "Language", value: movie.original_language.toUpperCase() }
+      : null,
+    movie.tmdb_vote_count !== null && movie.tmdb_vote_count !== undefined
+      ? { label: "TMDB votes", value: movie.tmdb_vote_count.toLocaleString() }
+      : null,
+  ].filter((row): row is { label: string; value: string } => row !== null);
 
   return (
     <main className="space-y-6 pb-4">
@@ -157,9 +167,9 @@ export function MovieDetailView({
         <OverviewText text={movie.overview} />
       </section>
 
-      {movie.cast.length > 0 && (
-        <section className="space-y-2">
-          <p className="text-[11px] uppercase tracking-wide text-text-faint">Cast</p>
+      <section className="space-y-2">
+        <p className="text-[11px] uppercase tracking-wide text-text-faint">Cast</p>
+        {movie.cast.length > 0 ? (
           <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
             {movie.cast.map((member) => (
               <article key={member.id} className="w-16 shrink-0">
@@ -192,37 +202,28 @@ export function MovieDetailView({
               </article>
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <p className="text-[15px] leading-[1.4] text-text-muted">
+            No cast details available.
+          </p>
+        )}
+      </section>
 
       <section className="space-y-2">
         <p className="text-[11px] uppercase tracking-wide text-text-faint">
           Details
         </p>
-        <div className="overflow-hidden rounded-2xl border border-border bg-surface">
-          {movie.release_date && (
-            <DetailRow label="Release" value={movie.release_date} />
-          )}
-          {movie.runtime_minutes && (
-            <DetailRow
-              label="Runtime"
-              value={`${movie.runtime_minutes} min`}
-            />
-          )}
-          {movie.original_language && (
-            <DetailRow
-              label="Language"
-              value={movie.original_language.toUpperCase()}
-            />
-          )}
-          {movie.tmdb_vote_count !== null &&
-            movie.tmdb_vote_count !== undefined && (
-              <DetailRow
-                label="TMDB votes"
-                value={movie.tmdb_vote_count.toLocaleString()}
-              />
-            )}
-        </div>
+        {detailRows.length > 0 ? (
+          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+            {detailRows.map((row) => (
+              <DetailRow key={row.label} label={row.label} value={row.value} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-[15px] leading-[1.4] text-text-muted">
+            No extra details available.
+          </p>
+        )}
       </section>
 
       {watchLogs.length > 0 && (
