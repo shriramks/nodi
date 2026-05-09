@@ -1,0 +1,85 @@
+import type { Metadata } from "next";
+import type { ReactNode } from "react";
+import Link from "next/link";
+import { ChevronRight, Cloud, Database } from "lucide-react";
+
+import { BackButton } from "@/components/navigation/back-button";
+import { getProviderSyncSettings } from "@/lib/db/queries";
+
+export const metadata: Metadata = {
+  title: "Sync Settings",
+};
+
+export default async function SyncSettingsPage() {
+  const [trakt, tmdb] = await Promise.all([
+    getProviderSyncSettings("trakt"),
+    getProviderSyncSettings("tmdb"),
+  ]);
+
+  return (
+    <main className="space-y-6">
+      <section>
+        <BackButton />
+        <h1 className="mt-2 text-[32px] font-bold leading-[1.1]">Sync</h1>
+        <p className="mt-1 text-[13px] text-text-2">Provider credentials and sync state</p>
+      </section>
+
+      <section className="space-y-3">
+        <ProviderLink
+          href="/settings/sync/trakt"
+          icon={<Cloud aria-hidden="true" className="h-5 w-5" />}
+          label="Trakt"
+          status={providerLabel(trakt)}
+        />
+        <ProviderLink
+          href="/settings/sync/tmdb"
+          icon={<Database aria-hidden="true" className="h-5 w-5" />}
+          label="TMDB"
+          status={tmdb.credentials.hasApiToken ? "Token saved" : "Token required"}
+        />
+      </section>
+    </main>
+  );
+}
+
+function ProviderLink({
+  href,
+  icon,
+  label,
+  status,
+}: {
+  href: string;
+  icon: ReactNode;
+  label: string;
+  status: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4 active:bg-tap-active"
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-foreground">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-semibold text-foreground">{label}</span>
+        <span className="mt-0.5 block text-[13px] text-text-muted">{status}</span>
+      </span>
+      <ChevronRight aria-hidden="true" className="h-5 w-5 shrink-0 text-text-muted" />
+    </Link>
+  );
+}
+
+function providerLabel(sync: Awaited<ReturnType<typeof getProviderSyncSettings>>) {
+  if (!sync.credentials.hasClientId || !sync.credentials.hasClientSecret) {
+    return "App credentials required";
+  }
+
+  if (sync.connection?.status !== "active") {
+    return "Authorization required";
+  }
+
+  return sync.connection.providerUserId
+    ? `Connected as ${sync.connection.providerUserId}`
+    : "Connected";
+}

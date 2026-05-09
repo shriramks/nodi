@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { MovieLibraryGrid } from "@/components/movie/movie-library-grid";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
-import { requireUser } from "@/lib/auth/server";
 import { getLibraryStats, listUserMovies } from "@/lib/db/queries";
 
 export const metadata: Metadata = {
@@ -9,8 +8,7 @@ export const metadata: Metadata = {
 };
 
 export default async function MoviesPage() {
-  const [user, watchedMovies, stats] = await Promise.all([
-    requireUser(),
+  const [watchedMovies, stats] = await Promise.all([
     listUserMovies({ status: "watched" }),
     getLibraryStats(),
   ]);
@@ -25,7 +23,7 @@ export default async function MoviesPage() {
               <span className="tabnum">{stats.watchedCount}</span> watched
             </p>
           </div>
-          <SettingsSheet userEmail={user.email ?? null} />
+          <SettingsSheet />
         </div>
       </section>
 

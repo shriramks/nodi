@@ -164,7 +164,8 @@ create table public.provider_connections (
 );
 
 -- OAuth tokens must not be readable through normal user-authenticated API paths.
--- Store encrypted token values in Supabase Vault and reference their secret ids here.
+-- Legacy secret reference columns are retained for compatibility; provider credentials are stored
+-- in app-encrypted ciphertext columns added by a later migration.
 create table public.provider_connection_secrets (
   id uuid primary key default gen_random_uuid(),
   connection_id uuid not null unique references public.provider_connections(id) on delete cascade,

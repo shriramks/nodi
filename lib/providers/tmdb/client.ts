@@ -1,7 +1,9 @@
 import "server-only";
 
+import { requireUser } from "@/lib/auth/server";
 import { fetchJson } from "@/lib/fetch";
-import { serverEnv } from "@/lib/env/server";
+import { AppError } from "@/lib/errors";
+import { readProviderSecret } from "@/lib/providers/credentials";
 
 const tmdbBaseUrl = "https://api.themoviedb.org/3";
 
@@ -80,9 +82,19 @@ async function fetchTmdbJson<T>(
   path: string,
   params?: Record<string, string | number | boolean | null | undefined>,
 ) {
+  const user = await requireUser();
+  const apiToken = await readProviderSecret(user.id, "tmdb", "api_token_encrypted");
+
+  if (!apiToken) {
+    throw new AppError("Add your TMDB API Read Access Token in settings before using TMDB.", {
+      code: "TMDB_TOKEN_MISSING",
+      status: 409,
+    });
+  }
+
   return fetchJson<T>(tmdbUrl(path, params), {
     headers: {
-      authorization: `Bearer ${serverEnv.tmdbApiToken}`,
+      authorization: `Bearer ${apiToken}`,
     },
   });
 }

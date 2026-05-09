@@ -84,11 +84,12 @@ These tables are scoped per authenticated user:
 
 These are protected with RLS policies based on `auth.uid()`.
 
-### Server-only token references
+### Server-only encrypted credentials
 
-`provider_connection_secrets` stores Vault secret ids for provider OAuth tokens. It has RLS enabled,
-no authenticated-user policies, and explicit grants only for `service_role`, so normal user sessions
-cannot read token references through the API.
+`provider_connection_secrets` stores app-encrypted provider credential ciphertext. It has RLS
+enabled, no authenticated-user policies, and explicit grants only for `service_role`, so normal user
+sessions cannot read ciphertext through the API. Decryption also requires the deployment-only
+`PROVIDER_SECRETS_KEY`.
 
 ## 5. Migration Strategy
 
@@ -122,9 +123,14 @@ If a change affects live data behavior, create a new migration even if the SQL l
 
 Keep these server-side only:
 - `SUPABASE_SECRET_KEY`
-- `TMDB_API_TOKEN`
-- `TRAKT_CLIENT_ID`
-- `TRAKT_CLIENT_SECRET`
+
+Provider credentials are user-owned:
+- Trakt client id / client secret / access token / refresh token are encrypted per user by the
+  Next.js server before storage.
+- TMDB API Read Access Tokens are encrypted per user by the Next.js server before storage.
+- `provider_connection_secrets` stores ciphertext only.
+- Keep `PROVIDER_SECRETS_KEY` only in server/deployment secrets. Losing it makes stored provider
+  credentials unrecoverable.
 
 Client-safe env vars:
 - `NEXT_PUBLIC_SUPABASE_URL`

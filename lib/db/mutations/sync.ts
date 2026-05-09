@@ -9,11 +9,13 @@ import type {
   ProviderConnectionSecret,
   SyncCursor,
   SyncEvent,
+  SyncEventStatus,
 } from "@/lib/db/types";
 import {
   validateProviderConnectionPayload,
   validateProviderConnectionSecretPayload,
   validateSyncEventPayload,
+  validateUuid,
 } from "@/lib/db/validation";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -83,7 +85,7 @@ export async function upsertSyncCursor(
   cursorValue: string | null,
 ): Promise<SyncCursor> {
   const user = await requireUser();
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseAdminClient();
   const normalizedCursorKey = cursorKey.trim();
 
   if (!normalizedCursorKey) {
@@ -136,6 +138,48 @@ export async function createSyncEvent(payload: unknown): Promise<SyncEvent> {
 
   if (error) {
     throwDatabaseError("Failed to create sync event.", error);
+  }
+
+  return data;
+}
+
+export async function updateSyncEventStatus(
+  eventId: string,
+  payload: {
+    errorMessage?: string | null;
+    payload?: SyncEvent["payload"];
+    processedAt?: string | null;
+    status: SyncEventStatus;
+  },
+): Promise<SyncEvent> {
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const id = validateUuid(eventId, "eventId");
+  const updatePayload: {
+    error_message: string | null;
+    payload?: SyncEvent["payload"];
+    processed_at: string;
+    status: SyncEventStatus;
+  } = {
+    error_message: payload.errorMessage ?? null,
+    processed_at: payload.processedAt ?? new Date().toISOString(),
+    status: payload.status,
+  };
+
+  if (payload.payload !== undefined) {
+    updatePayload.payload = payload.payload;
+  }
+
+  const { data, error } = await supabase
+    .from("sync_events")
+    .update(updatePayload)
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throwDatabaseError("Failed to update sync event.", error);
   }
 
   return data;

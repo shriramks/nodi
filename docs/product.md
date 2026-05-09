@@ -191,7 +191,7 @@ docs/
 - per-user OAuth/session metadata for Trakt and optional TMDB auth
 
 `provider_connection_secrets`
-- server-only Vault secret references for provider OAuth tokens
+- server-only app-encrypted provider credential ciphertext
 
 `provider_mappings`
 - stable external IDs per movie and provider
@@ -316,14 +316,17 @@ Indexes:
 - `connection_id uuid not null unique references public.provider_connections(id) on delete cascade`
 - `user_id uuid not null references auth.users(id) on delete cascade`
 - `provider text not null check (provider in ('trakt', 'tmdb'))`
-- `access_token_secret_id uuid null`
-- `refresh_token_secret_id uuid null`
+- `client_id_encrypted text null`
+- `client_secret_encrypted text null`
+- `api_token_encrypted text null`
+- `access_token_encrypted text null`
+- `refresh_token_encrypted text null`
 - `created_at timestamptz not null default now()`
 - `updated_at timestamptz not null default now()`
 
 Access:
 - RLS enabled with no authenticated-user policies
-- token values should live in Supabase Vault, with only Vault secret ids stored here
+- provider credential values are encrypted in the app with `PROVIDER_SECRETS_KEY`
 - explicit table grants are limited to `service_role`
 
 `public.provider_mappings`

@@ -266,10 +266,18 @@ Nodi needs explicit watched dates in `watch_logs` because:
 ### Secrets
 
 Keep these server-side only:
-- `TMDB_API_TOKEN`
-- `TRAKT_CLIENT_ID`
-- `TRAKT_CLIENT_SECRET`
 - `SUPABASE_SECRET_KEY`
+
+Provider credentials are user-owned:
+- Trakt client id, client secret, access token, and refresh token are encrypted in the Next.js
+  server with `PROVIDER_SECRETS_KEY` and stored per user as ciphertext in
+  `provider_connection_secrets`.
+- TMDB API Read Access Tokens are encrypted with the same app-held key and stored per user as
+  ciphertext.
+- Provider credentials must not be stored in app-wide provider env vars because that would share
+  one provider identity across all users.
+- Keep `PROVIDER_SECRETS_KEY` only in the deployment environment. If it is lost, existing provider
+  credentials cannot be decrypted and users must reconnect providers.
 
 ### Client-safe env vars
 
