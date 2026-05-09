@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" role="img" aria-labelledby="title desc">
+  <title id="title">Nodi mobile movie library</title>
+  <desc id="desc">A mobile Nodi screen showing a movie library, poster grid, and bottom navigation.</desc>
+  <rect width="390" height="844" fill="#f2f2f7"/>
+  <rect x="18" y="32" width="354" height="780" rx="34" fill="#ffffff"/>
+  <text x="38" y="88" fill="#000000" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="34" font-weight="800">Movies</text>
+  <text x="40" y="116" fill="rgba(0,0,0,.58)" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" font-weight="500">128 watched</text>
+  <circle cx="338" cy="82" r="22" fill="#f2f2f7"/>
+  <circle cx="331" cy="79" r="3" fill="#000000" opacity=".78"/>
+  <circle cx="338" cy="79" r="3" fill="#000000" opacity=".78"/>
+  <circle cx="345" cy="79" r="3" fill="#000000" opacity=".78"/>
+  <rect x="38" y="150" width="92" height="138" rx="12" fill="#101114"/>
+  <circle cx="84" cy="206" r="28" fill="#f9f2df"/>
+  <circle cx="76" cy="198" r="7" fill="#101114"/>
+  <circle cx="93" cy="198" r="7" fill="#101114"/>
+  <circle cx="84" cy="216" r="7" fill="#101114"/>
+  <circle cx="84" cy="206" r="3" fill="#101114"/>
+  <rect x="38" y="300" width="72" height="12" rx="6" fill="#000000"/>
+  <rect x="38" y="318" width="44" height="8" rx="4" fill="#000000" opacity=".38"/>
+  <rect x="149" y="150" width="92" height="138" rx="12" fill="#26394f"/>
+  <rect x="164" y="170" width="62" height="98" rx="10" fill="#0a84ff" opacity=".86"/>
+  <rect x="149" y="300" width="82" height="12" rx="6" fill="#000000"/>
+  <rect x="149" y="318" width="52" height="8" rx="4" fill="#000000" opacity=".38"/>
+  <rect x="260" y="150" width="92" height="138" rx="12" fill="#2d2520"/>
+  <rect x="278" y="172" width="56" height="94" rx="28" fill="#ff9f0a"/>
+  <rect x="260" y="300" width="74" height="12" rx="6" fill="#000000"/>
+  <rect x="260" y="318" width="42" height="8" rx="4" fill="#000000" opacity=".38"/>
+  <rect x="38" y="358" width="92" height="138" rx="12" fill="#17291e"/>
+  <rect x="54" y="378" width="60" height="98" rx="10" fill="#34c759" opacity=".9"/>
+  <rect x="38" y="508" width="84" height="12" rx="6" fill="#000000"/>
+  <rect x="38" y="526" width="48" height="8" rx="4" fill="#000000" opacity=".38"/>
+  <rect x="149" y="358" width="92" height="138" rx="12" fill="#3a2f4d"/>
+  <circle cx="195" cy="427" r="38" fill="#d7c7ff"/>
+  <rect x="149" y="508" width="78" height="12" rx="6" fill="#000000"/>
+  <rect x="149" y="526" width="50" height="8" rx="4" fill="#000000" opacity=".38"/>
+  <rect x="260" y="358" width="92" height="138" rx="12" fill="#253036"/>
+  <rect x="276" y="380" width="60" height="94" rx="10" fill="#e5e5ea"/>
+  <rect x="260" y="508" width="72" height="12" rx="6" fill="#000000"/>
+  <rect x="260" y="526" width="44" height="8" rx="4" fill="#000000" opacity=".38"/>
+  <rect x="38" y="696" width="314" height="72" rx="36" fill="#f2f2f7" stroke="rgba(0,0,0,.1)"/>
+  <rect x="48" y="704" width="68" height="56" rx="28" fill="#ff9f0a" opacity=".15"/>
+  <circle cx="82" cy="724" r="9" fill="#ff9f0a"/>
+  <rect x="66" y="742" width="32" height="7" rx="3.5" fill="#ff9f0a"/>
+  <circle cx="154" cy="724" r="9" fill="#000000" opacity=".5"/>
+  <rect x="138" y="742" width="32" height="7" rx="3.5" fill="#000000" opacity=".35"/>
+  <circle cx="236" cy="724" r="9" fill="#000000" opacity=".5"/>
+  <rect x="220" y="742" width="32" height="7" rx="3.5" fill="#000000" opacity=".35"/>
+  <circle cx="308" cy="724" r="9" fill="#000000" opacity=".5"/>
+  <rect x="292" y="742" width="32" height="7" rx="3.5" fill="#000000" opacity=".35"/>
+</svg>

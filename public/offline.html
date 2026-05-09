@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f2f2f7" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Nodi" />
+    <title>Nodi Offline</title>
+    <link rel="icon" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <style>
+      :root {
+        --bg: #f2f2f7;
+        --surface: #ffffff;
+        --surface-muted: #e5e5ea;
+        --text: #000000;
+        --text-2: rgba(0, 0, 0, 0.6);
+        --text-muted: rgba(0, 0, 0, 0.42);
+        --border: rgba(0, 0, 0, 0.1);
+        --accent: #ff9f0a;
+        --to-watch: #0a84ff;
+        --watched: #34c759;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --surface: #1c1c1e;
+          --surface-muted: #2c2c2e;
+          --text: #ffffff;
+          --text-2: rgba(255, 255, 255, 0.62);
+          --text-muted: rgba(255, 255, 255, 0.42);
+          --border: rgba(255, 255, 255, 0.12);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        min-height: 100%;
+        background: var(--bg);
+        color-scheme: light dark;
+      }
+
+      body {
+        min-height: 100dvh;
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      main {
+        display: flex;
+        min-height: 100dvh;
+        justify-content: center;
+        padding: calc(24px + env(safe-area-inset-top)) 16px calc(120px + env(safe-area-inset-bottom));
+      }
+
+      .shell {
+        width: min(100%, 420px);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .brand img {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+      }
+
+      .brand span {
+        color: var(--text-muted);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 22px 0 0;
+        font-size: 34px;
+        line-height: 1.05;
+        letter-spacing: 0;
+      }
+
+      p {
+        margin: 12px 0 0;
+        color: var(--text-2);
+        font-size: 15px;
+        line-height: 1.42;
+      }
+
+      .panel {
+        margin-top: 28px;
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        background: var(--surface);
+        padding: 18px;
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid var(--border);
+        padding: 14px 0;
+      }
+
+      .row:first-child {
+        padding-top: 0;
+      }
+
+      .row:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+
+      .label {
+        min-width: 0;
+      }
+
+      .label strong {
+        display: block;
+        overflow: hidden;
+        color: var(--text);
+        font-size: 15px;
+        font-weight: 700;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .label small {
+        display: block;
+        margin-top: 3px;
+        color: var(--text-muted);
+        font-size: 12px;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        flex: 0 0 auto;
+        border-radius: 999px;
+        background: var(--accent);
+      }
+
+      .dot.blue {
+        background: var(--to-watch);
+      }
+
+      .dot.green {
+        background: var(--watched);
+      }
+
+      button {
+        width: 100%;
+        min-height: 48px;
+        margin-top: 22px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      nav {
+        position: fixed;
+        right: 16px;
+        bottom: calc(16px + env(safe-area-inset-bottom));
+        left: 16px;
+      }
+
+      .nav-inner {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        width: min(100%, 420px);
+        height: 72px;
+        margin: 0 auto;
+        gap: 4px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--bg) 88%, transparent);
+        padding: 8px;
+        backdrop-filter: blur(18px);
+      }
+
+      nav a {
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        color: var(--text-2);
+        font-size: 11px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      nav a:first-child {
+        background: color-mix(in srgb, var(--accent) 14%, transparent);
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="shell" aria-labelledby="offline-title">
+        <div class="brand">
+          <img src="/icons/icon-192.png" alt="" width="56" height="56" />
+          <span>Nodi</span>
+        </div>
+        <h1 id="offline-title">You're offline</h1>
+        <p>
+          The app shell is available, but movie data and sync actions need a network connection.
+        </p>
+        <section class="panel" aria-label="Offline status">
+          <div class="row">
+            <span class="label">
+              <strong>Library shell</strong>
+              <small>Ready</small>
+            </span>
+            <span class="dot green" aria-hidden="true"></span>
+          </div>
+          <div class="row">
+            <span class="label">
+              <strong>Movie data</strong>
+              <small>Reconnect to refresh</small>
+            </span>
+            <span class="dot blue" aria-hidden="true"></span>
+          </div>
+          <div class="row">
+            <span class="label">
+              <strong>Provider sync</strong>
+              <small>Paused offline</small>
+            </span>
+            <span class="dot" aria-hidden="true"></span>
+          </div>
+        </section>
+        <button type="button" onclick="window.location.reload()">Retry</button>
+      </section>
+    </main>
+    <nav aria-label="Offline navigation">
+      <div class="nav-inner">
+        <a href="/movies">Movies</a>
+        <a href="/to-watch">Queue</a>
+        <a href="/stats">Stats</a>
+        <a href="/search">Search</a>
+      </div>
+    </nav>
+  </body>
+</html>
