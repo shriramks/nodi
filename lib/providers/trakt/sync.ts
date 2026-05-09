@@ -7,6 +7,7 @@ import { listPendingSyncEvents } from "@/lib/db/queries";
 import type {
   Json,
   Movie,
+  MovieInsert,
   ProviderMapping,
   ProviderMappingInsert,
   SyncEvent,
@@ -40,8 +41,6 @@ import {
   type TraktSyncResponse,
 } from "@/lib/providers/trakt/client";
 import { loadTraktSyncCredentials } from "@/lib/providers/trakt/credentials";
-import { getTmdbMovieCredits, getTmdbMovieDetails } from "@/lib/providers/tmdb/client";
-import { ingestTmdbMovie } from "@/lib/db/mutations/movies";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 type PushResult = {
@@ -642,11 +641,7 @@ async function resolveLocalMovie(remoteMovie: RemoteTraktMovieState): Promise<Mo
       return existingByTmdb;
     }
 
-    const [detail, credits] = await Promise.all([
-      getTmdbMovieDetails(remoteMovie.tmdbId),
-      getTmdbMovieCredits(remoteMovie.tmdbId),
-    ]);
-    const movie = await ingestTmdbMovie(detail, credits);
+    const movie = await upsertMinimalTraktMovie(remoteMovie);
     await replaceProviderMappings(movie.id, remoteMovie);
     return movie;
   }
@@ -669,6 +664,35 @@ async function resolveLocalMovie(remoteMovie: RemoteTraktMovieState): Promise<Mo
   }
 
   return null;
+}
+
+async function upsertMinimalTraktMovie(remoteMovie: RemoteTraktMovieState) {
+  if (!remoteMovie.tmdbId) {
+    throw new AppError("Cannot create a Trakt movie without a TMDB id.", {
+      code: "TRAKT_MOVIE_TMDB_ID_MISSING",
+      status: 422,
+    });
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const title = remoteMovie.title?.trim() || `TMDB ${remoteMovie.tmdbId}`;
+  const movie: MovieInsert = {
+    imdb_id: remoteMovie.imdbId,
+    title,
+    tmdb_id: remoteMovie.tmdbId,
+  };
+
+  const { data, error } = await supabase
+    .from("movies")
+    .upsert(movie, { onConflict: "tmdb_id" })
+    .select("*")
+    .single();
+
+  if (error) {
+    throwDatabaseError("Failed to bootstrap Trakt movie metadata.", error);
+  }
+
+  return data;
 }
 
 async function findMappedMovieId(remoteMovie: RemoteTraktMovieState) {
