@@ -11,10 +11,13 @@ import type {
   MovieInsert,
   ProviderMapping,
   ProviderMappingInsert,
+  ProviderMappingProvider,
   SyncDirection,
   SyncEvent,
   SyncRunStatus,
   UserMovie,
+  UserMovieInsert,
+  WatchLogInsert,
 } from "@/lib/db/types";
 import { AppError, getErrorMessage, isAppError } from "@/lib/errors";
 import {
@@ -32,16 +35,19 @@ import {
   addTraktHistory,
   addTraktWatchlist,
   getTraktUserSettings,
-  listTraktHistoryMovies,
-  listTraktRatedMovies,
-  listTraktWatchlistMovies,
+  listTraktHistoryMoviesPage,
+  listTraktRatedMoviesPage,
+  listTraktWatchlistMoviesPage,
   removeTraktHistory,
   removeTraktRatings,
   removeTraktWatchlist,
   setTraktRatings,
   type TraktHistoryMovie,
   type TraktAuth,
+  type TraktPagination,
+  type TraktRatedMovie,
   type TraktSyncResponse,
+  type TraktWatchlistMovie,
 } from "@/lib/providers/trakt/client";
 import { loadTraktSyncCredentials } from "@/lib/providers/trakt/credentials";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
@@ -54,6 +60,8 @@ type PushResult = {
 };
 
 type PullResult = {
+  failed: number;
+  failureSamples: string[];
   historyImported: number;
   ratingsCleared: number;
   ratingsImported: number;
@@ -71,11 +79,39 @@ type SyncProgressPayload = {
 
 type CursorMap = Map<string, string>;
 type SyncRunTerminalStatus = Exclude<SyncRunStatus, "running">;
+type SyncRunContext = { runId: string; userId: string };
+type ProviderCandidate = { id: string; provider: ProviderMappingProvider };
+type RemoteHistoryState = {
+  item: TraktHistoryMovie;
+  movie: RemoteTraktMovieState;
+};
+type PullFailurePhase =
+  | "history"
+  | "library"
+  | "mapping"
+  | "metadata"
+  | "rating"
+  | "watch-log"
+  | "watchlist";
+type MovieResolutionResult = {
+  failedRemoteKeys: Map<string, string>;
+  movieIdByRemoteKey: Map<string, string>;
+  remoteMoviesByKey: Map<string, RemoteTraktMovieState>;
+};
+type UserMovieDraft = {
+  lastWatchedAt: string | null;
+  movieId: string;
+  personalRating: number | null;
+  status: "to_watch" | "watched";
+  watchlistedAt: string | null;
+};
 
 const provider = "trakt" as const;
 const pageLimit = 100;
-const maxHistoryPages = 20;
-const maxWatchlistPages = 20;
+const maxBootstrapPages = 1000;
+const dbReadChunkSize = 500;
+const dbWriteChunkSize = 200;
+const failureSampleLimit = 10;
 const staleSyncMessage = "Sync run stopped reporting progress and was marked failed.";
 
 export async function pushTraktSync(origin: string, limit = 50): Promise<PushResult> {
@@ -209,8 +245,9 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     await refreshTraktConnection(user.id, connection);
 
     const cursors = await loadCursorMap(user.id);
-    const pendingMovieIds = await loadPendingPushMovieIds(user.id);
     const result: PullResult = {
+      failed: 0,
+      failureSamples: [],
       historyImported: 0,
       ratingsCleared: 0,
       ratingsImported: 0,
@@ -226,9 +263,14 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       phase: "fetch",
       total: 4,
     });
-    const historyItems = await listAllHistory(connection, historyCursor, {
-      runId: run.id,
-      userId: user.id,
+    const runContext = { runId: run.id, userId: user.id };
+    const historyItems = await listAllHistory(connection, historyCursor, runContext, async (count) => {
+      await updateTraktSyncRunProgress(user.id, run.id, {
+        current: 0,
+        label: `Loaded ${count} history item(s)`,
+        phase: "fetch",
+        total: 4,
+      });
     });
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: 1,
@@ -237,32 +279,39 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       total: 4,
     });
 
-    const watchlistItems = await listAllWatchlist(connection, {
-      runId: run.id,
-      userId: user.id,
+    const watchlistItems = await listAllWatchlist(connection, runContext, async (count) => {
+      await updateTraktSyncRunProgress(user.id, run.id, {
+        current: 1,
+        label: `Loaded ${count} watchlist item(s)`,
+        phase: "fetch",
+        total: 4,
+      });
     });
-    const watchlistStates = watchlistItems
-      .map(toRemoteTraktWatchlistState)
-      .filter((item): item is RemoteTraktWatchlistState => item !== null);
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: 2,
-      label: `Loaded ${watchlistStates.length} watchlist item(s)`,
+      label: `Loaded ${watchlistItems.length} watchlist item(s)`,
       phase: "fetch",
       total: 4,
     });
 
-    await assertTraktSyncRunActive(user.id, run.id);
-    const ratingItems = await listTraktRatedMovies(connection);
-    const ratingStates = ratingItems
-      .map(toRemoteTraktRatingState)
-      .filter((item): item is RemoteTraktRatingState => item !== null);
+    const ratingItems = await listAllRatings(connection, runContext, async (count) => {
+      await updateTraktSyncRunProgress(user.id, run.id, {
+        current: 2,
+        label: `Loaded ${count} rating(s)`,
+        phase: "fetch",
+        total: 4,
+      });
+    });
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: 3,
-      label: `Loaded ${ratingStates.length} rating(s)`,
+      label: `Loaded ${ratingItems.length} rating(s)`,
       phase: "fetch",
       total: 4,
     });
 
+    const historyStates = normalizeHistoryStates(historyItems, result);
+    const watchlistStates = normalizeWatchlistStates(watchlistItems, result);
+    const ratingStates = normalizeRatingStates(ratingItems, result);
     let newestWatchedAt = historyCursor;
     const currentWatchlistKeys = new Set(watchlistStates.map((item) => item.key));
     const previousWatchlistKeys = parseStringArrayCursor(cursors.get("watchlist.snapshot"));
@@ -274,92 +323,125 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     const removedRatingKeys = previousRatingKeys.filter((key) => !currentRatings.has(key));
 
     progressTotal =
-      historyItems.length +
-      watchlistStates.length +
-      removedWatchlistKeys.length +
-      ratingStates.length +
-      removedRatingKeys.length;
+      7 +
+      Math.ceil(
+        (
+          historyStates.length +
+          watchlistStates.length +
+          ratingStates.length +
+          removedWatchlistKeys.length +
+          removedRatingKeys.length
+        ) / dbWriteChunkSize,
+      );
     progressCurrent = 0;
     await updateTraktSyncRunProgress(user.id, run.id, {
-      current: 0,
-      label: progressTotal > 0 ? `Reconciling ${progressTotal} item(s)` : "Nothing to import",
+      current: progressCurrent,
+      label: "Resolving Trakt movies",
       phase: "reconcile",
       total: progressTotal,
     });
 
-    for (const item of historyItems) {
-      await assertTraktSyncRunActive(user.id, run.id);
-      const remoteMovie = toRemoteTraktMovieState(item.movie);
+    const movieResolution = await resolveRemoteMovies({
+      remoteKeys: [...removedWatchlistKeys, ...removedRatingKeys],
+      remoteMovies: [
+        ...historyStates.map((state) => state.movie),
+        ...watchlistStates,
+        ...ratingStates,
+      ],
+      result,
+      run: runContext,
+    });
+    progressCurrent += 1;
+    await updateTraktSyncRunProgress(user.id, run.id, {
+      current: progressCurrent,
+      label: `Resolved ${movieResolution.movieIdByRemoteKey.size} movie key(s)`,
+      phase: "reconcile",
+      total: progressTotal,
+    });
 
-      if (!remoteMovie) {
-        result.skipped += 1;
-        progressCurrent += 1;
-        await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "History");
-        continue;
-      }
+    await upsertResolvedProviderMappings(movieResolution, result, runContext);
+    progressCurrent += 1;
+    await updateTraktSyncRunProgress(user.id, run.id, {
+      current: progressCurrent,
+      label: "Prepared provider mappings",
+      phase: "reconcile",
+      total: progressTotal,
+    });
 
-      const localMovie = await resolveLocalMovie(remoteMovie);
+    const pendingMovieIds = await loadPendingPushMovieIds(user.id);
+    const existingUserMovies = await loadUserMovieMap(
+      user.id,
+      movieResolution.movieIdByRemoteKey.values(),
+      runContext,
+    );
+    const userMoviePlan = planPullUserMovieWrites({
+      existingUserMovies,
+      historyStates,
+      movieResolution,
+      pendingMovieIds,
+      ratingStates,
+      removedRatingKeys,
+      removedWatchlistKeys,
+      result,
+      watchlistStates,
+    });
+    newestWatchedAt = userMoviePlan.newestWatchedAt ?? newestWatchedAt;
+    progressCurrent += 1;
+    await updateTraktSyncRunProgress(user.id, run.id, {
+      current: progressCurrent,
+      label: "Prepared library state",
+      phase: "reconcile",
+      total: progressTotal,
+    });
 
-      if (!localMovie) {
-        result.skipped += 1;
-        progressCurrent += 1;
-        await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "History");
-        continue;
-      }
+    await deleteUserMovies(user.id, userMoviePlan.deleteMovieIds, result, runContext);
+    progressCurrent += 1;
+    await updateTraktSyncRunProgress(user.id, run.id, {
+      current: progressCurrent,
+      label: "Removed stale watchlist state",
+      phase: "reconcile",
+      total: progressTotal,
+    });
 
-      await applyRemoteHistory(user.id, localMovie.id, item);
-      result.historyImported += 1;
-      progressCurrent += 1;
-      await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "History");
+    await upsertUserMovieDrafts(user.id, userMoviePlan.upserts, result, runContext);
+    progressCurrent += 1;
+    await updateTraktSyncRunProgress(user.id, run.id, {
+      current: progressCurrent,
+      label: "Imported library state",
+      phase: "reconcile",
+      total: progressTotal,
+    });
 
-      if (!newestWatchedAt || Date.parse(item.watched_at) > Date.parse(newestWatchedAt)) {
-        newestWatchedAt = item.watched_at;
-      }
-    }
+    const historyLogs = buildWatchLogInserts(user.id, historyStates, movieResolution);
+    await insertWatchLogs(user.id, historyLogs, result, runContext);
+    progressCurrent += 1;
+    await updateTraktSyncRunProgress(user.id, run.id, {
+      current: progressCurrent,
+      label: `Imported ${historyLogs.length} history event(s)`,
+      phase: "reconcile",
+      total: progressTotal,
+    });
+
+    await assertTraktSyncRunActive(user.id, run.id);
+
+    progressCurrent = Math.min(progressCurrent + Math.ceil(
+      (
+        historyStates.length +
+        watchlistStates.length +
+        ratingStates.length +
+        removedWatchlistKeys.length +
+        removedRatingKeys.length
+      ) / dbWriteChunkSize,
+    ), progressTotal - 1);
+    await updateTraktSyncRunProgress(user.id, run.id, {
+      current: progressCurrent,
+      label: "Saving sync cursors",
+      phase: "reconcile",
+      total: progressTotal,
+    });
 
     if (newestWatchedAt) {
       await upsertSyncCursor(provider, "history.last_watched_at", newestWatchedAt);
-    }
-
-    for (const item of watchlistStates) {
-      await assertTraktSyncRunActive(user.id, run.id);
-      const localMovie = await resolveLocalMovie(item);
-
-      if (!localMovie) {
-        result.skipped += 1;
-        progressCurrent += 1;
-        await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Watchlist");
-        continue;
-      }
-
-      const imported = await applyRemoteWatchlist(user.id, localMovie.id, item);
-
-      if (imported) {
-        result.watchlistImported += 1;
-      }
-
-      progressCurrent += 1;
-      await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Watchlist");
-    }
-
-    for (const key of removedWatchlistKeys) {
-      await assertTraktSyncRunActive(user.id, run.id);
-      const movieId = await findLocalMovieIdByRemoteKey(key);
-
-      if (!movieId || pendingMovieIds.has(movieId)) {
-        progressCurrent += 1;
-        await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Watchlist");
-        continue;
-      }
-
-      const removed = await removeRemoteMissingWatchlist(user.id, movieId);
-
-      if (removed) {
-        result.watchlistRemoved += 1;
-      }
-
-      progressCurrent += 1;
-      await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Watchlist");
     }
 
     await upsertSyncCursor(
@@ -367,44 +449,6 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       "watchlist.snapshot",
       JSON.stringify(Array.from(currentWatchlistKeys).sort()),
     );
-
-    for (const item of ratingStates) {
-      await assertTraktSyncRunActive(user.id, run.id);
-      const localMovie = await resolveLocalMovie(item);
-
-      if (!localMovie) {
-        result.skipped += 1;
-        progressCurrent += 1;
-        await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Ratings");
-        continue;
-      }
-
-      await applyRemoteRating(user.id, localMovie.id, item);
-      result.ratingsImported += 1;
-      progressCurrent += 1;
-      await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Ratings");
-    }
-
-    for (const key of removedRatingKeys) {
-      await assertTraktSyncRunActive(user.id, run.id);
-      const movieId = await findLocalMovieIdByRemoteKey(key);
-
-      if (!movieId || pendingMovieIds.has(movieId)) {
-        progressCurrent += 1;
-        await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Ratings");
-        continue;
-      }
-
-      const cleared = await clearRemoteMissingRating(user.id, movieId);
-
-      if (cleared) {
-        result.ratingsCleared += 1;
-      }
-
-      progressCurrent += 1;
-      await updateSyncRunProgressCheckpoint(user.id, run.id, progressCurrent, progressTotal, "Ratings");
-    }
-
     await upsertSyncCursor(
       provider,
       "ratings.snapshot",
@@ -417,8 +461,9 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       provider,
       direction: "pull",
       eventType: "trakt.pull.summary",
-      status: "success",
+      status: result.failed > 0 ? "error" : "success",
       payload: result as unknown as Json,
+      errorMessage: result.failed > 0 ? `${result.failed} Trakt pull item(s) failed.` : null,
       processedAt,
     });
     await finishTraktSyncRun(
@@ -427,11 +472,12 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       "success",
       {
         current: progressTotal,
-        label: "Pull complete",
+        label: result.failed > 0 ? "Pull complete with item failures" : "Pull complete",
         phase: "complete",
         total: progressTotal,
       },
       result as unknown as Json,
+      result.failed > 0 ? `${result.failed} item-level Trakt pull failure(s).` : null,
     );
 
     return result;
@@ -452,25 +498,6 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     );
     throw error;
   }
-}
-
-async function updateSyncRunProgressCheckpoint(
-  userId: string,
-  runId: string,
-  current: number,
-  total: number,
-  label: string,
-) {
-  if (total > 20 && current !== total && current % 5 !== 0) {
-    return;
-  }
-
-  await updateTraktSyncRunProgress(userId, runId, {
-    current,
-    label: `${label} ${current} of ${total}`,
-    phase: "reconcile",
-    total,
-  });
 }
 
 export async function cancelActiveTraktSync() {
@@ -764,22 +791,24 @@ async function refreshTraktConnection(userId: string, auth: TraktAuth) {
 async function listAllHistory(
   auth: TraktAuth,
   startAt: string | null,
-  run: { runId: string; userId: string },
+  run: SyncRunContext,
+  onPage?: (count: number) => Promise<void>,
 ) {
   const items: TraktHistoryMovie[] = [];
 
-  for (let page = 1; page <= maxHistoryPages; page += 1) {
+  for (let page = 1; page <= maxBootstrapPages; page += 1) {
     await assertTraktSyncRunActive(run.userId, run.runId);
-    const pageItems = await listTraktHistoryMovies(auth, {
+    const response = await listTraktHistoryMoviesPage(auth, {
       page,
       limit: pageLimit,
       startAt,
     });
 
-    items.push(...pageItems);
+    items.push(...response.items);
+    await onPage?.(items.length);
     await assertTraktSyncRunActive(run.userId, run.runId);
 
-    if (pageItems.length < pageLimit) {
+    if (!hasNextTraktPage(response.pagination, page, response.items.length)) {
       break;
     }
   }
@@ -789,21 +818,23 @@ async function listAllHistory(
 
 async function listAllWatchlist(
   auth: TraktAuth,
-  run: { runId: string; userId: string },
+  run: SyncRunContext,
+  onPage?: (count: number) => Promise<void>,
 ) {
-  const items = [];
+  const items: TraktWatchlistMovie[] = [];
 
-  for (let page = 1; page <= maxWatchlistPages; page += 1) {
+  for (let page = 1; page <= maxBootstrapPages; page += 1) {
     await assertTraktSyncRunActive(run.userId, run.runId);
-    const pageItems = await listTraktWatchlistMovies(auth, {
+    const response = await listTraktWatchlistMoviesPage(auth, {
       page,
       limit: pageLimit,
     });
 
-    items.push(...pageItems);
+    items.push(...response.items);
+    await onPage?.(items.length);
     await assertTraktSyncRunActive(run.userId, run.runId);
 
-    if (pageItems.length < pageLimit) {
+    if (!hasNextTraktPage(response.pagination, page, response.items.length)) {
       break;
     }
   }
@@ -811,132 +842,882 @@ async function listAllWatchlist(
   return items;
 }
 
-async function resolveLocalMovie(remoteMovie: RemoteTraktMovieState): Promise<Movie | null> {
+async function listAllRatings(
+  auth: TraktAuth,
+  run: SyncRunContext,
+  onPage?: (count: number) => Promise<void>,
+) {
+  const items: TraktRatedMovie[] = [];
+
+  for (let page = 1; page <= maxBootstrapPages; page += 1) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const response = await listTraktRatedMoviesPage(auth, {
+      page,
+      limit: pageLimit,
+    });
+
+    items.push(...response.items);
+    await onPage?.(items.length);
+    await assertTraktSyncRunActive(run.userId, run.runId);
+
+    if (!hasNextTraktPage(response.pagination, page, response.items.length)) {
+      break;
+    }
+  }
+
+  return items;
+}
+
+function hasNextTraktPage(pagination: TraktPagination, page: number, itemCount: number) {
+  if (pagination.pageCount) {
+    return page < pagination.pageCount;
+  }
+
+  return itemCount >= (pagination.limit ?? pageLimit);
+}
+
+function normalizeHistoryStates(items: TraktHistoryMovie[], result: PullResult) {
+  const states: RemoteHistoryState[] = [];
+
+  for (const item of items) {
+    const movie = toRemoteTraktMovieState(item.movie);
+
+    if (!movie) {
+      result.skipped += 1;
+      continue;
+    }
+
+    states.push({ item, movie });
+  }
+
+  return states;
+}
+
+function normalizeWatchlistStates(items: TraktWatchlistMovie[], result: PullResult) {
+  const states: RemoteTraktWatchlistState[] = [];
+
+  for (const item of items) {
+    const state = toRemoteTraktWatchlistState(item);
+
+    if (!state) {
+      result.skipped += 1;
+      continue;
+    }
+
+    states.push(state);
+  }
+
+  return states;
+}
+
+function normalizeRatingStates(items: TraktRatedMovie[], result: PullResult) {
+  const states: RemoteTraktRatingState[] = [];
+
+  for (const item of items) {
+    const state = toRemoteTraktRatingState(item);
+
+    if (!state) {
+      result.skipped += 1;
+      continue;
+    }
+
+    states.push(state);
+  }
+
+  return states;
+}
+
+async function resolveRemoteMovies({
+  remoteKeys,
+  remoteMovies,
+  result,
+  run,
+}: {
+  remoteKeys: string[];
+  remoteMovies: RemoteTraktMovieState[];
+  result: PullResult;
+  run: SyncRunContext;
+}): Promise<MovieResolutionResult> {
+  const remoteMoviesByKey = new Map<string, RemoteTraktMovieState>();
+
+  for (const movie of remoteMovies) {
+    if (!remoteMoviesByKey.has(movie.key)) {
+      remoteMoviesByKey.set(movie.key, movie);
+    }
+  }
+
+  const providerMappings = await loadProviderMappingMap(
+    Array.from(remoteMoviesByKey.values()),
+    remoteKeys,
+    run,
+  );
+  const mappedMovieIds = new Set(
+    Array.from(providerMappings.values()).map((mapping) => mapping.movie_id),
+  );
+  const moviesById = await loadMovieMapByIds(mappedMovieIds, run);
+  const moviesByTmdb = await loadMovieMapByTmdbIds(
+    Array.from(remoteMoviesByKey.values())
+      .map((movie) => movie.tmdbId)
+      .filter((tmdbId): tmdbId is number => tmdbId !== null),
+    run,
+  );
+  const moviesByImdb = await loadMovieMapByImdbIds(
+    Array.from(remoteMoviesByKey.values())
+      .map((movie) => movie.imdbId)
+      .filter((imdbId): imdbId is string => imdbId !== null),
+    run,
+  );
+  const movieIdByRemoteKey = new Map<string, string>();
+  const failedRemoteKeys = new Map<string, string>();
+  const unknownByTmdb = new Map<number, RemoteTraktMovieState>();
+
+  for (const key of remoteKeys) {
+    const candidate = parseRemoteKey(key);
+    const mappedMovieId = candidate
+      ? providerMappings.get(candidateMapKey(candidate))?.movie_id
+      : null;
+
+    if (mappedMovieId && moviesById.has(mappedMovieId)) {
+      movieIdByRemoteKey.set(key, mappedMovieId);
+    }
+  }
+
+  for (const movie of remoteMoviesByKey.values()) {
+    const mappedMovie = findMappedMovie(movie, providerMappings, moviesById);
+
+    if (mappedMovie) {
+      movieIdByRemoteKey.set(movie.key, mappedMovie.id);
+      continue;
+    }
+
+    const movieByTmdb = movie.tmdbId ? moviesByTmdb.get(movie.tmdbId) : null;
+
+    if (movieByTmdb) {
+      movieIdByRemoteKey.set(movie.key, movieByTmdb.id);
+      continue;
+    }
+
+    const movieByImdb = movie.imdbId ? moviesByImdb.get(movie.imdbId) : null;
+
+    if (movieByImdb) {
+      movieIdByRemoteKey.set(movie.key, movieByImdb.id);
+      continue;
+    }
+
+    if (movie.tmdbId && !unknownByTmdb.has(movie.tmdbId)) {
+      unknownByTmdb.set(movie.tmdbId, movie);
+    }
+  }
+
+  const insertedMoviesByTmdb = await upsertMinimalTraktMovies(
+    Array.from(unknownByTmdb.values()),
+    result,
+    run,
+  );
+
+  for (const movie of remoteMoviesByKey.values()) {
+    if (movieIdByRemoteKey.has(movie.key)) {
+      continue;
+    }
+
+    const insertedMovie = movie.tmdbId ? insertedMoviesByTmdb.get(movie.tmdbId) : null;
+
+    if (insertedMovie) {
+      movieIdByRemoteKey.set(movie.key, insertedMovie.id);
+    } else if (movie.tmdbId && unknownByTmdb.has(movie.tmdbId)) {
+      failedRemoteKeys.set(movie.key, `Failed to create TMDB ${movie.tmdbId}.`);
+    }
+  }
+
+  return {
+    failedRemoteKeys,
+    movieIdByRemoteKey,
+    remoteMoviesByKey,
+  };
+}
+
+async function loadProviderMappingMap(
+  remoteMovies: RemoteTraktMovieState[],
+  remoteKeys: string[],
+  run: SyncRunContext,
+) {
+  const candidates = new Map<string, ProviderCandidate>();
+
+  for (const movie of remoteMovies) {
+    for (const candidate of providerCandidates(movie)) {
+      candidates.set(candidateMapKey(candidate), candidate);
+    }
+  }
+
+  for (const key of remoteKeys) {
+    const candidate = parseRemoteKey(key);
+
+    if (candidate) {
+      candidates.set(candidateMapKey(candidate), candidate);
+    }
+  }
+
+  const idsByProvider = new Map<ProviderMappingProvider, Set<string>>();
+
+  for (const candidate of candidates.values()) {
+    const ids = idsByProvider.get(candidate.provider) ?? new Set<string>();
+
+    ids.add(candidate.id);
+    idsByProvider.set(candidate.provider, ids);
+  }
+
+  const mappings = new Map<string, ProviderMapping>();
   const supabase = createSupabaseAdminClient();
-  const mappedMovieId = await findMappedMovieId(remoteMovie);
 
-  if (mappedMovieId) {
-    const movie = await loadMovie(mappedMovieId);
+  for (const [providerName, ids] of idsByProvider.entries()) {
+    for (const idChunk of chunkArray(Array.from(ids), dbReadChunkSize)) {
+      await assertTraktSyncRunActive(run.userId, run.runId);
+      const { data, error } = await supabase
+        .from("provider_mappings")
+        .select("*")
+        .eq("provider", providerName)
+        .in("provider_movie_id", idChunk);
 
-    if (movie) {
-      await replaceProviderMappings(movie.id, remoteMovie);
-      return movie;
+      if (error) {
+        throwDatabaseError("Failed to bulk load provider mappings.", error);
+      }
+
+      for (const mapping of data ?? []) {
+        mappings.set(
+          candidateMapKey({
+            id: mapping.provider_movie_id,
+            provider: mapping.provider,
+          }),
+          mapping,
+        );
+      }
     }
   }
 
-  if (remoteMovie.tmdbId) {
-    const { data: existingByTmdb, error: existingByTmdbError } = await supabase
-      .from("movies")
-      .select("*")
-      .eq("tmdb_id", remoteMovie.tmdbId)
-      .maybeSingle();
+  return mappings;
+}
 
-    if (existingByTmdbError) {
-      throwDatabaseError("Failed to resolve TMDB movie mapping.", existingByTmdbError);
+async function loadMovieMapByIds(ids: Iterable<string>, run: SyncRunContext) {
+  const movies = new Map<string, Movie>();
+  const supabase = createSupabaseAdminClient();
+
+  for (const idChunk of chunkArray(uniqueArray(ids), dbReadChunkSize)) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const { data, error } = await supabase.from("movies").select("*").in("id", idChunk);
+
+    if (error) {
+      throwDatabaseError("Failed to bulk load mapped movies.", error);
     }
 
-    if (existingByTmdb) {
-      await replaceProviderMappings(existingByTmdb.id, remoteMovie);
-      return existingByTmdb;
+    for (const movie of data ?? []) {
+      movies.set(movie.id, movie);
     }
-
-    const movie = await upsertMinimalTraktMovie(remoteMovie);
-    await replaceProviderMappings(movie.id, remoteMovie);
-    return movie;
   }
 
-  if (remoteMovie.imdbId) {
-    const { data: existingByImdb, error: existingByImdbError } = await supabase
-      .from("movies")
-      .select("*")
-      .eq("imdb_id", remoteMovie.imdbId)
-      .maybeSingle();
+  return movies;
+}
 
-    if (existingByImdbError) {
-      throwDatabaseError("Failed to resolve IMDb movie mapping.", existingByImdbError);
+async function loadMovieMapByTmdbIds(ids: Iterable<number>, run: SyncRunContext) {
+  const movies = new Map<number, Movie>();
+  const supabase = createSupabaseAdminClient();
+
+  for (const idChunk of chunkArray(uniqueArray(ids), dbReadChunkSize)) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const { data, error } = await supabase.from("movies").select("*").in("tmdb_id", idChunk);
+
+    if (error) {
+      throwDatabaseError("Failed to bulk load TMDB movies.", error);
     }
 
-    if (existingByImdb) {
-      await replaceProviderMappings(existingByImdb.id, remoteMovie);
-      return existingByImdb;
+    for (const movie of data ?? []) {
+      movies.set(movie.tmdb_id, movie);
+    }
+  }
+
+  return movies;
+}
+
+async function loadMovieMapByImdbIds(ids: Iterable<string>, run: SyncRunContext) {
+  const movies = new Map<string, Movie>();
+  const supabase = createSupabaseAdminClient();
+
+  for (const idChunk of chunkArray(uniqueArray(ids), dbReadChunkSize)) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const { data, error } = await supabase.from("movies").select("*").in("imdb_id", idChunk);
+
+    if (error) {
+      throwDatabaseError("Failed to bulk load IMDb movies.", error);
+    }
+
+    for (const movie of data ?? []) {
+      if (movie.imdb_id) {
+        movies.set(movie.imdb_id, movie);
+      }
+    }
+  }
+
+  return movies;
+}
+
+async function upsertMinimalTraktMovies(
+  remoteMovies: RemoteTraktMovieState[],
+  result: PullResult,
+  run: SyncRunContext,
+) {
+  const movies = new Map<number, Movie>();
+  const rows: MovieInsert[] = remoteMovies
+    .filter((movie): movie is RemoteTraktMovieState & { tmdbId: number } => movie.tmdbId !== null)
+    .map((movie) => ({
+      imdb_id: movie.imdbId,
+      title: movie.title?.trim() || `TMDB ${movie.tmdbId}`,
+      tmdb_id: movie.tmdbId,
+    }));
+  const supabase = createSupabaseAdminClient();
+
+  for (const rowChunk of chunkArray(rows, dbWriteChunkSize)) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const { data, error } = await supabase
+      .from("movies")
+      .upsert(rowChunk, { onConflict: "tmdb_id" })
+      .select("*");
+
+    if (!error) {
+      for (const movie of data ?? []) {
+        movies.set(movie.tmdb_id, movie);
+      }
+      continue;
+    }
+
+    for (const row of rowChunk) {
+      await assertTraktSyncRunActive(run.userId, run.runId);
+      const { data: fallbackMovie, error: fallbackError } = await supabase
+        .from("movies")
+        .upsert(row, { onConflict: "tmdb_id" })
+        .select("*")
+        .single();
+
+      if (fallbackError) {
+        recordPullFailure(result, "metadata", `tmdb:${row.tmdb_id}`, fallbackError);
+      } else {
+        movies.set(fallbackMovie.tmdb_id, fallbackMovie);
+      }
+    }
+  }
+
+  return movies;
+}
+
+function findMappedMovie(
+  remoteMovie: RemoteTraktMovieState,
+  mappings: Map<string, ProviderMapping>,
+  moviesById: Map<string, Movie>,
+) {
+  for (const candidate of providerCandidates(remoteMovie)) {
+    const movieId = mappings.get(candidateMapKey(candidate))?.movie_id;
+
+    if (movieId) {
+      const movie = moviesById.get(movieId);
+
+      if (movie) {
+        return movie;
+      }
     }
   }
 
   return null;
 }
 
-async function upsertMinimalTraktMovie(remoteMovie: RemoteTraktMovieState) {
-  if (!remoteMovie.tmdbId) {
-    throw new AppError("Cannot create a Trakt movie without a TMDB id.", {
-      code: "TRAKT_MOVIE_TMDB_ID_MISSING",
-      status: 422,
+async function upsertResolvedProviderMappings(
+  resolution: MovieResolutionResult,
+  result: PullResult,
+  run: SyncRunContext,
+) {
+  const mappings = buildProviderMappingInserts(resolution);
+  const movieIdsByProvider = new Map<ProviderMappingProvider, Set<string>>();
+  const supabase = createSupabaseAdminClient();
+
+  for (const mapping of mappings) {
+    const ids = movieIdsByProvider.get(mapping.provider) ?? new Set<string>();
+
+    ids.add(mapping.movie_id);
+    movieIdsByProvider.set(mapping.provider, ids);
+  }
+
+  for (const [providerName, movieIds] of movieIdsByProvider.entries()) {
+    for (const movieIdChunk of chunkArray(Array.from(movieIds), dbWriteChunkSize)) {
+      await assertTraktSyncRunActive(run.userId, run.runId);
+      const { error } = await supabase
+        .from("provider_mappings")
+        .delete()
+        .eq("provider", providerName)
+        .in("movie_id", movieIdChunk);
+
+      if (error) {
+        throwDatabaseError("Failed to replace Trakt provider mappings.", error);
+      }
+    }
+  }
+
+  for (const mappingChunk of chunkArray(mappings, dbWriteChunkSize)) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const { error } = await supabase
+      .from("provider_mappings")
+      .upsert(mappingChunk, { onConflict: "provider,provider_movie_id" });
+
+    if (!error) {
+      continue;
+    }
+
+    for (const mapping of mappingChunk) {
+      await assertTraktSyncRunActive(run.userId, run.runId);
+      const { error: fallbackError } = await supabase
+        .from("provider_mappings")
+        .upsert(mapping, { onConflict: "provider,provider_movie_id" });
+
+      if (fallbackError) {
+        recordPullFailure(
+          result,
+          "mapping",
+          `${mapping.provider}:${mapping.provider_movie_id}`,
+          fallbackError,
+        );
+      }
+    }
+  }
+}
+
+function buildProviderMappingInserts(resolution: MovieResolutionResult) {
+  const mappings = new Map<string, ProviderMappingInsert>();
+  const usedMovieProviderKeys = new Set<string>();
+
+  for (const movie of resolution.remoteMoviesByKey.values()) {
+    const movieId = resolution.movieIdByRemoteKey.get(movie.key);
+
+    if (!movieId) {
+      continue;
+    }
+
+    for (const candidate of providerCandidates(movie)) {
+      const movieProviderKey = `${movieId}:${candidate.provider}`;
+
+      if (usedMovieProviderKeys.has(movieProviderKey)) {
+        continue;
+      }
+
+      usedMovieProviderKeys.add(movieProviderKey);
+      mappings.set(candidateMapKey(candidate), {
+        movie_id: movieId,
+        provider: candidate.provider,
+        provider_movie_id: candidate.id,
+      });
+    }
+  }
+
+  return Array.from(mappings.values());
+}
+
+async function loadUserMovieMap(
+  userId: string,
+  movieIds: Iterable<string>,
+  run: SyncRunContext,
+) {
+  const userMovies = new Map<string, UserMovie>();
+  const supabase = createSupabaseAdminClient();
+
+  for (const movieIdChunk of chunkArray(uniqueArray(movieIds), dbReadChunkSize)) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const { data, error } = await supabase
+      .from("user_movies")
+      .select("*")
+      .eq("user_id", userId)
+      .in("movie_id", movieIdChunk);
+
+    if (error) {
+      throwDatabaseError("Failed to bulk load user movie state.", error);
+    }
+
+    for (const userMovie of data ?? []) {
+      userMovies.set(userMovie.movie_id, userMovie);
+    }
+  }
+
+  return userMovies;
+}
+
+function planPullUserMovieWrites({
+  existingUserMovies,
+  historyStates,
+  movieResolution,
+  pendingMovieIds,
+  ratingStates,
+  removedRatingKeys,
+  removedWatchlistKeys,
+  result,
+  watchlistStates,
+}: {
+  existingUserMovies: Map<string, UserMovie>;
+  historyStates: RemoteHistoryState[];
+  movieResolution: MovieResolutionResult;
+  pendingMovieIds: Set<string>;
+  ratingStates: RemoteTraktRatingState[];
+  removedRatingKeys: string[];
+  removedWatchlistKeys: string[];
+  result: PullResult;
+  watchlistStates: RemoteTraktWatchlistState[];
+}) {
+  const drafts = new Map<string, UserMovieDraft>();
+  const deletedMovieIds = new Set<string>();
+  let newestWatchedAt: string | null = null;
+
+  function readDraft(movieId: string): UserMovieDraft | null {
+    if (drafts.has(movieId)) {
+      return drafts.get(movieId) ?? null;
+    }
+
+    if (deletedMovieIds.has(movieId)) {
+      return null;
+    }
+
+    const existing = existingUserMovies.get(movieId);
+
+    return existing ? draftFromUserMovie(existing) : null;
+  }
+
+  function writeDraft(draft: UserMovieDraft) {
+    deletedMovieIds.delete(draft.movieId);
+    drafts.set(draft.movieId, draft);
+  }
+
+  for (const state of historyStates) {
+    const movieId = resolveImportedMovieId(state.movie, movieResolution, result, "history");
+
+    if (!movieId) {
+      continue;
+    }
+
+    const existingDraft = readDraft(movieId);
+
+    writeDraft({
+      lastWatchedAt: latestTimestamp(existingDraft?.lastWatchedAt, state.item.watched_at),
+      movieId,
+      personalRating: existingDraft?.personalRating ?? null,
+      status: "watched",
+      watchlistedAt: null,
+    });
+    newestWatchedAt = latestTimestamp(newestWatchedAt, state.item.watched_at);
+    result.historyImported += 1;
+  }
+
+  for (const state of watchlistStates) {
+    const movieId = resolveImportedMovieId(state, movieResolution, result, "watchlist");
+
+    if (!movieId) {
+      continue;
+    }
+
+    const existingDraft = readDraft(movieId);
+
+    if (existingDraft?.status === "watched") {
+      continue;
+    }
+
+    writeDraft({
+      lastWatchedAt: null,
+      movieId,
+      personalRating: existingDraft?.personalRating ?? null,
+      status: "to_watch",
+      watchlistedAt: state.listedAt,
+    });
+    result.watchlistImported += 1;
+  }
+
+  for (const key of removedWatchlistKeys) {
+    const movieId = movieResolution.movieIdByRemoteKey.get(key);
+
+    if (!movieId || pendingMovieIds.has(movieId)) {
+      continue;
+    }
+
+    const existingDraft = readDraft(movieId);
+
+    if (existingDraft?.status !== "to_watch") {
+      continue;
+    }
+
+    drafts.delete(movieId);
+    deletedMovieIds.add(movieId);
+    result.watchlistRemoved += 1;
+  }
+
+  for (const state of ratingStates) {
+    const movieId = resolveImportedMovieId(state, movieResolution, result, "rating");
+
+    if (!movieId) {
+      continue;
+    }
+
+    const existingDraft = readDraft(movieId);
+
+    writeDraft({
+      lastWatchedAt: existingDraft?.lastWatchedAt ?? null,
+      movieId,
+      personalRating: state.rating,
+      status: existingDraft?.status ?? "watched",
+      watchlistedAt: existingDraft?.watchlistedAt ?? null,
+    });
+    result.ratingsImported += 1;
+  }
+
+  for (const key of removedRatingKeys) {
+    const movieId = movieResolution.movieIdByRemoteKey.get(key);
+
+    if (!movieId || pendingMovieIds.has(movieId)) {
+      continue;
+    }
+
+    const existingDraft = readDraft(movieId);
+
+    if (!existingDraft || existingDraft.personalRating === null) {
+      continue;
+    }
+
+    writeDraft({
+      ...existingDraft,
+      personalRating: null,
+    });
+    result.ratingsCleared += 1;
+  }
+
+  return {
+    deleteMovieIds: Array.from(deletedMovieIds),
+    newestWatchedAt,
+    upserts: Array.from(drafts.values()),
+  };
+}
+
+async function deleteUserMovies(
+  userId: string,
+  movieIds: string[],
+  result: PullResult,
+  run: SyncRunContext,
+) {
+  const supabase = createSupabaseAdminClient();
+
+  for (const movieIdChunk of chunkArray(movieIds, dbWriteChunkSize)) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const { error } = await supabase
+      .from("user_movies")
+      .delete()
+      .eq("user_id", userId)
+      .in("movie_id", movieIdChunk);
+
+    if (!error) {
+      continue;
+    }
+
+    for (const movieId of movieIdChunk) {
+      await assertTraktSyncRunActive(run.userId, run.runId);
+      const { error: fallbackError } = await supabase
+        .from("user_movies")
+        .delete()
+        .eq("user_id", userId)
+        .eq("movie_id", movieId);
+
+      if (fallbackError) {
+        recordPullFailure(result, "watchlist", movieId, fallbackError);
+      }
+    }
+  }
+}
+
+async function upsertUserMovieDrafts(
+  userId: string,
+  drafts: UserMovieDraft[],
+  result: PullResult,
+  run: SyncRunContext,
+) {
+  const supabase = createSupabaseAdminClient();
+  const rows = drafts.map((draft): UserMovieInsert => ({
+    user_id: userId,
+    movie_id: draft.movieId,
+    status: draft.status,
+    personal_rating: draft.personalRating,
+    watchlisted_at: draft.watchlistedAt,
+    last_watched_at: draft.lastWatchedAt,
+  }));
+
+  for (const rowChunk of chunkArray(rows, dbWriteChunkSize)) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const { error } = await supabase
+      .from("user_movies")
+      .upsert(rowChunk, { onConflict: "user_id,movie_id" });
+
+    if (!error) {
+      continue;
+    }
+
+    for (const row of rowChunk) {
+      await assertTraktSyncRunActive(run.userId, run.runId);
+      const { error: fallbackError } = await supabase
+        .from("user_movies")
+        .upsert(row, { onConflict: "user_id,movie_id" });
+
+      if (fallbackError) {
+        recordPullFailure(result, "library", row.movie_id, fallbackError);
+      }
+    }
+  }
+}
+
+function buildWatchLogInserts(
+  userId: string,
+  historyStates: RemoteHistoryState[],
+  movieResolution: MovieResolutionResult,
+) {
+  const logs = new Map<string, WatchLogInsert>();
+
+  for (const state of historyStates) {
+    const movieId = movieResolution.movieIdByRemoteKey.get(state.movie.key);
+
+    if (!movieId) {
+      continue;
+    }
+
+    const providerEventId = `trakt:history:${state.item.id}`;
+
+    logs.set(providerEventId, {
+      user_id: userId,
+      movie_id: movieId,
+      watched_at: state.item.watched_at,
+      source: "trakt_sync",
+      provider_event_id: providerEventId,
     });
   }
 
-  const supabase = createSupabaseAdminClient();
-  const title = remoteMovie.title?.trim() || `TMDB ${remoteMovie.tmdbId}`;
-  const movie: MovieInsert = {
-    imdb_id: remoteMovie.imdbId,
-    title,
-    tmdb_id: remoteMovie.tmdbId,
-  };
-
-  const { data, error } = await supabase
-    .from("movies")
-    .upsert(movie, { onConflict: "tmdb_id" })
-    .select("*")
-    .single();
-
-  if (error) {
-    throwDatabaseError("Failed to bootstrap Trakt movie metadata.", error);
-  }
-
-  return data;
+  return Array.from(logs.values());
 }
 
-async function findMappedMovieId(remoteMovie: RemoteTraktMovieState) {
-  const candidates: Array<{ provider: "imdb" | "tmdb" | "trakt"; id: string }> = [];
+async function insertWatchLogs(
+  userId: string,
+  logs: WatchLogInsert[],
+  result: PullResult,
+  run: SyncRunContext,
+) {
+  const existingEventIds = await loadExistingWatchLogEventIds(
+    userId,
+    logs
+      .map((log) => log.provider_event_id)
+      .filter((eventId): eventId is string => eventId !== null && eventId !== undefined),
+    run,
+  );
+  const supabase = createSupabaseAdminClient();
+  const rows = logs.filter(
+    (log) => log.provider_event_id && !existingEventIds.has(log.provider_event_id),
+  );
 
-  if (remoteMovie.traktId) {
-    candidates.push({ provider: "trakt", id: remoteMovie.traktId });
-  }
+  for (const rowChunk of chunkArray(rows, dbWriteChunkSize)) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const { error } = await supabase.from("watch_logs").insert(rowChunk);
 
-  if (remoteMovie.tmdbId) {
-    candidates.push({ provider: "tmdb", id: String(remoteMovie.tmdbId) });
-  }
-
-  if (remoteMovie.imdbId) {
-    candidates.push({ provider: "imdb", id: remoteMovie.imdbId });
-  }
-
-  for (const candidate of candidates) {
-    const movieId = await findMovieIdByProvider(candidate.provider, candidate.id);
-
-    if (movieId) {
-      return movieId;
+    if (!error) {
+      continue;
     }
+
+    for (const row of rowChunk) {
+      await assertTraktSyncRunActive(run.userId, run.runId);
+      const { error: fallbackError } = await supabase.from("watch_logs").insert(row);
+
+      if (!fallbackError || isUniqueConstraintError(fallbackError)) {
+        continue;
+      }
+
+      recordPullFailure(result, "watch-log", row.provider_event_id ?? row.movie_id, fallbackError);
+    }
+  }
+}
+
+async function loadExistingWatchLogEventIds(
+  userId: string,
+  providerEventIds: string[],
+  run: SyncRunContext,
+) {
+  const existing = new Set<string>();
+  const supabase = createSupabaseAdminClient();
+
+  for (const eventIdChunk of chunkArray(uniqueArray(providerEventIds), dbReadChunkSize)) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const { data, error } = await supabase
+      .from("watch_logs")
+      .select("provider_event_id")
+      .eq("user_id", userId)
+      .in("provider_event_id", eventIdChunk);
+
+    if (error) {
+      throwDatabaseError("Failed to bulk load Trakt watch logs.", error);
+    }
+
+    for (const row of data ?? []) {
+      if (row.provider_event_id) {
+        existing.add(row.provider_event_id);
+      }
+    }
+  }
+
+  return existing;
+}
+
+function resolveImportedMovieId(
+  remoteMovie: RemoteTraktMovieState,
+  resolution: MovieResolutionResult,
+  result: PullResult,
+  phase: PullFailurePhase,
+) {
+  const movieId = resolution.movieIdByRemoteKey.get(remoteMovie.key);
+
+  if (movieId) {
+    return movieId;
+  }
+
+  const failure = resolution.failedRemoteKeys.get(remoteMovie.key);
+
+  if (failure) {
+    recordPullFailure(result, phase, remoteMovie.key, failure);
+  } else {
+    result.skipped += 1;
   }
 
   return null;
 }
 
-async function findMovieIdByProvider(providerName: "imdb" | "tmdb" | "trakt", id: string) {
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("provider_mappings")
-    .select("movie_id")
-    .eq("provider", providerName)
-    .eq("provider_movie_id", id)
-    .maybeSingle();
-
-  if (error) {
-    throwDatabaseError("Failed to load provider mapping.", error);
-  }
-
-  return data?.movie_id ?? null;
+function draftFromUserMovie(userMovie: UserMovie): UserMovieDraft {
+  return {
+    lastWatchedAt: userMovie.last_watched_at,
+    movieId: userMovie.movie_id,
+    personalRating: userMovie.personal_rating,
+    status: userMovie.status,
+    watchlistedAt: userMovie.watchlisted_at,
+  };
 }
 
-async function findLocalMovieIdByRemoteKey(key: string) {
+function providerCandidates(remoteMovie: RemoteTraktMovieState): ProviderCandidate[] {
+  const candidates: ProviderCandidate[] = [];
+
+  if (remoteMovie.traktId) {
+    candidates.push({ id: remoteMovie.traktId, provider: "trakt" });
+  }
+
+  if (remoteMovie.tmdbId) {
+    candidates.push({ id: String(remoteMovie.tmdbId), provider: "tmdb" });
+  }
+
+  if (remoteMovie.imdbId) {
+    candidates.push({ id: remoteMovie.imdbId, provider: "imdb" });
+  }
+
+  return candidates;
+}
+
+function parseRemoteKey(key: string): ProviderCandidate | null {
   const [providerName, id] = key.split(":", 2);
 
   if (
@@ -946,239 +1727,47 @@ async function findLocalMovieIdByRemoteKey(key: string) {
     return null;
   }
 
-  return findMovieIdByProvider(providerName, id);
+  return {
+    id,
+    provider: providerName,
+  };
 }
 
-async function loadMovie(movieId: string) {
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("movies")
-    .select("*")
-    .eq("id", movieId)
-    .maybeSingle();
-
-  if (error) {
-    throwDatabaseError("Failed to load movie.", error);
-  }
-
-  return data;
+function candidateMapKey(candidate: ProviderCandidate) {
+  return `${candidate.provider}:${candidate.id}`;
 }
 
-async function replaceProviderMappings(movieId: string, remoteMovie: RemoteTraktMovieState) {
-  const supabase = createSupabaseAdminClient();
-  const mappings: ProviderMappingInsert[] = [];
-  const providers: Array<"imdb" | "tmdb" | "trakt"> = [];
+function recordPullFailure(
+  result: PullResult,
+  phase: PullFailurePhase,
+  itemKey: string,
+  error: unknown,
+) {
+  result.failed += 1;
 
-  if (remoteMovie.traktId) {
-    providers.push("trakt");
-    mappings.push({
-      movie_id: movieId,
-      provider: "trakt",
-      provider_movie_id: remoteMovie.traktId,
-    });
-  }
-
-  if (remoteMovie.tmdbId) {
-    providers.push("tmdb");
-    mappings.push({
-      movie_id: movieId,
-      provider: "tmdb",
-      provider_movie_id: String(remoteMovie.tmdbId),
-    });
-  }
-
-  if (remoteMovie.imdbId) {
-    providers.push("imdb");
-    mappings.push({
-      movie_id: movieId,
-      provider: "imdb",
-      provider_movie_id: remoteMovie.imdbId,
-    });
-  }
-
-  if (providers.length === 0) {
+  if (result.failureSamples.length >= failureSampleLimit) {
     return;
   }
 
-  const { error: deleteError } = await supabase
-    .from("provider_mappings")
-    .delete()
-    .eq("movie_id", movieId)
-    .in("provider", providers);
-
-  if (deleteError) {
-    throwDatabaseError("Failed to replace Trakt provider mappings.", deleteError);
-  }
-
-  const { error: mappingError } = await supabase
-    .from("provider_mappings")
-    .upsert(mappings, { onConflict: "provider,provider_movie_id" });
-
-  if (mappingError) {
-    throwDatabaseError("Failed to upsert Trakt provider mappings.", mappingError);
-  }
+  result.failureSamples.push(`${phase}:${itemKey}: ${getErrorMessage(error)}`);
 }
 
-async function applyRemoteHistory(userId: string, movieId: string, item: TraktHistoryMovie) {
-  const supabase = createSupabaseAdminClient();
-  const providerEventId = `trakt:history:${item.id}`;
-  const { data: existingLog, error: existingLogError } = await supabase
-    .from("watch_logs")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("provider_event_id", providerEventId)
-    .maybeSingle();
-
-  if (existingLogError) {
-    throwDatabaseError("Failed to check existing Trakt watch log.", existingLogError);
+function chunkArray<T>(items: T[], size: number) {
+  if (items.length === 0) {
+    return [];
   }
 
-  const existingUserMovie = await loadUserMovie(userId, movieId);
+  const chunks: T[][] = [];
 
-  const { error: userMovieError } = await supabase.from("user_movies").upsert(
-    {
-      user_id: userId,
-      movie_id: movieId,
-      status: "watched",
-      watchlisted_at: null,
-      last_watched_at: latestTimestamp(existingUserMovie?.last_watched_at, item.watched_at),
-      personal_rating: existingUserMovie?.personal_rating ?? null,
-    },
-    { onConflict: "user_id,movie_id" },
-  );
-
-  if (userMovieError) {
-    throwDatabaseError("Failed to apply Trakt watched state.", userMovieError);
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
   }
 
-  if (existingLog) {
-    return;
-  }
-
-  const { error: watchLogError } = await supabase.from("watch_logs").insert({
-    user_id: userId,
-    movie_id: movieId,
-    watched_at: item.watched_at,
-    source: "trakt_sync",
-    provider_event_id: providerEventId,
-  });
-
-  if (watchLogError) {
-    throwDatabaseError("Failed to import Trakt watch history.", watchLogError);
-  }
+  return chunks;
 }
 
-async function applyRemoteWatchlist(
-  userId: string,
-  movieId: string,
-  item: RemoteTraktWatchlistState,
-) {
-  const existingUserMovie = await loadUserMovie(userId, movieId);
-
-  if (existingUserMovie?.status === "watched") {
-    return false;
-  }
-
-  const supabase = createSupabaseAdminClient();
-  const { error } = await supabase.from("user_movies").upsert(
-    {
-      user_id: userId,
-      movie_id: movieId,
-      status: "to_watch",
-      watchlisted_at: item.listedAt,
-      last_watched_at: null,
-      personal_rating: existingUserMovie?.personal_rating ?? null,
-    },
-    { onConflict: "user_id,movie_id" },
-  );
-
-  if (error) {
-    throwDatabaseError("Failed to import Trakt watchlist state.", error);
-  }
-
-  return true;
-}
-
-async function removeRemoteMissingWatchlist(userId: string, movieId: string) {
-  const existingUserMovie = await loadUserMovie(userId, movieId);
-
-  if (existingUserMovie?.status !== "to_watch") {
-    return false;
-  }
-
-  const supabase = createSupabaseAdminClient();
-  const { error } = await supabase
-    .from("user_movies")
-    .delete()
-    .eq("user_id", userId)
-    .eq("movie_id", movieId);
-
-  if (error) {
-    throwDatabaseError("Failed to reconcile removed Trakt watchlist item.", error);
-  }
-
-  return true;
-}
-
-async function applyRemoteRating(
-  userId: string,
-  movieId: string,
-  item: RemoteTraktRatingState,
-) {
-  const existingUserMovie = await loadUserMovie(userId, movieId);
-  const supabase = createSupabaseAdminClient();
-  const { error } = await supabase.from("user_movies").upsert(
-    {
-      user_id: userId,
-      movie_id: movieId,
-      status: existingUserMovie?.status ?? "watched",
-      watchlisted_at: existingUserMovie?.watchlisted_at ?? null,
-      last_watched_at: existingUserMovie?.last_watched_at ?? null,
-      personal_rating: item.rating,
-    },
-    { onConflict: "user_id,movie_id" },
-  );
-
-  if (error) {
-    throwDatabaseError("Failed to import Trakt rating.", error);
-  }
-}
-
-async function clearRemoteMissingRating(userId: string, movieId: string) {
-  const existingUserMovie = await loadUserMovie(userId, movieId);
-
-  if (!existingUserMovie || existingUserMovie.personal_rating === null) {
-    return false;
-  }
-
-  const supabase = createSupabaseAdminClient();
-  const { error } = await supabase
-    .from("user_movies")
-    .update({ personal_rating: null })
-    .eq("user_id", userId)
-    .eq("movie_id", movieId);
-
-  if (error) {
-    throwDatabaseError("Failed to reconcile removed Trakt rating.", error);
-  }
-
-  return true;
-}
-
-async function loadUserMovie(userId: string, movieId: string): Promise<UserMovie | null> {
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("user_movies")
-    .select("*")
-    .eq("user_id", userId)
-    .eq("movie_id", movieId)
-    .maybeSingle();
-
-  if (error) {
-    throwDatabaseError("Failed to load user movie state.", error);
-  }
-
-  return data;
+function uniqueArray<T>(items: Iterable<T>) {
+  return Array.from(new Set(items));
 }
 
 async function loadMovieForPush(movieId: string) {
