@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import Link from "next/link";
 
 import { BackButton } from "@/components/navigation/back-button";
 import { TraktSyncControls } from "@/components/settings/trakt-sync-controls";
@@ -120,12 +119,12 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
         </div>
 
         {hasAppCredentials ? (
-          <Link
+          <a
             href="/api/providers/trakt/connect"
             className="flex h-11 items-center justify-center rounded-xl border border-border bg-background px-4 text-[15px] font-semibold text-foreground"
           >
             {connected ? "Reconnect Trakt" : "Authorize Trakt"}
-          </Link>
+          </a>
         ) : (
           <button
             type="button"
