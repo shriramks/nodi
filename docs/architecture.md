@@ -145,6 +145,10 @@ tag only remote movies that were not in the previous snapshot. Remote list remov
 snapshot but do not remove local `user_movie_tags`, preserving local tag edits and removals unless a
 future strict reconciliation mode is added.
 
+List pulls also store a `lists.<id>.metadata` cursor from Trakt list metadata. When that metadata is
+unchanged and an item snapshot already exists, the pull reuses the snapshot and skips fetching the
+list's item pages.
+
 Trakt pull keeps movie resolution lightweight. Unknown Trakt movies are stored as minimal local rows
 with provider mappings, then TMDB detail, credits, posters, and runtime are filled later through
 manual metadata backfill or lazy enrichment when the local movie detail page is opened.
