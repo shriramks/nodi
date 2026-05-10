@@ -44,7 +44,6 @@ export default async function TmdbMovieDetailPage({
     <MovieDetailView
       actions={<TmdbUserStateActions tmdbId={tmdbId} />}
       movie={toDetailMovie(detail, credits)}
-      personalRating={null}
       status={null}
     />
   );

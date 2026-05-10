@@ -6,7 +6,7 @@ import { isAppError } from "@/lib/errors";
 import { getMovieDetail } from "@/lib/db/queries";
 import { enrichTmdbMovieOnDemand } from "@/lib/providers/tmdb/enrichment";
 import {
-  RatingPicker,
+  RatingSheet,
   TagEditor,
   UserStateActions,
   WatchDateForm,
@@ -42,12 +42,13 @@ export default async function MovieDetailPage({
     <MovieDetailView
       actions={<UserStateActions movieId={movie.id} status={status} />}
       movie={movie}
-      personalRating={userMovie?.personal_rating ?? null}
       ratingPicker={
-        <RatingPicker
-          movieId={movie.id}
-          currentRating={userMovie?.personal_rating ?? null}
-        />
+        status === "watched" ? (
+          <RatingSheet
+            movieId={movie.id}
+            currentRating={userMovie?.personal_rating ?? null}
+          />
+        ) : null
       }
       status={status}
       tagEditor={

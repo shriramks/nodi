@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Film } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
+import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { OverviewText } from "@/components/movie/overview-text";
 import type { MovieStatus } from "@/lib/db/types";
 
@@ -38,7 +39,6 @@ type DetailMovie = {
 type MovieDetailViewProps = {
   movie: DetailMovie;
   status: MovieStatus | null;
-  personalRating: number | null;
   actions: ReactNode;
   ratingPicker?: ReactNode;
   tagEditor?: ReactNode;
@@ -48,7 +48,6 @@ type MovieDetailViewProps = {
 export function MovieDetailView({
   actions,
   movie,
-  personalRating,
   ratingPicker,
   status,
   tagEditor,
@@ -84,7 +83,10 @@ export function MovieDetailView({
 
   return (
     <main className="space-y-6 pb-4">
-      <BackButton />
+      <div className="flex items-center justify-between">
+        <BackButton />
+        <SettingsSheet />
+      </div>
 
       <section className="grid grid-cols-[112px_minmax(0,1fr)] gap-4">
         <div
@@ -104,34 +106,27 @@ export function MovieDetailView({
           )}
         </div>
 
-        <div className="min-w-0 space-y-2 self-center">
+        <div className="min-w-0 space-y-1.5 self-start">
           <h1 className="text-[22px] font-bold leading-[1.15]">{movie.title}</h1>
 
           {metaLine && (
             <p className="text-[13px] leading-[1.4] text-text-2">{metaLine}</p>
           )}
 
-          <div className="flex items-center gap-3">
-            {statusLabel && statusColour && (
-              <span className={`text-[15px] font-semibold ${statusColour}`}>
-                {statusLabel}
-              </span>
-            )}
-            {status === "watched" && (
-              <span className="text-[15px] text-foreground">
-                {personalRating !== null && personalRating !== undefined
-                  ? `♥ ${personalRating}`
-                  : "Not rated"}
-              </span>
-            )}
-          </div>
+          {statusLabel && statusColour && (
+            <p className={`text-[15px] font-semibold ${statusColour}`}>
+              {statusLabel}
+            </p>
+          )}
+
+          {ratingPicker}
 
           {movie.tmdb_vote_average !== null &&
             movie.tmdb_vote_average !== undefined && (
-              <p className="text-[11px] text-text-faint">
+              <p className="text-[13px] text-text-muted">
                 TMDB {movie.tmdb_vote_average}
                 {movie.tmdb_vote_count
-                  ? ` · ${movie.tmdb_vote_count.toLocaleString()} votes`
+                  ? ` · ${movie.tmdb_vote_count.toLocaleString()}`
                   : ""}
               </p>
             )}
@@ -158,7 +153,6 @@ export function MovieDetailView({
 
       {actions}
 
-      {status === "watched" ? ratingPicker : null}
       {status === "watched" ? watchDateForm : null}
       {status ? tagEditor : null}
 
@@ -214,7 +208,7 @@ export function MovieDetailView({
           Details
         </p>
         {detailRows.length > 0 ? (
-          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+          <div>
             {detailRows.map((row) => (
               <DetailRow key={row.label} label={row.label} value={row.value} />
             ))}
@@ -232,7 +226,7 @@ export function MovieDetailView({
             Watch history
             {watchLogs.length > 1 ? ` · ${watchLogs.length}×` : ""}
           </p>
-          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
+          <div>
             {watchLogs.slice(0, 5).map((log) => (
               <DetailRow
                 key={log.id}
