@@ -33,6 +33,12 @@ product direction.
 ## Working approach
 
 - Read `docs/agent.md` first, then open only the docs and files needed for the task.
+- Read `progress.md` for current local task state before starting assigned work, and update it after
+  every assigned task with the outcome, verification, migration notes if any, and commit hash if
+  pushed.
+- Maintain `progress.md` with only two top-level sections: `# Done` and `# Todo`. Keep the most recent
+  entries first, move completed tasks from `Todo` to the top of `Done`, and avoid duplicating the same
+  roadmap item in both sections.
 - Use targeted lookup with `rg`/`rg --files`; avoid broad file sweeps unless the task actually needs it.
 - Do not start routine changes by scanning the whole repo. Use the lookup map below first, then search
   narrowly inside the relevant directory or feature surface.
