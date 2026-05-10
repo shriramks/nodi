@@ -250,17 +250,10 @@ export function WatchDateForm({ movieId }: { movieId: string }) {
 
   return (
     <section>
-      <p className="px-4 py-1 text-[11px] uppercase tracking-wide text-text-faint">
-        Watched on
-      </p>
-      <div className="flex items-center gap-1 border-b border-divider px-4 py-2.5">
-        <label className="relative flex flex-1 cursor-pointer items-center gap-3 min-w-0">
-          <CalendarPlus
-            aria-hidden="true"
-            className="h-4 w-4 shrink-0 text-text-muted"
-            strokeWidth={1.8}
-          />
-          <span className="flex-1 min-w-0 text-[15px] text-foreground">{displayDate}</span>
+      <div className="flex items-center border-b border-divider px-4" style={{ minHeight: 44 }}>
+        <span className="text-[13px] text-text-faint mr-3 shrink-0">Watched on</span>
+        <label className="relative flex flex-1 cursor-pointer items-center gap-2 min-w-0 justify-end">
+          <span className="text-[15px] text-foreground">{displayDate}</span>
           <ChevronDown
             aria-hidden="true"
             className="h-3.5 w-3.5 shrink-0 text-text-muted"
@@ -278,7 +271,7 @@ export function WatchDateForm({ movieId }: { movieId: string }) {
         <button
           onClick={handleAdd}
           disabled={isPending || !watchedDate}
-          className="ml-2 shrink-0 text-[15px] font-semibold text-accent disabled:opacity-40 active:opacity-60"
+          className="ml-3 shrink-0 text-[15px] font-semibold text-accent disabled:opacity-40 active:opacity-60"
           style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "flex-end" }}
         >
           {isPending ? "…" : "Add"}
