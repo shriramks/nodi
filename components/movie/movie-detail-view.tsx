@@ -76,8 +76,13 @@ export function MovieDetailView({
     movie.original_language
       ? { label: "Language", value: movie.original_language.toUpperCase() }
       : null,
-    movie.tmdb_vote_count !== null && movie.tmdb_vote_count !== undefined
-      ? { label: "TMDB votes", value: movie.tmdb_vote_count.toLocaleString() }
+    movie.tmdb_vote_average !== null && movie.tmdb_vote_average !== undefined
+      ? {
+          label: "TMDB rating",
+          value: movie.tmdb_vote_count
+            ? `${movie.tmdb_vote_average} · ${movie.tmdb_vote_count.toLocaleString()} votes`
+            : String(movie.tmdb_vote_average),
+        }
       : null,
   ].filter((row): row is { label: string; value: string } => row !== null);
 
@@ -88,67 +93,67 @@ export function MovieDetailView({
         <SettingsSheet />
       </div>
 
-      <section className="grid grid-cols-[112px_minmax(0,1fr)] gap-4">
-        <div
-          className="flex aspect-[2/3] w-full items-center justify-center rounded-2xl border border-border bg-surface-muted bg-cover bg-center"
-          style={
-            movie.poster_path
-              ? { backgroundImage: `url(${posterBaseUrl}${movie.poster_path})` }
-              : undefined
-          }
-        >
-          {!movie.poster_path && (
-            <Film
-              aria-hidden="true"
-              className="h-7 w-7 text-text-faint"
-              strokeWidth={1.8}
-            />
-          )}
-        </div>
+      <section className="space-y-3">
+        <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-4">
+          <div
+            className="flex aspect-[2/3] w-full items-center justify-center rounded-2xl border border-border bg-surface-muted bg-cover bg-center"
+            style={
+              movie.poster_path
+                ? { backgroundImage: `url(${posterBaseUrl}${movie.poster_path})` }
+                : undefined
+            }
+          >
+            {!movie.poster_path && (
+              <Film
+                aria-hidden="true"
+                className="h-7 w-7 text-text-faint"
+                strokeWidth={1.8}
+              />
+            )}
+          </div>
 
-        <div className="min-w-0 space-y-1.5 self-start">
-          <h1 className="text-[22px] font-bold leading-[1.15]">{movie.title}</h1>
+          <div className="min-w-0 space-y-1.5 self-start">
+            {metaLine && (
+              <p className="text-[13px] leading-[1.4] text-text-2">{metaLine}</p>
+            )}
 
-          {metaLine && (
-            <p className="text-[13px] leading-[1.4] text-text-2">{metaLine}</p>
-          )}
-
-          {statusLabel && statusColour && (
-            <p className={`text-[15px] font-semibold ${statusColour}`}>
-              {statusLabel}
-            </p>
-          )}
-
-          {ratingPicker}
-
-          {movie.tmdb_vote_average !== null &&
-            movie.tmdb_vote_average !== undefined && (
-              <p className="text-[13px] text-text-muted">
-                TMDB {movie.tmdb_vote_average}
-                {movie.tmdb_vote_count
-                  ? ` · ${movie.tmdb_vote_count.toLocaleString()}`
-                  : ""}
+            {statusLabel && statusColour && (
+              <p className={`text-[15px] font-semibold ${statusColour}`}>
+                {statusLabel}
               </p>
             )}
 
-          {visibleTags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {visibleTags.map((tag) => (
-                <span
-                  key={tag.id}
-                  className="rounded-lg border border-border bg-surface px-2 py-0.5 text-[11px] text-text-2"
-                >
-                  {tag.name}
-                </span>
-              ))}
-              {(movie.tags?.length ?? 0) > 3 && (
-                <span className="rounded-lg border border-border px-2 py-0.5 text-[11px] text-text-faint">
-                  +{(movie.tags?.length ?? 0) - 3}
-                </span>
-              )}
+            <div className="flex items-center gap-2.5">
+              {ratingPicker}
+              {movie.tmdb_vote_average !== null &&
+                movie.tmdb_vote_average !== undefined && (
+                  <span className="text-[13px] text-text-muted">
+                    · ★ {movie.tmdb_vote_average}
+                  </span>
+                )}
             </div>
-          )}
+
+            {visibleTags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {visibleTags.map((tag) => (
+                  <span
+                    key={tag.id}
+                    className="rounded-lg border border-border bg-surface px-2 py-0.5 text-[11px] text-text-2"
+                  >
+                    {tag.name}
+                  </span>
+                ))}
+                {(movie.tags?.length ?? 0) > 3 && (
+                  <span className="rounded-lg border border-border px-2 py-0.5 text-[11px] text-text-faint">
+                    +{(movie.tags?.length ?? 0) - 3}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
+
+        <h1 className="text-[22px] font-bold leading-[1.2]">{movie.title}</h1>
       </section>
 
       {actions}
@@ -210,7 +215,7 @@ export function MovieDetailView({
         {detailRows.length > 0 ? (
           <div>
             {detailRows.map((row) => (
-              <DetailRow key={row.label} label={row.label} value={row.value} />
+              <DetailRow key={row.label} label={row.label} value={row.value} divider={false} />
             ))}
           </div>
         ) : (
@@ -243,9 +248,22 @@ export function MovieDetailView({
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({
+  label,
+  value,
+  divider = true,
+}: {
+  label: string;
+  value: string;
+  divider?: boolean;
+}) {
   return (
-    <div className="flex min-h-11 items-center justify-between gap-4 border-b border-divider px-4 py-2.5 last:border-b-0">
+    <div
+      className={[
+        "flex min-h-11 items-center justify-between gap-4 px-4 py-2.5",
+        divider ? "border-b border-divider last:border-b-0" : "",
+      ].join(" ")}
+    >
       <span className="text-[15px] text-text-2">{label}</span>
       <span className="tabnum text-[15px] font-semibold text-foreground">
         {value}

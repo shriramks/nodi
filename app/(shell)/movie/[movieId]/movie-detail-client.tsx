@@ -180,16 +180,23 @@ export function RatingSheet({
                   type="button"
                   onClick={() => handleRate(n)}
                   disabled={isPending}
-                  className={[
-                    "flex w-full items-center justify-between border-b border-divider py-3 text-left last:border-b-0 active:opacity-70 disabled:opacity-50",
-                    currentRating === n ? "text-accent" : "",
-                  ].join(" ")}
+                  className="flex w-full items-center gap-3 border-b border-divider py-3 text-left last:border-b-0 active:opacity-70 disabled:opacity-50"
                 >
-                  <span className="flex items-baseline gap-3 text-[15px]">
-                    <span className="tabnum w-4 font-semibold">{n}</span>
-                    <span className={currentRating === n ? "text-accent" : "text-text-2"}>
-                      {RATING_LABELS[n]}
-                    </span>
+                  <span
+                    className={[
+                      "tabnum w-5 shrink-0 text-[17px] font-semibold",
+                      currentRating === n ? "text-accent" : "text-foreground",
+                    ].join(" ")}
+                  >
+                    {n}
+                  </span>
+                  <span
+                    className={[
+                      "flex-1 text-[15px]",
+                      currentRating === n ? "text-accent" : "text-text-2",
+                    ].join(" ")}
+                  >
+                    {RATING_LABELS[n]}
                   </span>
                   {currentRating === n && (
                     <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-accent" strokeWidth={2.5} />
@@ -297,8 +304,11 @@ export function TagEditor({
 
   const movieTagIds = new Set(tags.map((t) => t.id));
 
-  // Tags the user has created but not yet on this movie
-  const availableTags = allTags.filter((t) => !movieTagIds.has(t.id));
+  const searchTerm = newTagName.toLowerCase().trim();
+  const suggestions =
+    searchTerm.length > 0
+      ? allTags.filter((t) => !movieTagIds.has(t.id) && t.name.toLowerCase().includes(searchTerm))
+      : [];
 
   function handleAttach(tagId: string) {
     setError(null);
@@ -343,16 +353,16 @@ export function TagEditor({
         Tags
       </p>
 
-      {/* Current tags on this movie */}
+      {/* Current tags — single scrollable row */}
       {tags.length > 0 && (
-        <div className="flex flex-wrap gap-2 px-4 pb-3 pt-1">
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-3 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {tags.map((tag) => (
             <button
               key={tag.id}
               type="button"
               onClick={() => handleRemove(tag.id)}
               disabled={isPending}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-accent/12 px-2.5 text-[13px] font-medium text-accent active:opacity-70 disabled:opacity-50"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-accent/12 px-2.5 text-[13px] font-medium text-accent active:opacity-70 disabled:opacity-50"
             >
               <span>{tag.name}</span>
               <X aria-hidden="true" className="h-3 w-3 opacity-60" strokeWidth={2.5} />
@@ -361,16 +371,16 @@ export function TagEditor({
         </div>
       )}
 
-      {/* Existing tags to pick from */}
-      {availableTags.length > 0 && (
-        <div className="flex flex-wrap gap-2 px-4 pb-3">
-          {availableTags.map((tag) => (
+      {/* Search-filtered suggestions — only visible while typing */}
+      {suggestions.length > 0 && (
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {suggestions.map((tag) => (
             <button
               key={tag.id}
               type="button"
               onClick={() => handleAttach(tag.id)}
               disabled={isPending}
-              className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 text-[13px] text-text-2 active:opacity-70 disabled:opacity-50"
+              className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 text-[13px] text-text-2 active:opacity-70 disabled:opacity-50"
             >
               <Plus aria-hidden="true" className="h-3 w-3 opacity-50" strokeWidth={2.5} />
               <span>{tag.name}</span>
