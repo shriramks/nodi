@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import Link from "next/link";
 import { getLibraryStats, listTags } from "@/lib/db/queries";
 import type { LibraryStatsBreakdownItem, LibraryStatsRatingBucket } from "@/lib/db/types";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { MoviesOverTime } from "./movies-over-time";
+import { StatsTagFilter } from "./stats-tag-filter";
 
 export const metadata: Metadata = {
   title: "Stats",
@@ -51,41 +51,13 @@ export default async function StatsPage({
   return (
     <main>
       {/* Header */}
-      <section className="flex items-start justify-between gap-4 pb-3">
+      <section className="flex items-center justify-between gap-4 pb-3">
         <h1 className="text-[32px] font-bold leading-[1.1]">Stats</h1>
-        <SettingsSheet />
-      </section>
-
-      {/* Tag filter chips */}
-      {tags.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-4" style={{ scrollbarWidth: "none" }}>
-          <Link
-            href="/stats"
-            className={[
-              "flex-shrink-0 h-[30px] rounded-full px-3 text-[13px] font-medium flex items-center",
-              !tagFilter
-                ? "bg-accent text-black font-semibold"
-                : "bg-surface text-text-2",
-            ].join(" ")}
-          >
-            All
-          </Link>
-          {tags.map((tag) => (
-            <Link
-              key={tag.id}
-              href={`?tag=${encodeURIComponent(tag.name)}`}
-              className={[
-                "flex-shrink-0 h-[30px] rounded-full px-3 text-[13px] font-medium flex items-center",
-                tagFilter === tag.name
-                  ? "bg-accent text-black font-semibold"
-                  : "bg-surface text-text-2",
-              ].join(" ")}
-            >
-              {tag.name}
-            </Link>
-          ))}
+        <div className="flex items-center gap-2 shrink-0">
+          {tags.length > 0 && <StatsTagFilter tags={tags} currentTag={tagFilter} />}
+          <SettingsSheet />
         </div>
-      )}
+      </section>
 
       {/* Hero metrics */}
       <div
@@ -174,7 +146,7 @@ export default async function StatsPage({
           {stats.genreBreakdown.length === 0 ? (
             <EmptyBreakdown />
           ) : (
-            <ProportionBreakdown items={stats.genreBreakdown} colors={GENRE_COLORS} />
+            <GenreTreemap items={stats.genreBreakdown} colors={GENRE_COLORS} />
           )}
 
           <div className="h-px bg-divider" />
@@ -300,59 +272,89 @@ function BarBreakdown({
   );
 }
 
-function ProportionBreakdown({
+function GenreTreemap({
   items,
   colors,
 }: {
   items: LibraryStatsBreakdownItem[];
   colors: string[];
 }) {
-  const knownItems = items.filter((i) => i.key !== "unknown");
-  const unknownItems = items.filter((i) => i.key === "unknown");
-  const total = items.reduce((sum, i) => sum + i.count, 0);
+  const known = items.filter((i) => i.key !== "unknown").slice(0, 8);
+  if (known.length === 0) return <EmptyBreakdown />;
+
+  const total = known.reduce((s, i) => s + i.count, 0);
   if (total === 0) return <EmptyBreakdown />;
 
-  const segments = [
-    ...knownItems.map((item, idx) => ({
-      item,
-      color: colors[idx % colors.length],
-      isUnknown: false,
-    })),
-    ...unknownItems.map((item) => ({
-      item,
-      color: "rgba(0,0,0,0.18)",
-      isUnknown: true,
-    })),
-  ];
+  const TOTAL_H = 130;
+  const row1Items = known.slice(0, Math.min(2, known.length));
+  const row2Items = known.slice(2);
+
+  const row1Sum = row1Items.reduce((s, i) => s + i.count, 0);
+  const row2Sum = row2Items.reduce((s, i) => s + i.count, 0);
+
+  const row1H = row2Items.length === 0
+    ? TOTAL_H
+    : Math.round((row1Sum / total) * TOTAL_H);
+  const row2H = TOTAL_H - row1H;
 
   return (
-    <div className="pb-4">
-      <div className="flex h-2 w-full overflow-hidden rounded-full gap-px mb-3" style={{ background: "var(--bg-secondary)" }}>
-        {segments.map(({ item, color }) => (
-          <div
-            key={item.key}
-            style={{
-              width: `${item.percentage}%`,
-              background: color,
-              minWidth: item.percentage > 0 ? 2 : 0,
-            }}
-          />
+    <div className="pb-4 flex flex-col" style={{ gap: 2 }}>
+      <div className="flex" style={{ gap: 2, height: row1H }}>
+        {row1Items.map((item, idx) => (
+          <TreemapCell key={item.key} item={item} color={colors[idx % colors.length]} />
         ))}
       </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-        {segments.map(({ item, color, isUnknown }) => (
-          <div key={item.key} className="flex items-center gap-1.5">
-            <div
-              className="h-2 w-2 rounded-full shrink-0"
-              style={{ background: color }}
-            />
-            <span className={`text-[12px] ${isUnknown ? "text-text-muted" : "text-text-2"}`}>
-              {item.label}
-            </span>
-            <span className="tabnum text-[12px] text-text-faint">{item.count}</span>
-          </div>
-        ))}
-      </div>
+      {row2Items.length > 0 && (
+        <div className="flex" style={{ gap: 2, height: row2H }}>
+          {row2Items.map((item, idx) => (
+            <TreemapCell key={item.key} item={item} color={colors[(idx + 2) % colors.length]} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TreemapCell({
+  item,
+  color,
+}: {
+  item: LibraryStatsBreakdownItem;
+  color: string;
+}) {
+  return (
+    <div
+      className="flex flex-col justify-end overflow-hidden"
+      style={{
+        flex: item.count,
+        background: color,
+        borderRadius: 6,
+        padding: "5px 7px",
+        minWidth: 0,
+      }}
+    >
+      <span
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: "rgba(255,255,255,0.88)",
+          lineHeight: 1.2,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {item.label}
+      </span>
+      <span
+        style={{
+          fontSize: 10,
+          color: "rgba(255,255,255,0.60)",
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {item.count}
+      </span>
     </div>
   );
 }
@@ -422,9 +424,9 @@ function LanguageDonut({ items }: { items: LibraryStatsBreakdownItem[] }) {
             key={item.key}
             className={`flex items-center gap-1.5 px-2.5 ${idx > 0 ? "border-l border-divider" : ""}`}
           >
-            <div className="h-[7px] w-[7px] rounded-full shrink-0" style={{ background: color }} />
-            <span className="text-[12px] text-text-2">{item.label.slice(0, 3)}</span>
-            <span className="tabnum text-[12px] text-text-faint">{item.count}</span>
+            <div className="shrink-0 rounded-full" style={{ width: 9, height: 9, background: color }} />
+            <span className="text-[13px] text-text-2">{item.label.slice(0, 3)}</span>
+            <span className="tabnum text-[13px] font-medium text-text-2">{item.count}</span>
           </div>
         ))}
       </div>
