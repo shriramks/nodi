@@ -138,7 +138,7 @@ export function MovieDetailView({
                 {visibleTags.map((tag) => (
                   <span
                     key={tag.id}
-                    className="rounded-lg border border-border bg-surface px-2 py-0.5 text-[11px] text-text-2"
+                    className="rounded-lg border border-accent/25 bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent"
                   >
                     {tag.name}
                   </span>

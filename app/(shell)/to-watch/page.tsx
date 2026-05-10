@@ -32,7 +32,6 @@ export default async function ToWatchPage() {
           movies={queue}
           allTags={allTags}
           pageStatus="to_watch"
-          showGenreFilter={false}
         />
       ) : (
         <section className="rounded-2xl border border-dashed border-border bg-surface p-4 text-[15px] leading-[1.4] text-text-2">

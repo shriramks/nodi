@@ -29,7 +29,7 @@ export default async function MoviesPage() {
       </section>
 
       {watchedMovies.length > 0 ? (
-        <MovieLibraryGrid movies={watchedMovies} allTags={allTags} pageStatus="watched" showGenreFilter={false} />
+        <MovieLibraryGrid movies={watchedMovies} allTags={allTags} pageStatus="watched" />
       ) : (
         <section className="rounded-2xl border border-dashed border-border bg-surface p-4 text-[15px] leading-[1.4] text-text-2">
           No watched movies yet. Search for a film to get started.
