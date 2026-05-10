@@ -4,6 +4,7 @@ import {
   addTagAction as addTag,
   addToWatchlistAction as addToWatchlist,
   addWatchDateAction as addWatchDate,
+  attachTagByIdAction as attachTagById,
   markWatchedAction as markWatched,
   removeFromLibraryAction as removeFromLibrary,
   removeTagAction as removeTag,
@@ -38,6 +39,10 @@ export async function addWatchDateAction(
 
 export async function addTagAction(movieId: string, name: string): Promise<void> {
   return addTag(movieId, name);
+}
+
+export async function attachTagByIdAction(movieId: string, tagId: string): Promise<void> {
+  return attachTagById(movieId, tagId);
 }
 
 export async function removeTagAction(

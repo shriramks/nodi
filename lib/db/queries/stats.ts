@@ -31,7 +31,7 @@ async function listWatchLogAnalyticsRows(userId: string) {
   for (let offset = 0; ; offset += analyticsPageSize) {
     const { data, error } = await supabase
       .from("watch_logs")
-      .select("id, movie_id, watched_at, movies(id, runtime_minutes, original_language, primary_genre_name)")
+      .select("id, movie_id, watched_at, movies(id, runtime_minutes, original_language, primary_genre_name, release_year)")
       .eq("user_id", userId)
       .order("watched_at", { ascending: true })
       .range(offset, offset + analyticsPageSize - 1);
