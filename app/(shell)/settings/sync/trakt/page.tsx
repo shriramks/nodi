@@ -127,7 +127,7 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
         {hasAppCredentials ? (
           <form action="/api/providers/trakt/connect" method="get">
             <button
-              className="flex h-11 w-full items-center justify-center rounded-xl border border-border bg-background px-4 text-[15px] font-semibold text-foreground"
+              className="flex h-11 w-full items-center justify-center rounded-xl bg-accent/15 px-4 text-[15px] font-semibold text-accent"
               type="submit"
             >
               {connected ? "Reconnect Trakt" : "Authorize Trakt"}
@@ -137,7 +137,7 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
           <button
             type="button"
             disabled
-            className="h-11 rounded-xl border border-border bg-background px-4 text-[15px] font-semibold text-text-muted opacity-50"
+            className="h-11 w-full rounded-xl border border-border bg-surface-muted px-4 text-[15px] font-semibold text-text-muted opacity-50"
           >
             Save credentials first
           </button>
@@ -147,7 +147,7 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
           <form action={disconnectTraktAction}>
             <button
               type="submit"
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-[15px] font-semibold text-unsynced"
+              className="h-11 w-full rounded-xl border border-border bg-surface-muted px-4 text-[15px] font-semibold text-unsynced"
             >
               Disconnect Trakt
             </button>

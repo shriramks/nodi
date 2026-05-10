@@ -5,6 +5,7 @@ import { throwDatabaseError } from "@/lib/db/errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   buildLibraryStats,
+  type RatingAnalyticsRow,
   type TagAnalyticsRow,
   type WatchLogAnalyticsRow,
 } from "./stats-transforms";
@@ -14,12 +15,13 @@ const analyticsPageSize = 1000;
 export async function getLibraryStats() {
   const user = await requireUser();
 
-  const [watchRows, tagRows] = await Promise.all([
+  const [watchRows, tagRows, ratingRows] = await Promise.all([
     listWatchLogAnalyticsRows(user.id),
     listTagAnalyticsRows(user.id),
+    listRatingAnalyticsRows(user.id),
   ]);
 
-  return buildLibraryStats(watchRows, tagRows);
+  return buildLibraryStats(watchRows, tagRows, ratingRows);
 }
 
 async function listWatchLogAnalyticsRows(userId: string) {
@@ -45,6 +47,22 @@ async function listWatchLogAnalyticsRows(userId: string) {
       return rows;
     }
   }
+}
+
+async function listRatingAnalyticsRows(userId: string): Promise<RatingAnalyticsRow[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("user_movies")
+    .select("personal_rating")
+    .eq("user_id", userId)
+    .eq("status", "watched")
+    .not("personal_rating", "is", null);
+
+  if (error) {
+    throwDatabaseError("Failed to load rating analytics.", error);
+  }
+
+  return (data ?? []) as RatingAnalyticsRow[];
 }
 
 async function listTagAnalyticsRows(userId: string) {

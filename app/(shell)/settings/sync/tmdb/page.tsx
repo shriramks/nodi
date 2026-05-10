@@ -86,7 +86,7 @@ export default async function TmdbSettingsPage({ searchParams }: TmdbSettingsPag
           <form action={disconnectTmdbAction}>
             <button
               type="submit"
-              className="h-11 w-full rounded-xl border border-border bg-background px-4 text-[15px] font-semibold text-unsynced"
+              className="h-11 w-full rounded-xl border border-border bg-surface-muted px-4 text-[15px] font-semibold text-unsynced"
             >
               Remove TMDB Token
             </button>

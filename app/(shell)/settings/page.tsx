@@ -42,7 +42,7 @@ export default async function SettingsPage() {
       <form action={signOut}>
         <button
           type="submit"
-          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 text-[15px] font-semibold text-foreground transition-opacity active:opacity-70"
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 text-[15px] font-semibold text-unsynced transition-opacity active:opacity-70"
         >
           <LogOut aria-hidden="true" className="h-4 w-4" />
           Sign out
