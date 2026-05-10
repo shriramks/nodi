@@ -30,7 +30,7 @@ export function TmdbUserStateActions({ tmdbId }: { tmdbId: number }) {
     <div className="space-y-2">
       <div className="flex gap-3">
         <button
-          className="h-11 flex-1 rounded-xl bg-accent/15 px-4 text-[15px] font-semibold text-accent disabled:opacity-50"
+          className="h-[50px] flex-1 rounded-xl bg-accent/15 px-4 text-[15px] font-semibold text-accent active:opacity-70 disabled:opacity-50"
           disabled={isPending}
           onClick={() => run(() => markTmdbWatchedAction(tmdbId))}
           type="button"
@@ -39,7 +39,7 @@ export function TmdbUserStateActions({ tmdbId }: { tmdbId: number }) {
         </button>
 
         <button
-          className="h-11 flex-1 rounded-xl border border-border px-4 text-[15px] font-semibold text-text-2 disabled:opacity-50"
+          className="h-[50px] flex-1 rounded-xl border border-border px-4 text-[15px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
           disabled={isPending}
           onClick={() => run(() => addTmdbToWatchlistAction(tmdbId))}
           type="button"

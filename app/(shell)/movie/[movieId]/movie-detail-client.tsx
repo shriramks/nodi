@@ -2,6 +2,11 @@
 
 import { type FormEvent, useState, useTransition } from "react";
 import { CalendarPlus, Check, ChevronDown, Heart, Plus, Tag, X } from "lucide-react";
+
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
 import {
   addTagAction,
   addToWatchlistAction,
@@ -52,7 +57,7 @@ export function UserStateActions({
           <button
             onClick={() => run(() => markWatchedAction(movieId))}
             disabled={isPending}
-            className="h-11 flex-1 rounded-xl bg-accent/15 px-4 text-[15px] font-semibold text-accent disabled:opacity-50"
+            className="h-[50px] flex-1 rounded-xl bg-accent/15 px-4 text-[15px] font-semibold text-accent active:opacity-70 disabled:opacity-50"
           >
             {isPending ? "…" : "Mark Watched"}
           </button>
@@ -62,7 +67,7 @@ export function UserStateActions({
           <button
             onClick={() => run(() => addToWatchlistAction(movieId))}
             disabled={isPending}
-            className="h-11 flex-1 rounded-xl border border-border px-4 text-[15px] font-semibold text-text-2 disabled:opacity-50"
+            className="h-[50px] flex-1 rounded-xl border border-border px-4 text-[15px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
           >
             + Watchlist
           </button>
@@ -72,7 +77,7 @@ export function UserStateActions({
           <button
             onClick={() => run(() => removeFromLibraryAction(movieId))}
             disabled={isPending}
-            className="h-11 rounded-xl border border-border px-4 text-[15px] font-semibold text-unsynced disabled:opacity-50"
+            className="h-[50px] rounded-xl border border-border px-4 text-[15px] font-semibold text-unsynced active:opacity-70 disabled:opacity-50"
           >
             {isPending ? "…" : "Remove"}
           </button>
@@ -82,7 +87,7 @@ export function UserStateActions({
           <button
             onClick={() => run(() => removeFromLibraryAction(movieId))}
             disabled={isPending}
-            className="h-11 flex-1 rounded-xl border border-border px-4 text-[15px] font-semibold text-unsynced disabled:opacity-50"
+            className="h-[50px] flex-1 rounded-xl border border-border px-4 text-[15px] font-semibold text-unsynced active:opacity-70 disabled:opacity-50"
           >
             {isPending ? "…" : "Remove from Library"}
           </button>
@@ -160,10 +165,10 @@ export function RatingSheet({
             role="dialog"
             aria-modal="true"
             aria-label="Your Rating"
-            className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl bg-[var(--bg-secondary)] px-5 pt-3"
+            className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl bg-surface px-5 pt-3"
             style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
           >
-            <div className="mx-auto mb-5 mt-2 h-1 w-9 rounded-full bg-[var(--bg-tertiary)]" />
+            <div className="mx-auto mb-5 mt-2 h-1 w-9 rounded-full bg-surface-muted" />
 
             <p className="mb-2 text-[17px] font-semibold text-foreground">Your Rating</p>
 
@@ -175,7 +180,7 @@ export function RatingSheet({
                   onClick={() => handleRate(n)}
                   disabled={isPending}
                   className={[
-                    "flex w-full items-center justify-between border-b border-[var(--divider)] py-3 text-left last:border-b-0 disabled:opacity-50",
+                    "flex w-full items-center justify-between border-b border-divider py-3 text-left last:border-b-0 active:opacity-70 disabled:opacity-50",
                     currentRating === n ? "text-accent" : "",
                   ].join(" ")}
                 >
@@ -197,7 +202,7 @@ export function RatingSheet({
                 type="button"
                 onClick={() => handleRate(null)}
                 disabled={isPending}
-                className="mt-4 h-11 w-full rounded-xl border border-[var(--border)] text-[15px] font-semibold text-text-2 disabled:opacity-50"
+                className="mt-4 h-11 w-full rounded-xl border border-border text-[15px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
               >
                 Clear rating
               </button>
@@ -230,37 +235,56 @@ export function WatchDateForm({ movieId }: { movieId: string }) {
     });
   }
 
+  const displayDate = watchedDate
+    ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(
+        parseLocalDate(watchedDate),
+      )
+    : "Pick date";
+
   return (
-    <form className="space-y-2" onSubmit={handleSubmit}>
-      <div className="flex gap-2">
-        <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-surface px-3">
-          <CalendarPlus
-            aria-hidden="true"
-            className="h-4 w-4 shrink-0 text-text-muted"
-            strokeWidth={1.8}
-          />
-          <input
-            aria-label="Watch date"
-            className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none"
-            max={today}
-            onChange={(event) => setWatchedDate(event.target.value)}
-            type="date"
-            value={watchedDate}
-          />
-        </label>
+    <section className="space-y-2">
+      <p className="px-4 py-1 text-[11px] uppercase tracking-wide text-text-faint">
+        Watched on
+      </p>
+      <form className="space-y-2" onSubmit={handleSubmit}>
+        <div className="flex gap-2">
+          <label className="relative flex h-11 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface-muted px-3">
+            <CalendarPlus
+              aria-hidden="true"
+              className="h-4 w-4 shrink-0 text-text-muted"
+              strokeWidth={1.8}
+            />
+            <span className="min-w-0 flex-1 text-[15px] text-foreground">
+              {displayDate}
+            </span>
+            <ChevronDown
+              aria-hidden="true"
+              className="h-3.5 w-3.5 shrink-0 text-text-muted"
+              strokeWidth={2}
+            />
+            <input
+              aria-label="Watch date"
+              className="absolute inset-0 cursor-pointer opacity-0"
+              max={today}
+              onChange={(event) => setWatchedDate(event.target.value)}
+              type="date"
+              value={watchedDate}
+            />
+          </label>
 
-        <button
-          className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-accent/15 px-3 text-[13px] font-semibold text-accent disabled:opacity-50"
-          disabled={isPending || !watchedDate}
-          type="submit"
-        >
-          <Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
-          Add
-        </button>
-      </div>
+          <button
+            className="inline-flex h-11 items-center gap-1.5 rounded-xl bg-accent/15 px-3 text-[13px] font-semibold text-accent active:opacity-70 disabled:opacity-50"
+            disabled={isPending || !watchedDate}
+            type="submit"
+          >
+            <Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
+            Add
+          </button>
+        </div>
 
-      {error ? <p className="text-[13px] text-unsynced">{error}</p> : null}
-    </form>
+        {error ? <p className="text-[13px] text-unsynced">{error}</p> : null}
+      </form>
+    </section>
   );
 }
 
@@ -307,8 +331,11 @@ export function TagEditor({
 
   return (
     <section className="space-y-2">
+      <p className="px-4 py-1 text-[11px] uppercase tracking-wide text-text-faint">
+        Tags
+      </p>
       <form className="flex gap-2" onSubmit={handleAdd}>
-        <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-surface px-3">
+        <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-surface-muted px-3">
           <Tag
             aria-hidden="true"
             className="h-4 w-4 shrink-0 text-text-muted"
@@ -326,7 +353,7 @@ export function TagEditor({
 
         <button
           aria-label="Add tag"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent disabled:opacity-50"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent active:opacity-70 disabled:opacity-50"
           disabled={isPending || tagName.trim().length === 0}
           title="Add tag"
           type="submit"

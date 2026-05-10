@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 :root {
-  --bg-primary: #f2f2f7;
-  --bg-secondary: #ffffff;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f2f2f7;
   --bg-tertiary: #e5e5ea;
-  --bg-nav: rgba(242, 242, 247, 0.9);
+  --bg-nav: rgba(255, 255, 255, 0.9);
   --text-primary: #000000;
   --text-2: rgba(0, 0, 0, 0.6);
   --text-muted: rgba(0, 0, 0, 0.4);

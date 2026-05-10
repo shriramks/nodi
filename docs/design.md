@@ -473,10 +473,10 @@ System font - SF Pro on iOS/macOS, Segoe UI on Windows, Roboto on Android. No we
 
 ```css
 :root {
-  --bg-primary:   #F2F2F7;
-  --bg-secondary: #FFFFFF;
+  --bg-primary:   #FFFFFF;
+  --bg-secondary: #F2F2F7;
   --bg-tertiary:  #E5E5EA;
-  --bg-nav:       rgba(242,242,247,0.90);
+  --bg-nav:       rgba(255,255,255,0.90);
   --text-primary: #000000;
   --text-2:       rgba(0,0,0,0.60);
   --text-muted:   rgba(0,0,0,0.40);
