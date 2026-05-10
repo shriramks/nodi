@@ -1,4 +1,4 @@
-export type PullCheckpointPhase = "history" | "ratings" | "watchlist";
+export type PullCheckpointPhase = "history" | "lists" | "ratings" | "watchlist";
 export type SnapshotCursorScope = "ratings" | "watchlist" | `lists.${string}`;
 
 export type PullCheckpoint = {

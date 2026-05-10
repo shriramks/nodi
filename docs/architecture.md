@@ -11,7 +11,7 @@ Nodi should use a simple three-layer model:
 2. `Supabase` for auth, Postgres storage, row-level security, and app-owned state
 3. External movie providers:
    - `TMDB` for search and metadata
-   - `Trakt` for watched/rating/watchlist sync
+   - `Trakt` for watched/rating/watchlist sync and list imports as Nodi tags
 
 ### System roles
 
@@ -41,6 +41,7 @@ Nodi should use a simple three-layer model:
 - watch history sync
 - watchlist sync
 - ratings sync
+- list imports into local tags
 
 ## 2. Why This Split Makes Sense
 
@@ -130,10 +131,10 @@ Vercel Cron
   -> /api/sync/trakt/pull
     -> create sync_runs row
     -> load provider connection + cursors
-    -> pull latest ratings/history/watchlist changes
+    -> pull latest ratings/history/watchlist/list changes
     -> check cancellation at phase and batch checkpoints
     -> resolve provider ids
-    -> upsert local rows
+    -> upsert local rows and list-derived tag links
     -> update cursors
     -> finish sync_runs row
     -> log sync_events
@@ -440,7 +441,7 @@ Build v1 as:
 - movie-only
 - TMDB online search and metadata
 - Supabase source of truth
-- Trakt sync for watched/watchlist/ratings
+- Trakt sync for watched/watchlist/ratings and list imports into local tags
 - online-first PWA
 
 That scope is large enough to be useful and still small enough to ship without overcomplicating the

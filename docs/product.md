@@ -28,7 +28,7 @@ Reason:
 
 ### Provider split
 Use:
-- **Trakt** for user-state sync: watched history, ratings, watchlist
+- **Trakt** for user-state sync: watched history, ratings, watchlist, and list imports as Nodi tags
 - **TMDB** for metadata: posters, overview, release dates, primary genre, cast, search
 - **IMDb** as a reference identifier only unless you explicitly want a later import/export track
 
@@ -450,9 +450,9 @@ Then:
 
 #### Inbound
 On schedule:
-1. pull latest Trakt history / ratings / watchlist deltas
+1. pull latest Trakt history / ratings / watchlist deltas plus user lists
 2. resolve movie IDs through local mapping and TMDB lookup if needed
-3. upsert user state and watch logs
+3. upsert user state, watch logs, and list-derived tag links
 4. store cursor
 
 ### Conflict rule
@@ -562,7 +562,8 @@ Responsibilities:
 Rationale:
 - TMDB is the right online search source for Nodi because it has a dedicated movie search endpoint,
   clean movie detail and credits endpoints, and stable metadata coverage.
-- Trakt should stay focused on watched-history/rating/watchlist sync, not primary live search.
+- Trakt should stay focused on watched-history/rating/watchlist sync and list imports as local tags,
+  not primary live search.
 - IMDb should remain an external ID reference unless you later decide to build a separate import flow.
 
 Recommended result fields:

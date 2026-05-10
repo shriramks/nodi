@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fetchTraktJsonPage } from "@/lib/providers/trakt/client";
+import {
+  fetchTraktJsonPage,
+  listTraktListMovieItemsPage,
+  listTraktUserListsPage,
+} from "@/lib/providers/trakt/client";
 
 describe("Trakt client", () => {
   afterEach(() => {
@@ -68,5 +72,45 @@ describe("Trakt client", () => {
         pageCount: null,
       },
     });
+  });
+
+  it("builds user list page requests", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify([{ ids: { slug: "favorites", trakt: 123 }, name: "Favorites" }]), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      }),
+    );
+
+    const result = await listTraktUserListsPage(
+      { accessToken: "access-token", clientId: "client-id" },
+      { limit: 100, page: 2 },
+    );
+
+    expect(result.items).toEqual([
+      { ids: { slug: "favorites", trakt: 123 }, name: "Favorites" },
+    ]);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://api.trakt.tv/users/me/lists?page=2&limit=100",
+    );
+  });
+
+  it("builds user list movie item page requests", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify([{ movie: { ids: { tmdb: 437 } }, type: "movie" }]), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      }),
+    );
+
+    const result = await listTraktListMovieItemsPage(
+      { accessToken: "access-token", clientId: "client-id" },
+      { limit: 100, listId: "festival picks", page: 1 },
+    );
+
+    expect(result.items).toEqual([{ movie: { ids: { tmdb: 437 } }, type: "movie" }]);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://api.trakt.tv/users/me/lists/festival%20picks/items/movies?page=1&limit=100",
+    );
   });
 });

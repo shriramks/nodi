@@ -42,6 +42,23 @@ export type TraktRatedMovie = {
   movie: TraktMovie;
 };
 
+export type TraktUserList = {
+  name: string;
+  ids: {
+    trakt?: number | null;
+    slug?: string | null;
+  };
+  item_count?: number | null;
+  updated_at?: string | null;
+};
+
+export type TraktListMovie = {
+  rank?: number;
+  listed_at?: string;
+  type?: "movie";
+  movie: TraktMovie;
+};
+
 export type TraktSyncMovie = TraktMovie & {
   watched_at?: string;
   listed_at?: string;
@@ -350,6 +367,37 @@ export function listTraktRatedMoviesPage(
       limit: options.limit,
     },
   });
+}
+
+export function listTraktUserListsPage(
+  auth: TraktAuth,
+  options: { page: number; limit: number },
+) {
+  return fetchTraktJsonPage<TraktUserList[]>("/users/me/lists", {
+    accessToken: auth.accessToken,
+    clientId: auth.clientId,
+    query: {
+      page: options.page,
+      limit: options.limit,
+    },
+  });
+}
+
+export function listTraktListMovieItemsPage(
+  auth: TraktAuth,
+  options: { listId: number | string; page: number; limit: number },
+) {
+  return fetchTraktJsonPage<TraktListMovie[]>(
+    `/users/me/lists/${encodeURIComponent(String(options.listId))}/items/movies`,
+    {
+      accessToken: auth.accessToken,
+      clientId: auth.clientId,
+      query: {
+        page: options.page,
+        limit: options.limit,
+      },
+    },
+  );
 }
 
 export function addTraktHistory(auth: TraktAuth, body: TraktSyncRequest) {
