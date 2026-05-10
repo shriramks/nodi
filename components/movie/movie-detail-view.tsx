@@ -87,13 +87,13 @@ export function MovieDetailView({
   ].filter((row): row is { label: string; value: string } => row !== null);
 
   return (
-    <main className="space-y-6 pb-4">
+    <main className="space-y-4 pb-4">
       <div className="flex items-center justify-between">
         <BackButton />
         <SettingsSheet />
       </div>
 
-      <section className="space-y-3">
+      <section>
         <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-4">
           <div
             className="flex aspect-[2/3] w-full items-center justify-center rounded-2xl border border-border bg-surface-muted bg-cover bg-center"
@@ -112,7 +112,9 @@ export function MovieDetailView({
             )}
           </div>
 
-          <div className="min-w-0 space-y-1.5 self-start">
+          <div className="min-w-0 space-y-2 self-start">
+            <h1 className="text-[22px] font-bold leading-[1.2]">{movie.title}</h1>
+
             {metaLine && (
               <p className="text-[13px] leading-[1.4] text-text-2">{metaLine}</p>
             )}
@@ -152,14 +154,11 @@ export function MovieDetailView({
             )}
           </div>
         </div>
-
-        <h1 className="text-[22px] font-bold leading-[1.2]">{movie.title}</h1>
       </section>
 
       {actions}
 
       {status === "watched" ? watchDateForm : null}
-      {status ? tagEditor : null}
 
       <section className="space-y-2">
         <p className="text-[11px] uppercase tracking-wide text-text-faint">Plot</p>
@@ -207,6 +206,8 @@ export function MovieDetailView({
           </p>
         )}
       </section>
+
+      {status ? tagEditor : null}
 
       <section className="space-y-2">
         <p className="text-[11px] uppercase tracking-wide text-text-faint">
