@@ -134,11 +134,16 @@ Vercel Cron
     -> pull latest ratings/history/watchlist/list changes
     -> check cancellation at phase and batch checkpoints
     -> resolve provider ids
-    -> upsert local rows and list-derived tag links
+    -> upsert local rows and newly added list-derived tag links
     -> update cursors
     -> finish sync_runs row
     -> log sync_events
 ```
+
+Trakt list imports are snapshot-based. Each list stores a `lists.<id>.snapshot` cursor; later pulls
+tag only remote movies that were not in the previous snapshot. Remote list removals advance the
+snapshot but do not remove local `user_movie_tags`, preserving local tag edits and removals unless a
+future strict reconciliation mode is added.
 
 ## 4. Search Architecture
 

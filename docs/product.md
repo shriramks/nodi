@@ -452,7 +452,7 @@ Then:
 On schedule:
 1. pull latest Trakt history / ratings / watchlist deltas plus user lists
 2. resolve movie IDs through local mapping and TMDB lookup if needed
-3. upsert user state, watch logs, and list-derived tag links
+3. upsert user state, watch logs, and newly added list-derived tag links
 4. store cursor
 
 ### Conflict rule
@@ -461,6 +461,8 @@ For v1, keep it simple:
 - nightly pull imports missing upstream changes
 - do not auto-delete local data on ambiguous conflicts
 - prefer additive reconciliation over destructive reconciliation
+- Trakt list removals do not automatically detach local tags; list snapshots only decide which remote
+  additions should become new local tag links
 
 Reason:
 - users care more about not losing watch history than about perfect two-way deletes

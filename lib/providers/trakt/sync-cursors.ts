@@ -10,6 +10,15 @@ export type PullCheckpoint = {
   runId: string;
 };
 
+export type StringSnapshotDelta = {
+  addedKeys: string[];
+  changed: boolean;
+  currentKeys: string[];
+  hadPreviousSnapshot: boolean;
+  removedKeys: string[];
+  snapshot: string;
+};
+
 export const historyLastWatchedCursorKey = "history.last_watched_at";
 export const lastPullCursorKey = "last_pull_at";
 export const pullCheckpointCursorKey = "pull.checkpoint";
@@ -23,7 +32,7 @@ export function pullPhaseCheckpointCursorKey(phase: PullCheckpointPhase) {
 }
 
 export function serializeStringSnapshot(values: Iterable<string>) {
-  return JSON.stringify(Array.from(new Set(values)).sort());
+  return JSON.stringify(normalizeStringSnapshotKeys(values));
 }
 
 export function parseStringArrayCursor(value: string | undefined) {
@@ -34,12 +43,31 @@ export function parseStringArrayCursor(value: string | undefined) {
   try {
     const parsed = JSON.parse(value) as unknown;
 
-    return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === "string")
-      : [];
+    return Array.isArray(parsed) ? normalizeStringSnapshotKeys(parsed) : [];
   } catch {
     return [];
   }
+}
+
+export function getStringSnapshotDelta(
+  currentValues: Iterable<string>,
+  previousSnapshot: string | undefined,
+): StringSnapshotDelta {
+  const currentKeys = normalizeStringSnapshotKeys(currentValues);
+  const previousKeys = parseStringArrayCursor(previousSnapshot);
+  const currentKeySet = new Set(currentKeys);
+  const previousKeySet = new Set(previousKeys);
+  const snapshot = serializeStringSnapshot(currentKeys);
+  const previousCanonicalSnapshot = serializeStringSnapshot(previousKeys);
+
+  return {
+    addedKeys: currentKeys.filter((key) => !previousKeySet.has(key)),
+    changed: previousSnapshot === undefined || snapshot !== previousCanonicalSnapshot,
+    currentKeys,
+    hadPreviousSnapshot: previousSnapshot !== undefined,
+    removedKeys: previousKeys.filter((key) => !currentKeySet.has(key)),
+    snapshot,
+  };
 }
 
 export function serializeRatingSnapshot(values: Iterable<[string, number]>) {
@@ -95,4 +123,12 @@ export function latestTimestamp(
   }
 
   return Date.parse(left) > Date.parse(right) ? left : right;
+}
+
+function normalizeStringSnapshotKeys(values: Iterable<unknown>) {
+  return Array.from(
+    new Set(
+      Array.from(values).filter((value): value is string => typeof value === "string"),
+    ),
+  ).sort();
 }

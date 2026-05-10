@@ -57,6 +57,7 @@ import {
 } from "@/lib/providers/trakt/client";
 import { loadTraktSyncCredentials } from "@/lib/providers/trakt/credentials";
 import {
+  getStringSnapshotDelta,
   historyLastWatchedCursorKey,
   lastPullCursorKey,
   latestTimestamp,
@@ -113,8 +114,11 @@ type TraktListImport = {
   tagName: string;
 };
 type RemoteTraktListState = {
+  changed: boolean;
   listKey: string;
   movieStates: RemoteTraktMovieState[];
+  movieStatesToTag: RemoteTraktMovieState[];
+  removedKeys: string[];
   snapshot: string;
   tagName: string;
 };
@@ -370,7 +374,9 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     const historyStates = normalizeHistoryStates(historyItems, result);
     const watchlistStates = normalizeWatchlistStates(watchlistItems, result);
     const ratingStates = normalizeRatingStates(ratingItems, result);
-    const listStates = normalizeListStates(listImports, result);
+    const listStates = normalizeListStates(listImports, cursors, result);
+    const listStatesToTag = listStates.filter((list) => list.movieStatesToTag.length > 0);
+    const changedListCount = listStates.filter((list) => list.changed).length;
     const currentWatchlistKeys = new Set(watchlistStates.map((item) => item.key));
     const rawWatchlistSnapshot = cursors.get(snapshotCursorKey("watchlist"));
     const watchlistSnapshot = serializeStringSnapshot(currentWatchlistKeys);
@@ -407,7 +413,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       activeRemovedWatchlistKeys.length +
       activeRatingStates.length +
       activeRemovedRatingKeys.length +
-      listStates.reduce((count, list) => count + list.movieStates.length, 0);
+      listStatesToTag.reduce((count, list) => count + list.movieStatesToTag.length, 0);
     const reconcileBatchCount = Math.ceil(activeReconcileItemCount / dbWriteChunkSize);
 
     progressTotal = 8 + reconcileBatchCount;
@@ -425,7 +431,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
         ...historyStates.map((state) => state.movie),
         ...activeWatchlistStates,
         ...activeRatingStates,
-        ...listStates.flatMap((list) => list.movieStates),
+        ...listStatesToTag.flatMap((list) => list.movieStatesToTag),
       ],
       result,
       run: runContext,
@@ -545,23 +551,30 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       total: progressTotal,
     });
 
-    const tagsByListKey = await upsertTraktListTags(user.id, listStates, result, runContext);
+    const tagsByListKey = await upsertTraktListTags(user.id, listStatesToTag, result, runContext);
     await upsertTraktListMovieTags(
       user.id,
-      listStates,
+      listStatesToTag,
       tagsByListKey,
       movieResolution,
       result,
       runContext,
     );
     await storeListSnapshots(listStates, runContext);
+    let listProgressLabel = "No Trakt lists to import";
+
+    if (listStates.length > 0 && changedListCount === 0) {
+      listProgressLabel = "Trakt lists unchanged";
+    } else if (result.listItemsTagged > 0) {
+      listProgressLabel = `Imported ${result.listItemsTagged} new list tag link(s)`;
+    } else if (changedListCount > 0) {
+      listProgressLabel = "List snapshots updated; no new tag links";
+    }
+
     progressCurrent += 1;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: progressCurrent,
-      label:
-        listStates.length > 0
-          ? `Imported ${result.listItemsTagged} list tag link(s)`
-          : "No Trakt lists to import",
+      label: listProgressLabel,
       phase: "reconcile",
       total: progressTotal,
     });
@@ -1144,11 +1157,15 @@ function normalizeRatingStates(items: TraktRatedMovie[], result: PullResult) {
   return states;
 }
 
-function normalizeListStates(imports: TraktListImport[], result: PullResult) {
+function normalizeListStates(
+  imports: TraktListImport[],
+  cursors: CursorMap,
+  result: PullResult,
+) {
   const states: RemoteTraktListState[] = [];
 
   for (const listImport of imports) {
-    const movieStates: RemoteTraktMovieState[] = [];
+    const movieStatesByKey = new Map<string, RemoteTraktMovieState>();
 
     for (const item of listImport.items) {
       if (item.type && item.type !== "movie") {
@@ -1162,18 +1179,39 @@ function normalizeListStates(imports: TraktListImport[], result: PullResult) {
         continue;
       }
 
-      movieStates.push(movie);
+      if (!movieStatesByKey.has(movie.key)) {
+        movieStatesByKey.set(movie.key, movie);
+      }
+    }
+
+    const delta = getStringSnapshotDelta(
+      movieStatesByKey.keys(),
+      cursors.get(snapshotCursorKey(`lists.${listImport.listKey}`)),
+    );
+    const movieStatesToTag: RemoteTraktMovieState[] = [];
+
+    if (delta.changed) {
+      for (const key of delta.addedKeys) {
+        const movie = movieStatesByKey.get(key);
+
+        if (movie) {
+          movieStatesToTag.push(movie);
+        }
+      }
     }
 
     states.push({
+      changed: delta.changed,
       listKey: listImport.listKey,
-      movieStates,
-      snapshot: serializeStringSnapshot(movieStates.map((movie) => movie.key)),
+      movieStates: Array.from(movieStatesByKey.values()),
+      movieStatesToTag,
+      removedKeys: delta.removedKeys,
+      snapshot: delta.snapshot,
       tagName: listImport.tagName,
     });
   }
 
-  result.listsImported = states.length;
+  result.listsImported = states.filter((list) => list.movieStatesToTag.length > 0).length;
 
   return states;
 }
@@ -1815,9 +1853,12 @@ async function storeListSnapshots(
   }
 
   await storePullPhaseCheckpoint("lists", run, {
-    changed: listStates.length > 0,
+    changed: listStates.some((list) => list.changed),
     cursorValue: null,
-    itemCount: listStates.reduce((count, list) => count + list.movieStates.length, 0),
+    itemCount: listStates.reduce(
+      (count, list) => count + list.movieStatesToTag.length + list.removedKeys.length,
+      0,
+    ),
   });
 }
 
@@ -1873,12 +1914,35 @@ async function upsertTraktListTags(
     });
   }
 
-  for (const rowChunk of chunkArray(Array.from(rowsByNormalizedName.values()), dbWriteChunkSize)) {
+  for (const normalizedNameChunk of chunkArray(
+    Array.from(rowsByNormalizedName.keys()),
+    dbReadChunkSize,
+  )) {
     await assertTraktSyncRunActive(run.userId, run.runId);
     const { data, error } = await supabase
       .from("tags")
-      .upsert(rowChunk, { onConflict: "user_id,normalized_name" })
-      .select("*");
+      .select("*")
+      .eq("user_id", userId)
+      .in("normalized_name", normalizedNameChunk);
+
+    if (error) {
+      throwDatabaseError("Failed to load Trakt list tags.", error);
+    }
+
+    for (const tag of data ?? []) {
+      tagsByNormalizedName.set(tag.normalized_name, tag);
+    }
+  }
+
+  const missingRows = Array.from(rowsByNormalizedName.values()).filter((row) => {
+    const normalizedName = row.normalized_name ?? normalizeTagName(row.name);
+
+    return !tagsByNormalizedName.has(normalizedName);
+  });
+
+  for (const rowChunk of chunkArray(missingRows, dbWriteChunkSize)) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const { data, error } = await supabase.from("tags").insert(rowChunk).select("*");
 
     if (!error) {
       for (const tag of data ?? []) {
@@ -1891,15 +1955,31 @@ async function upsertTraktListTags(
       await assertTraktSyncRunActive(run.userId, run.runId);
       const { data: tag, error: fallbackError } = await supabase
         .from("tags")
-        .upsert(row, { onConflict: "user_id,normalized_name" })
+        .insert(row)
         .select("*")
         .single();
 
-      if (fallbackError) {
-        recordPullFailure(result, "tag", row.normalized_name ?? row.name, fallbackError);
-      } else {
+      if (!fallbackError) {
         tagsByNormalizedName.set(tag.normalized_name, tag);
+        continue;
       }
+
+      if (isUniqueConstraintError(fallbackError)) {
+        const normalizedName = row.normalized_name ?? normalizeTagName(row.name);
+        const { data: existingTag, error: existingError } = await supabase
+          .from("tags")
+          .select("*")
+          .eq("user_id", userId)
+          .eq("normalized_name", normalizedName)
+          .maybeSingle();
+
+        if (!existingError && existingTag) {
+          tagsByNormalizedName.set(existingTag.normalized_name, existingTag);
+          continue;
+        }
+      }
+
+      recordPullFailure(result, "tag", row.normalized_name ?? row.name, fallbackError);
     }
   }
 
@@ -1935,7 +2015,7 @@ async function upsertTraktListMovieTags(
       continue;
     }
 
-    for (const movieState of listState.movieStates) {
+    for (const movieState of listState.movieStatesToTag) {
       const movieId = resolveImportedMovieId(movieState, movieResolution, result, "list");
 
       if (!movieId) {
