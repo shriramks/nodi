@@ -53,9 +53,9 @@ describe("stats transforms", () => {
       { movie_id: "movie-c", tags: { id: "tag-2", name: "Ignored" } },
     ];
     const ratingRows: RatingAnalyticsRow[] = [
-      { personal_rating: 8 },
-      { personal_rating: 8 },
-      { personal_rating: 10 },
+      { movie_id: "movie-a", personal_rating: 8 },
+      { movie_id: "movie-a", personal_rating: 8 },
+      { movie_id: "movie-b", personal_rating: 10 },
     ];
 
     const stats = buildLibraryStats(watchRows, tagRows, ratingRows);

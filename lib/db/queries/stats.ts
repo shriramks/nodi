@@ -12,7 +12,7 @@ import {
 
 const analyticsPageSize = 1000;
 
-export async function getLibraryStats() {
+export async function getLibraryStats(tagFilter?: string) {
   const user = await requireUser();
 
   const [watchRows, tagRows, ratingRows] = await Promise.all([
@@ -21,7 +21,7 @@ export async function getLibraryStats() {
     listRatingAnalyticsRows(user.id),
   ]);
 
-  return buildLibraryStats(watchRows, tagRows, ratingRows, process.env.STAT_CO_WATCH_TAG);
+  return buildLibraryStats(watchRows, tagRows, ratingRows, tagFilter);
 }
 
 async function listWatchLogAnalyticsRows(userId: string) {
@@ -53,7 +53,7 @@ async function listRatingAnalyticsRows(userId: string): Promise<RatingAnalyticsR
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("user_movies")
-    .select("personal_rating")
+    .select("movie_id, personal_rating")
     .eq("user_id", userId)
     .eq("status", "watched")
     .not("personal_rating", "is", null);
