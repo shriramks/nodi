@@ -350,10 +350,11 @@ export function MovieLibraryGrid({
 
       {/* Sort sheet */}
       {sortSheetOpen && (
-        <div className="fixed inset-0 z-50" onClick={() => setSortSheetOpen(false)}>
+        <div className="fixed inset-0 z-[60]" onClick={() => setSortSheetOpen(false)}>
           <div className="absolute inset-0 bg-black/50" />
           <div
-            className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-surface pb-8"
+            className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-surface"
+            style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-center py-2.5">
@@ -404,10 +405,11 @@ export function MovieLibraryGrid({
 
       {/* Filter sheet — watched page only */}
       {isWatched && filterSheetOpen && (
-        <div className="fixed inset-0 z-50" onClick={() => setFilterSheetOpen(false)}>
+        <div className="fixed inset-0 z-[60]" onClick={() => setFilterSheetOpen(false)}>
           <div className="absolute inset-0 bg-black/50" />
           <div
-            className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-surface pb-8"
+            className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-surface"
+            style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-center py-2.5">
