@@ -50,7 +50,7 @@ export function BulkRatingSheet({ movieIds, onClose, onDone }: Props) {
         role="dialog"
         aria-modal="true"
         aria-label="Rate Selected Movies"
-        className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl bg-surface px-5 pt-3"
+        className="fixed inset-x-0 bottom-0 z-[60] rounded-t-3xl bg-surface px-5 pt-3"
         style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
       >
         <div className="mx-auto mb-5 mt-2 h-1 w-9 rounded-full bg-surface-muted" />
