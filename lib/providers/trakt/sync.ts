@@ -50,6 +50,20 @@ import {
   type TraktWatchlistMovie,
 } from "@/lib/providers/trakt/client";
 import { loadTraktSyncCredentials } from "@/lib/providers/trakt/credentials";
+import {
+  historyLastWatchedCursorKey,
+  lastPullCursorKey,
+  latestTimestamp,
+  parseRatingSnapshot,
+  parseStringArrayCursor,
+  pullCheckpointCursorKey,
+  pullPhaseCheckpointCursorKey,
+  serializePullCheckpoint,
+  serializeRatingSnapshot,
+  serializeStringSnapshot,
+  snapshotCursorKey,
+  type PullCheckpointPhase,
+} from "@/lib/providers/trakt/sync-cursors";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 type PushResult = {
@@ -256,7 +270,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       watchlistRemoved: 0,
     };
 
-    const historyCursor = cursors.get("history.last_watched_at") ?? null;
+    const historyCursor = cursors.get(historyLastWatchedCursorKey) ?? null;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: 0,
       label: "Loading history",
@@ -312,27 +326,45 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     const historyStates = normalizeHistoryStates(historyItems, result);
     const watchlistStates = normalizeWatchlistStates(watchlistItems, result);
     const ratingStates = normalizeRatingStates(ratingItems, result);
-    let newestWatchedAt = historyCursor;
     const currentWatchlistKeys = new Set(watchlistStates.map((item) => item.key));
-    const previousWatchlistKeys = parseStringArrayCursor(cursors.get("watchlist.snapshot"));
+    const rawWatchlistSnapshot = cursors.get(snapshotCursorKey("watchlist"));
+    const watchlistSnapshot = serializeStringSnapshot(currentWatchlistKeys);
+    const previousWatchlistSnapshot = serializeStringSnapshot(
+      parseStringArrayCursor(rawWatchlistSnapshot),
+    );
+    const watchlistChanged = rawWatchlistSnapshot === undefined ||
+      watchlistSnapshot !== previousWatchlistSnapshot;
+    const previousWatchlistKeys = parseStringArrayCursor(
+      rawWatchlistSnapshot,
+    );
     const removedWatchlistKeys = previousWatchlistKeys.filter(
       (key) => !currentWatchlistKeys.has(key),
     );
     const currentRatings = new Map(ratingStates.map((item) => [item.key, item.rating]));
-    const previousRatingKeys = Object.keys(parseRatingSnapshot(cursors.get("ratings.snapshot")));
+    const rawRatingSnapshot = cursors.get(snapshotCursorKey("ratings"));
+    const ratingSnapshot = serializeRatingSnapshot(currentRatings.entries());
+    const previousRatingSnapshot = serializeRatingSnapshot(
+      Object.entries(parseRatingSnapshot(rawRatingSnapshot)),
+    );
+    const ratingsChanged = rawRatingSnapshot === undefined ||
+      ratingSnapshot !== previousRatingSnapshot;
+    const previousRatingKeys = Object.keys(
+      parseRatingSnapshot(rawRatingSnapshot),
+    );
     const removedRatingKeys = previousRatingKeys.filter((key) => !currentRatings.has(key));
+    const activeWatchlistStates = watchlistChanged ? watchlistStates : [];
+    const activeRemovedWatchlistKeys = watchlistChanged ? removedWatchlistKeys : [];
+    const activeRatingStates = ratingsChanged ? ratingStates : [];
+    const activeRemovedRatingKeys = ratingsChanged ? removedRatingKeys : [];
+    const activeReconcileItemCount =
+      historyStates.length +
+      activeWatchlistStates.length +
+      activeRemovedWatchlistKeys.length +
+      activeRatingStates.length +
+      activeRemovedRatingKeys.length;
+    const reconcileBatchCount = Math.ceil(activeReconcileItemCount / dbWriteChunkSize);
 
-    progressTotal =
-      7 +
-      Math.ceil(
-        (
-          historyStates.length +
-          watchlistStates.length +
-          ratingStates.length +
-          removedWatchlistKeys.length +
-          removedRatingKeys.length
-        ) / dbWriteChunkSize,
-      );
+    progressTotal = 7 + reconcileBatchCount;
     progressCurrent = 0;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: progressCurrent,
@@ -342,11 +374,11 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     });
 
     const movieResolution = await resolveRemoteMovies({
-      remoteKeys: [...removedWatchlistKeys, ...removedRatingKeys],
+      remoteKeys: [...activeRemovedWatchlistKeys, ...activeRemovedRatingKeys],
       remoteMovies: [
         ...historyStates.map((state) => state.movie),
-        ...watchlistStates,
-        ...ratingStates,
+        ...activeWatchlistStates,
+        ...activeRatingStates,
       ],
       result,
       run: runContext,
@@ -374,89 +406,109 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       movieResolution.movieIdByRemoteKey.values(),
       runContext,
     );
-    const userMoviePlan = planPullUserMovieWrites({
+    progressCurrent += 1;
+    await updateTraktSyncRunProgress(user.id, run.id, {
+      current: progressCurrent,
+      label: "Loaded local library state",
+      phase: "reconcile",
+      total: progressTotal,
+    });
+
+    const historyPlan = planPullUserMovieWrites({
       existingUserMovies,
       historyStates,
       movieResolution,
       pendingMovieIds,
-      ratingStates,
-      removedRatingKeys,
-      removedWatchlistKeys,
+      ratingStates: [],
+      removedRatingKeys: [],
+      removedWatchlistKeys: [],
       result,
-      watchlistStates,
-    });
-    newestWatchedAt = userMoviePlan.newestWatchedAt ?? newestWatchedAt;
-    progressCurrent += 1;
-    await updateTraktSyncRunProgress(user.id, run.id, {
-      current: progressCurrent,
-      label: "Prepared library state",
-      phase: "reconcile",
-      total: progressTotal,
+      watchlistStates: [],
     });
 
-    await deleteUserMovies(user.id, userMoviePlan.deleteMovieIds, result, runContext);
-    progressCurrent += 1;
-    await updateTraktSyncRunProgress(user.id, run.id, {
-      current: progressCurrent,
-      label: "Removed stale watchlist state",
-      phase: "reconcile",
-      total: progressTotal,
-    });
-
-    await upsertUserMovieDrafts(user.id, userMoviePlan.upserts, result, runContext);
-    progressCurrent += 1;
-    await updateTraktSyncRunProgress(user.id, run.id, {
-      current: progressCurrent,
-      label: "Imported library state",
-      phase: "reconcile",
-      total: progressTotal,
-    });
-
+    await upsertUserMovieDrafts(user.id, historyPlan.upserts, result, runContext);
+    applyUserMoviePlanToMap(existingUserMovies, historyPlan);
     const historyLogs = buildWatchLogInserts(user.id, historyStates, movieResolution);
     await insertWatchLogs(user.id, historyLogs, result, runContext);
+    await storeHistoryCheckpoint(runContext, {
+      changed: historyStates.length > 0,
+      itemCount: historyStates.length,
+      newestWatchedAt: historyPlan.newestWatchedAt ?? historyCursor,
+    });
     progressCurrent += 1;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: progressCurrent,
-      label: `Imported ${historyLogs.length} history event(s)`,
+      label: `History checkpoint saved (${historyStates.length} item(s))`,
+      phase: "reconcile",
+      total: progressTotal,
+    });
+
+    const watchlistPlan = planPullUserMovieWrites({
+      existingUserMovies,
+      historyStates: [],
+      movieResolution,
+      pendingMovieIds,
+      ratingStates: [],
+      removedRatingKeys: [],
+      removedWatchlistKeys: activeRemovedWatchlistKeys,
+      result,
+      watchlistStates: activeWatchlistStates,
+    });
+
+    await deleteUserMovies(user.id, watchlistPlan.deleteMovieIds, result, runContext);
+    await upsertUserMovieDrafts(user.id, watchlistPlan.upserts, result, runContext);
+    applyUserMoviePlanToMap(existingUserMovies, watchlistPlan);
+    await storeSnapshotCheckpoint("watchlist", runContext, {
+      changed: watchlistChanged,
+      itemCount: activeWatchlistStates.length + activeRemovedWatchlistKeys.length,
+      snapshot: watchlistSnapshot,
+    });
+    progressCurrent += 1;
+    await updateTraktSyncRunProgress(user.id, run.id, {
+      current: progressCurrent,
+      label: watchlistChanged ? "Watchlist checkpoint saved" : "Watchlist unchanged",
+      phase: "reconcile",
+      total: progressTotal,
+    });
+
+    const ratingPlan = planPullUserMovieWrites({
+      existingUserMovies,
+      historyStates: [],
+      movieResolution,
+      pendingMovieIds,
+      ratingStates: activeRatingStates,
+      removedRatingKeys: activeRemovedRatingKeys,
+      removedWatchlistKeys: [],
+      result,
+      watchlistStates: [],
+    });
+
+    await upsertUserMovieDrafts(user.id, ratingPlan.upserts, result, runContext);
+    applyUserMoviePlanToMap(existingUserMovies, ratingPlan);
+    await storeSnapshotCheckpoint("ratings", runContext, {
+      changed: ratingsChanged,
+      itemCount: activeRatingStates.length + activeRemovedRatingKeys.length,
+      snapshot: ratingSnapshot,
+    });
+    progressCurrent += 1;
+    await updateTraktSyncRunProgress(user.id, run.id, {
+      current: progressCurrent,
+      label: ratingsChanged ? "Ratings checkpoint saved" : "Ratings unchanged",
       phase: "reconcile",
       total: progressTotal,
     });
 
     await assertTraktSyncRunActive(user.id, run.id);
-
-    progressCurrent = Math.min(progressCurrent + Math.ceil(
-      (
-        historyStates.length +
-        watchlistStates.length +
-        ratingStates.length +
-        removedWatchlistKeys.length +
-        removedRatingKeys.length
-      ) / dbWriteChunkSize,
-    ), progressTotal - 1);
+    progressCurrent = Math.min(progressCurrent + reconcileBatchCount, progressTotal - 1);
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: progressCurrent,
-      label: "Saving sync cursors",
+      label: "Finalizing pull",
       phase: "reconcile",
       total: progressTotal,
     });
 
-    if (newestWatchedAt) {
-      await upsertSyncCursor(provider, "history.last_watched_at", newestWatchedAt);
-    }
-
-    await upsertSyncCursor(
-      provider,
-      "watchlist.snapshot",
-      JSON.stringify(Array.from(currentWatchlistKeys).sort()),
-    );
-    await upsertSyncCursor(
-      provider,
-      "ratings.snapshot",
-      JSON.stringify(Object.fromEntries(Array.from(currentRatings.entries()).sort())),
-    );
-
     const processedAt = new Date().toISOString();
-    await upsertSyncCursor(provider, "last_pull_at", processedAt);
+    await upsertSyncCursor(provider, lastPullCursorKey, processedAt);
     await createSyncEvent({
       provider,
       direction: "pull",
@@ -1321,7 +1373,7 @@ async function loadUserMovieMap(
   movieIds: Iterable<string>,
   run: SyncRunContext,
 ) {
-  const userMovies = new Map<string, UserMovie>();
+  const userMovies = new Map<string, UserMovieDraft>();
   const supabase = createSupabaseAdminClient();
 
   for (const movieIdChunk of chunkArray(uniqueArray(movieIds), dbReadChunkSize)) {
@@ -1337,7 +1389,7 @@ async function loadUserMovieMap(
     }
 
     for (const userMovie of data ?? []) {
-      userMovies.set(userMovie.movie_id, userMovie);
+      userMovies.set(userMovie.movie_id, draftFromUserMovie(userMovie));
     }
   }
 
@@ -1355,7 +1407,7 @@ function planPullUserMovieWrites({
   result,
   watchlistStates,
 }: {
-  existingUserMovies: Map<string, UserMovie>;
+  existingUserMovies: Map<string, UserMovieDraft>;
   historyStates: RemoteHistoryState[];
   movieResolution: MovieResolutionResult;
   pendingMovieIds: Set<string>;
@@ -1378,9 +1430,7 @@ function planPullUserMovieWrites({
       return null;
     }
 
-    const existing = existingUserMovies.get(movieId);
-
-    return existing ? draftFromUserMovie(existing) : null;
+    return existingUserMovies.get(movieId) ?? null;
   }
 
   function writeDraft(draft: UserMovieDraft) {
@@ -1493,6 +1543,90 @@ function planPullUserMovieWrites({
     newestWatchedAt,
     upserts: Array.from(drafts.values()),
   };
+}
+
+function applyUserMoviePlanToMap(
+  userMovies: Map<string, UserMovieDraft>,
+  plan: { deleteMovieIds: string[]; upserts: UserMovieDraft[] },
+) {
+  for (const movieId of plan.deleteMovieIds) {
+    userMovies.delete(movieId);
+  }
+
+  for (const draft of plan.upserts) {
+    userMovies.set(draft.movieId, draft);
+  }
+}
+
+async function storeHistoryCheckpoint(
+  run: SyncRunContext,
+  payload: {
+    changed: boolean;
+    itemCount: number;
+    newestWatchedAt: string | null;
+  },
+) {
+  await assertTraktSyncRunActive(run.userId, run.runId);
+
+  if (payload.newestWatchedAt) {
+    await upsertSyncCursor(provider, historyLastWatchedCursorKey, payload.newestWatchedAt);
+  }
+
+  await storePullPhaseCheckpoint("history", run, {
+    changed: payload.changed,
+    cursorValue: payload.newestWatchedAt,
+    itemCount: payload.itemCount,
+  });
+}
+
+async function storeSnapshotCheckpoint(
+  phase: Extract<PullCheckpointPhase, "ratings" | "watchlist">,
+  run: SyncRunContext,
+  payload: {
+    changed: boolean;
+    itemCount: number;
+    snapshot: string;
+  },
+) {
+  await assertTraktSyncRunActive(run.userId, run.runId);
+
+  if (payload.changed) {
+    await upsertSyncCursor(provider, snapshotCursorKey(phase), payload.snapshot);
+  }
+
+  await storePullPhaseCheckpoint(phase, run, {
+    changed: payload.changed,
+    cursorValue: payload.snapshot,
+    itemCount: payload.itemCount,
+  });
+}
+
+async function storePullPhaseCheckpoint(
+  phase: PullCheckpointPhase,
+  run: SyncRunContext,
+  payload: {
+    changed: boolean;
+    cursorValue: string | null;
+    itemCount: number;
+  },
+) {
+  await assertTraktSyncRunActive(run.userId, run.runId);
+
+  const completedAt = new Date().toISOString();
+
+  await upsertSyncCursor(provider, pullPhaseCheckpointCursorKey(phase), completedAt);
+  await upsertSyncCursor(
+    provider,
+    pullCheckpointCursorKey,
+    serializePullCheckpoint({
+      changed: payload.changed,
+      completedAt,
+      cursorValue: payload.cursorValue,
+      itemCount: payload.itemCount,
+      phase,
+      runId: run.runId,
+    }),
+  );
 }
 
 async function deleteUserMovies(
@@ -1831,48 +1965,6 @@ async function loadPendingPushMovieIds(userId: string) {
       .map((event) => readRecord(event.payload).movieId)
       .filter((movieId): movieId is string => typeof movieId === "string"),
   );
-}
-
-function parseStringArrayCursor(value: string | undefined) {
-  if (!value) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(value) as unknown;
-
-    return Array.isArray(parsed)
-      ? parsed.filter((item): item is string => typeof item === "string")
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function parseRatingSnapshot(value: string | undefined) {
-  if (!value) {
-    return {};
-  }
-
-  try {
-    const parsed = JSON.parse(value) as unknown;
-
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {};
-    }
-
-    return parsed as Record<string, number>;
-  } catch {
-    return {};
-  }
-}
-
-function latestTimestamp(left: string | null | undefined, right: string) {
-  if (!left) {
-    return right;
-  }
-
-  return Date.parse(left) > Date.parse(right) ? left : right;
 }
 
 function withSyncResult(payload: Json, response: TraktSyncResponse | Record<string, unknown>) {
