@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canSkipListItemFetch,
   getStringSnapshotDelta,
   latestTimestamp,
+  listMetadataCursorKey,
   parseRatingSnapshot,
   parseStringArrayCursor,
   pullPhaseCheckpointCursorKey,
+  serializeListMetadataCursor,
   serializeRatingSnapshot,
   serializeStringSnapshot,
   snapshotCursorKey,
@@ -16,8 +19,63 @@ describe("Trakt sync cursors", () => {
     expect(snapshotCursorKey("watchlist")).toBe("watchlist.snapshot");
     expect(snapshotCursorKey("ratings")).toBe("ratings.snapshot");
     expect(snapshotCursorKey("lists.favorites")).toBe("lists.favorites.snapshot");
+    expect(listMetadataCursorKey("favorites")).toBe("lists.favorites.metadata");
     expect(pullPhaseCheckpointCursorKey("history")).toBe("pull.history.completed_at");
     expect(pullPhaseCheckpointCursorKey("lists")).toBe("pull.lists.completed_at");
+  });
+
+  it("serializes list metadata cursors in a stable normalized shape", () => {
+    expect(
+      serializeListMetadataCursor({
+        itemCount: 3,
+        tagName: " Favorites ",
+        updatedAt: " 2026-05-10T08:00:00.000Z ",
+      }),
+    ).toBe(
+      "{\"itemCount\":3,\"tagName\":\"Favorites\",\"updatedAt\":\"2026-05-10T08:00:00.000Z\"}",
+    );
+
+    expect(
+      serializeListMetadataCursor({
+        itemCount: -1,
+        tagName: "",
+        updatedAt: null,
+      }),
+    ).toBe("{\"itemCount\":null,\"tagName\":null,\"updatedAt\":null}");
+  });
+
+  it("uses list metadata cursors only when the item snapshot can be reused", () => {
+    const metadataCursor = serializeListMetadataCursor({
+      itemCount: 2,
+      tagName: "Favorites",
+      updatedAt: "2026-05-10T08:00:00.000Z",
+    });
+    const itemSnapshot = serializeStringSnapshot(["tmdb:1", "trakt:2"]);
+
+    expect(
+      canSkipListItemFetch({
+        currentMetadataCursor: metadataCursor,
+        hasStableMetadata: true,
+        previousItemSnapshot: itemSnapshot,
+        previousMetadataCursor: metadataCursor,
+      }),
+    ).toBe(true);
+    expect(
+      canSkipListItemFetch({
+        currentMetadataCursor: metadataCursor,
+        hasStableMetadata: false,
+        previousItemSnapshot: itemSnapshot,
+        previousMetadataCursor: metadataCursor,
+      }),
+    ).toBe(false);
+    expect(
+      canSkipListItemFetch({
+        currentMetadataCursor: metadataCursor,
+        hasStableMetadata: true,
+        previousItemSnapshot: undefined,
+        previousMetadataCursor: metadataCursor,
+      }),
+    ).toBe(false);
   });
 
   it("serializes string snapshots in stable sorted order", () => {

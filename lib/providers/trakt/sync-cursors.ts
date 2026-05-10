@@ -10,6 +10,12 @@ export type PullCheckpoint = {
   runId: string;
 };
 
+export type ListMetadataCursor = {
+  itemCount: number | null | undefined;
+  tagName: string | null | undefined;
+  updatedAt: string | null | undefined;
+};
+
 export type StringSnapshotDelta = {
   addedKeys: string[];
   changed: boolean;
@@ -27,8 +33,38 @@ export function snapshotCursorKey(scope: SnapshotCursorScope) {
   return `${scope}.snapshot`;
 }
 
+export function listMetadataCursorKey(listKey: string) {
+  return `lists.${listKey}.metadata`;
+}
+
 export function pullPhaseCheckpointCursorKey(phase: PullCheckpointPhase) {
   return `pull.${phase}.completed_at`;
+}
+
+export function serializeListMetadataCursor(metadata: ListMetadataCursor) {
+  return JSON.stringify({
+    itemCount: normalizeNonNegativeInteger(metadata.itemCount),
+    tagName: normalizeNullableString(metadata.tagName),
+    updatedAt: normalizeNullableString(metadata.updatedAt),
+  });
+}
+
+export function canSkipListItemFetch({
+  currentMetadataCursor,
+  hasStableMetadata,
+  previousItemSnapshot,
+  previousMetadataCursor,
+}: {
+  currentMetadataCursor: string;
+  hasStableMetadata: boolean;
+  previousItemSnapshot: string | undefined;
+  previousMetadataCursor: string | undefined;
+}) {
+  return (
+    hasStableMetadata &&
+    previousItemSnapshot !== undefined &&
+    previousMetadataCursor === currentMetadataCursor
+  );
 }
 
 export function serializeStringSnapshot(values: Iterable<string>) {
@@ -131,4 +167,18 @@ function normalizeStringSnapshotKeys(values: Iterable<unknown>) {
       Array.from(values).filter((value): value is string => typeof value === "string"),
     ),
   ).sort();
+}
+
+function normalizeNonNegativeInteger(value: number | null | undefined) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+function normalizeNullableString(value: string | null | undefined) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+
+  return normalized ? normalized : null;
 }

@@ -57,14 +57,17 @@ import {
 } from "@/lib/providers/trakt/client";
 import { loadTraktSyncCredentials } from "@/lib/providers/trakt/credentials";
 import {
+  canSkipListItemFetch,
   getStringSnapshotDelta,
   historyLastWatchedCursorKey,
   lastPullCursorKey,
   latestTimestamp,
+  listMetadataCursorKey,
   parseRatingSnapshot,
   parseStringArrayCursor,
   pullCheckpointCursorKey,
   pullPhaseCheckpointCursorKey,
+  serializeListMetadataCursor,
   serializePullCheckpoint,
   serializeRatingSnapshot,
   serializeStringSnapshot,
@@ -84,6 +87,7 @@ type PullResult = {
   failed: number;
   failureSamples: string[];
   historyImported: number;
+  listItemFetchesSkipped: number;
   listItemsTagged: number;
   listsImported: number;
   ratingsCleared: number;
@@ -109,13 +113,28 @@ type RemoteHistoryState = {
   movie: RemoteTraktMovieState;
 };
 type TraktListImport = {
+  itemFetchSkipped: boolean;
   items: TraktListMovie[];
   listKey: string;
+  metadataCursor: string;
+  previousSnapshot: string | undefined;
   tagName: string;
+};
+type TraktListFetchProgress = {
+  itemCount: number;
+  listCount: number;
+  skippedListCount: number;
+};
+type TraktListFetchResult = {
+  imports: TraktListImport[];
+  itemCount: number;
+  skippedListCount: number;
 };
 type RemoteTraktListState = {
   changed: boolean;
+  itemFetchSkipped: boolean;
   listKey: string;
+  metadataCursor: string;
   movieStates: RemoteTraktMovieState[];
   movieStatesToTag: RemoteTraktMovieState[];
   removedKeys: string[];
@@ -289,6 +308,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       failed: 0,
       failureSamples: [],
       historyImported: 0,
+      listItemFetchesSkipped: 0,
       listItemsTagged: 0,
       listsImported: 0,
       ratingsCleared: 0,
@@ -356,17 +376,28 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       total: 5,
     });
 
-    const listImports = await listAllListsWithMovieItems(connection, runContext, async (counts) => {
-      await updateTraktSyncRunProgress(user.id, run.id, {
-        current: 3,
-        label: `Loaded ${counts.itemCount} list item(s) across ${counts.listCount} list(s)`,
-        phase: "fetch",
-        total: 5,
-      });
-    });
+    const listFetch = await listAllListsWithMovieItems(
+      connection,
+      cursors,
+      runContext,
+      async (counts) => {
+        await updateTraktSyncRunProgress(user.id, run.id, {
+          current: 3,
+          label: formatListFetchProgressLabel(counts),
+          phase: "fetch",
+          total: 5,
+        });
+      },
+    );
+    const listImports = listFetch.imports;
+    result.listItemFetchesSkipped = listFetch.skippedListCount;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: 4,
-      label: `Loaded ${listImports.length} list(s)`,
+      label: formatListFetchProgressLabel({
+        itemCount: listFetch.itemCount,
+        listCount: listImports.length,
+        skippedListCount: listFetch.skippedListCount,
+      }),
       phase: "fetch",
       total: 5,
     });
@@ -1003,14 +1034,16 @@ async function listAllRatings(
 
 async function listAllListsWithMovieItems(
   auth: TraktAuth,
+  cursors: CursorMap,
   run: SyncRunContext,
-  onProgress?: (counts: { itemCount: number; listCount: number }) => Promise<void>,
-) {
+  onProgress?: (counts: TraktListFetchProgress) => Promise<void>,
+): Promise<TraktListFetchResult> {
   const lists = await listAllUserLists(auth, run, async (listCount) => {
-    await onProgress?.({ itemCount: 0, listCount });
+    await onProgress?.({ itemCount: 0, listCount, skippedListCount: 0 });
   });
   const imports: TraktListImport[] = [];
   let itemCount = 0;
+  let skippedListCount = 0;
 
   for (const list of lists) {
     await assertTraktSyncRunActive(run.userId, run.runId);
@@ -1022,26 +1055,62 @@ async function listAllListsWithMovieItems(
       continue;
     }
 
+    const metadataCursor = serializeListMetadataCursor({
+      itemCount: list.item_count,
+      tagName,
+      updatedAt: list.updated_at,
+    });
+    const previousSnapshot = cursors.get(snapshotCursorKey(`lists.${listKey}`));
+    const canReuseSnapshot = canSkipListItemFetch({
+      currentMetadataCursor: metadataCursor,
+      hasStableMetadata: hasStableTraktListMetadata(list),
+      previousItemSnapshot: previousSnapshot,
+      previousMetadataCursor: cursors.get(listMetadataCursorKey(listKey)),
+    });
+
+    if (canReuseSnapshot) {
+      skippedListCount += 1;
+      imports.push({
+        itemFetchSkipped: true,
+        items: [],
+        listKey,
+        metadataCursor,
+        previousSnapshot,
+        tagName,
+      });
+      await onProgress?.({
+        itemCount,
+        listCount: imports.length,
+        skippedListCount,
+      });
+      continue;
+    }
+
     const items = await listAllListMovieItems(auth, listKey, run, async (count) => {
       await onProgress?.({
         itemCount: itemCount + count,
         listCount: imports.length + 1,
+        skippedListCount,
       });
     });
 
     itemCount += items.length;
     imports.push({
+      itemFetchSkipped: false,
       items,
       listKey,
+      metadataCursor,
+      previousSnapshot,
       tagName,
     });
     await onProgress?.({
       itemCount,
       listCount: imports.length,
+      skippedListCount,
     });
   }
 
-  return imports;
+  return { imports, itemCount, skippedListCount };
 }
 
 async function listAllUserLists(
@@ -1096,6 +1165,18 @@ async function listAllListMovieItems(
   }
 
   return items;
+}
+
+function formatListFetchProgressLabel(counts: TraktListFetchProgress) {
+  const skipped = counts.skippedListCount > 0
+    ? `, skipped ${counts.skippedListCount} unchanged list(s)`
+    : "";
+
+  return `Loaded ${counts.itemCount} list item(s) across ${counts.listCount} list(s)${skipped}`;
+}
+
+function hasStableTraktListMetadata(list: TraktUserList) {
+  return typeof list.updated_at === "string" && list.updated_at.trim().length > 0;
 }
 
 function hasNextTraktPage(pagination: TraktPagination, page: number, itemCount: number) {
@@ -1165,6 +1246,21 @@ function normalizeListStates(
   const states: RemoteTraktListState[] = [];
 
   for (const listImport of imports) {
+    if (listImport.itemFetchSkipped) {
+      states.push({
+        changed: false,
+        itemFetchSkipped: true,
+        listKey: listImport.listKey,
+        metadataCursor: listImport.metadataCursor,
+        movieStates: [],
+        movieStatesToTag: [],
+        removedKeys: [],
+        snapshot: listImport.previousSnapshot ?? serializeStringSnapshot([]),
+        tagName: listImport.tagName,
+      });
+      continue;
+    }
+
     const movieStatesByKey = new Map<string, RemoteTraktMovieState>();
 
     for (const item of listImport.items) {
@@ -1186,7 +1282,7 @@ function normalizeListStates(
 
     const delta = getStringSnapshotDelta(
       movieStatesByKey.keys(),
-      cursors.get(snapshotCursorKey(`lists.${listImport.listKey}`)),
+      listImport.previousSnapshot ?? cursors.get(snapshotCursorKey(`lists.${listImport.listKey}`)),
     );
     const movieStatesToTag: RemoteTraktMovieState[] = [];
 
@@ -1202,7 +1298,9 @@ function normalizeListStates(
 
     states.push({
       changed: delta.changed,
+      itemFetchSkipped: false,
       listKey: listImport.listKey,
+      metadataCursor: listImport.metadataCursor,
       movieStates: Array.from(movieStatesByKey.values()),
       movieStatesToTag,
       removedKeys: delta.removedKeys,
@@ -1849,6 +1947,11 @@ async function storeListSnapshots(
       provider,
       snapshotCursorKey(`lists.${listState.listKey}`),
       listState.snapshot,
+    );
+    await upsertSyncCursor(
+      provider,
+      listMetadataCursorKey(listState.listKey),
+      listState.metadataCursor,
     );
   }
 
