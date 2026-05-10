@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
-import { PosterCard } from "@/components/movie/poster-card";
+import { MovieLibraryGrid } from "@/components/movie/movie-library-grid";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
-import { listUserMovies } from "@/lib/db/queries";
+import { listTags, listUserMovies } from "@/lib/db/queries";
 
 export const metadata: Metadata = {
   title: "To Watch",
 };
 
 export default async function ToWatchPage() {
-  const queue = await listUserMovies({ status: "to_watch" });
+  const [queue, allTags] = await Promise.all([
+    listUserMovies({ status: "to_watch" }),
+    listTags(),
+  ]);
 
   return (
     <main className="space-y-6">
@@ -25,16 +28,12 @@ export default async function ToWatchPage() {
       </section>
 
       {queue.length > 0 ? (
-        <section className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-3">
-          {queue.map(({ movie }) => (
-            <PosterCard
-              key={movie.id}
-              movieId={movie.id}
-              title={movie.title}
-              posterPath={movie.poster_path}
-            />
-          ))}
-        </section>
+        <MovieLibraryGrid
+          movies={queue}
+          allTags={allTags}
+          pageStatus="to_watch"
+          showGenreFilter={false}
+        />
       ) : (
         <section className="rounded-2xl border border-dashed border-border bg-surface p-4 text-[15px] leading-[1.4] text-text-2">
           No queued movies yet. Search for a film to add it to your watchlist.
