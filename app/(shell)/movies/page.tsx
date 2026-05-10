@@ -15,7 +15,7 @@ export default async function MoviesPage() {
   ]);
 
   return (
-    <main className="space-y-6">
+    <main className="space-y-4">
       <section>
         <div className="flex items-start justify-between gap-4">
           <div>

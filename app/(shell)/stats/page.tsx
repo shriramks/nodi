@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { getLibraryStats } from "@/lib/db/queries";
 import type { LibraryStatsBreakdownItem, LibraryStatsRatingBucket } from "@/lib/db/types";
@@ -8,9 +9,33 @@ export const metadata: Metadata = {
   title: "Stats",
 };
 
+const LANGUAGE_COLORS = [
+  "#0A84FF",
+  "#34C759",
+  "#FF9F0A",
+  "#FF375F",
+  "#BF5AF2",
+  "#64D2FF",
+];
+
+const MIN_LANGUAGE_COUNT = 4;
+
 export default async function StatsPage() {
   const stats = await getLibraryStats();
   const hasData = stats.watchEventCount > 0;
+
+  const favGenreLabel =
+    stats.favGenre !== null
+      ? stats.favGenreCount !== null
+        ? `${stats.favGenre} (${stats.favGenreCount})`
+        : stats.favGenre
+      : "—";
+
+  const ameleLabel = stats.ameleWatchMinutes > 0 ? formatRuntime(stats.ameleWatchMinutes) : "—";
+
+  const filteredLanguages = stats.languageBreakdown.filter(
+    (item) => item.key === "unknown" || item.count >= MIN_LANGUAGE_COUNT,
+  );
 
   return (
     <main>
@@ -20,7 +45,7 @@ export default async function StatsPage() {
         <SettingsSheet />
       </section>
 
-      {/* Primary hero — 3 main metrics inline, no card */}
+      {/* Primary hero — 3 main metrics */}
       <section className="flex pb-4">
         <HeroMetric
           value={stats.watchedCount.toString()}
@@ -32,9 +57,19 @@ export default async function StatsPage() {
           label="Time watched"
           valueClass="text-accent"
           fontSize={stats.runtimeMinutes >= 86400 ? 20 : 22}
+          flexGrow={1.5}
         />
         <HeroMetric
-          value={stats.avgRating !== null ? `♥ ${stats.avgRating}` : "—"}
+          value={
+            stats.avgRating !== null ? (
+              <>
+                <span style={{ fontSize: 14, lineHeight: 1 }}>♥</span>
+                {` ${stats.avgRating}`}
+              </>
+            ) : (
+              "—"
+            )
+          }
           label="Avg rating"
           valueClass={stats.avgRating !== null ? "text-watched" : "text-text-faint"}
         />
@@ -44,13 +79,7 @@ export default async function StatsPage() {
       {hasData && (
         <section className="flex pb-5">
           <HeroMetric
-            value={stats.avgRuntimeMinutes > 0 ? formatRuntime(stats.avgRuntimeMinutes) : "—"}
-            label="Avg runtime"
-            valueClass="text-text-2"
-            secondary
-          />
-          <HeroMetric
-            value={stats.favGenre ?? "—"}
+            value={favGenreLabel}
             label="Fav genre"
             valueClass="text-text-2"
             secondary
@@ -58,6 +87,12 @@ export default async function StatsPage() {
           <HeroMetric
             value={stats.favDecade ?? "—"}
             label="Fav decade"
+            valueClass="text-text-2"
+            secondary
+          />
+          <HeroMetric
+            value={ameleLabel}
+            label="Watched with Amele"
             valueClass="text-text-2"
             secondary
           />
@@ -75,21 +110,17 @@ export default async function StatsPage() {
 
           <div className="h-px bg-divider" />
 
-          <SectionHeader title="By genre" />
-          {stats.genreBreakdown.length === 0 ? (
+          <SectionHeader title="By language" />
+          {filteredLanguages.length === 0 ? (
             <EmptyBreakdown />
           ) : (
-            <BarBreakdown items={stats.genreBreakdown} barColor="rgba(52,199,89,0.40)" />
+            <ProportionBreakdown items={filteredLanguages} colors={LANGUAGE_COLORS} />
           )}
 
           <div className="h-px bg-divider" />
 
-          <SectionHeader title="By language" />
-          {stats.languageBreakdown.length === 0 ? (
-            <EmptyBreakdown />
-          ) : (
-            <ProportionBreakdown items={stats.languageBreakdown} color="rgba(10,132,255,0.55)" />
-          )}
+          <SectionHeader title="By rating" />
+          <RatingDistribution breakdown={stats.ratingBreakdown} />
 
           <div className="h-px bg-divider" />
 
@@ -99,11 +130,6 @@ export default async function StatsPage() {
           ) : (
             <BarBreakdown items={stats.tagBreakdown} barColor="rgba(255,159,10,0.45)" />
           )}
-
-          <div className="h-px bg-divider" />
-
-          <SectionHeader title="By rating" />
-          <RatingDistribution breakdown={stats.ratingBreakdown} />
         </>
       ) : (
         <p className="pt-6 text-[15px] leading-[1.4] text-text-2">
@@ -120,16 +146,21 @@ function HeroMetric({
   valueClass,
   secondary = false,
   fontSize,
+  flexGrow = 1,
 }: {
-  value: string;
+  value: ReactNode;
   label: string;
   valueClass: string;
   secondary?: boolean;
   fontSize?: number;
+  flexGrow?: number;
 }) {
   const size = secondary ? 15 : (fontSize ?? 22);
   return (
-    <div className="flex flex-1 min-w-0 flex-col gap-0.5 pr-3 [&+&]:pl-3 [&+&]:border-l [&+&]:border-divider last:pr-0">
+    <div
+      className="min-w-0 flex flex-col gap-0.5 pr-3 [&+&]:pl-3 [&+&]:border-l [&+&]:border-divider last:pr-0"
+      style={{ flexGrow }}
+    >
       <p
         className={`tabnum font-bold leading-[1.1] truncate ${valueClass}`}
         style={{ fontSize: size, fontWeight: secondary ? 600 : 700 }}
@@ -200,26 +231,25 @@ function BarBreakdown({
 
 function ProportionBreakdown({
   items,
-  color,
+  colors,
 }: {
   items: LibraryStatsBreakdownItem[];
-  color: string;
+  colors: string[];
 }) {
   const knownItems = items.filter((i) => i.key !== "unknown");
   const unknownItems = items.filter((i) => i.key === "unknown");
   const total = items.reduce((sum, i) => sum + i.count, 0);
   if (total === 0) return <EmptyBreakdown />;
 
-  // Build segments — known items with decreasing opacity, then unknown
   const segments = [
     ...knownItems.map((item, idx) => ({
       item,
-      opacity: Math.max(1 - idx * 0.15, 0.25),
+      color: colors[idx % colors.length],
       isUnknown: false,
     })),
     ...unknownItems.map((item) => ({
       item,
-      opacity: 1,
+      color: "rgba(0,0,0,0.18)",
       isUnknown: true,
     })),
   ];
@@ -228,13 +258,12 @@ function ProportionBreakdown({
     <div className="pb-4">
       {/* Stacked proportion bar */}
       <div className="flex h-2 w-full overflow-hidden rounded-full gap-px mb-3" style={{ background: "var(--bg-secondary)" }}>
-        {segments.map(({ item, opacity, isUnknown }) => (
+        {segments.map(({ item, color }) => (
           <div
             key={item.key}
             style={{
               width: `${item.percentage}%`,
-              background: isUnknown ? "rgba(0,0,0,0.15)" : color,
-              opacity: isUnknown ? 1 : opacity,
+              background: color,
               minWidth: item.percentage > 0 ? 2 : 0,
             }}
           />
@@ -243,14 +272,11 @@ function ProportionBreakdown({
 
       {/* Legend */}
       <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-        {segments.map(({ item, opacity, isUnknown }) => (
+        {segments.map(({ item, color, isUnknown }) => (
           <div key={item.key} className="flex items-center gap-1.5">
             <div
               className="h-2 w-2 rounded-full shrink-0"
-              style={{
-                background: isUnknown ? "rgba(0,0,0,0.18)" : color,
-                opacity: isUnknown ? 1 : opacity,
-              }}
+              style={{ background: color }}
             />
             <span className={`text-[12px] ${isUnknown ? "text-text-muted" : "text-text-2"}`}>
               {item.label}
