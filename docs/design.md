@@ -434,11 +434,9 @@ Movie detail screens should use:
 - poster with a **compressed hero block** alongside it
 - metadata should not appear as a long vertical chip list
 - use this order in the hero:
-  - title
-  - one compact metadata line: `year · language · genre`
-  - one tight personal-state row: watch status + user rating
-  - one secondary external-ratings row when available
-  - optional short tag row with no more than 2-3 visible tags
+  - **poster grid row**: poster left; right column shows — meta line (`year · language · genre`), watch status, rating row (user rating + TMDB rating inline as `· ★ 7.5`), up to 3 tag chips
+  - **full-width title below the poster grid** — title gets the full page width so long titles never compress the right column
+  - this keeps metadata scannable when the poster is the visual anchor, and titles readable at any length
 - user rating should be visually personal, e.g. heart icon + value
 - third-party ratings such as TMDB or IMDb should appear as secondary reference metadata below the
   personal-state row if available
