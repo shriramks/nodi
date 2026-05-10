@@ -490,17 +490,23 @@ Reason:
 
 ### Movies
 - default sort: recently watched desc
-- alternate sorts: rating, alphabetical
-- filters: tags, release language
+- sort options: recently watched, rating, title — each asc/desc; tap the selected option again to toggle direction
+- sort by "recently watched" groups posters by month (e.g. "May 2026")
+- sort by "rating" groups posters by rating value (9, 8, 7, … Unrated)
+- sort by "title" renders a flat grid
+- filter options: tags (multi-select, OR within tags) + rating (operator ≥ > = < ≤ + value stepper); tag + rating combined with AND; watched page only
+- active sort (non-default) and active filter each show an indicator on the toolbar pill
 - default presentation: poster-only watched grid
-- grid density should adapt to screen width instead of being fixed
+- grid density adapts to screen width via auto-fill minmax(96px, 1fr)
 - tap card -> detail
 - watched date is explicit and editable
-- multi-select: "Select" button enters selection mode; tapping posters toggles selection; bulk bar offers Tag, Rate, and Unwatch (moves to watchlist)
+- multi-select: "Select" button (top-right, header row) enters selection mode; Sort/Filter toolbar hides; tapping posters toggles selection; bulk bar offers Tag, Rate, and Unwatch (moves to watchlist)
+- `UserMovieWithMovie` includes `tags: Tag[]` (fetched via parallel query in `listUserMovies`)
 
 ### To Watch
 - same card pattern as Movies
-- likely no rating shown unless user pre-rated later
+- sort options: recently added, title — each asc/desc; no filter (no ratings, no tags to filter by)
+- sort toolbar shows only Sort pill (no Filter pill)
 - if marked watched, auto-remove from To Watch
 - multi-select: same Select flow; bulk bar offers Tag, Rate, and Mark Watched
 

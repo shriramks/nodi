@@ -27,6 +27,11 @@ type TagJoinRow = {
   tags: Tag | null;
 };
 
+type MovieTagJoinRow = {
+  movie_id: string;
+  tags: Tag | null;
+};
+
 export type UserMovieListOptions = {
   status?: MovieStatus;
   limit?: number;
@@ -50,13 +55,25 @@ export async function listUserMovies(options: UserMovieListOptions = {}) {
   }
 
   const orderColumn = options.status === "to_watch" ? "watchlisted_at" : "last_watched_at";
-  const { data, error } = await query.order(orderColumn, {
-    ascending: false,
-    nullsFirst: false,
-  });
+  const [{ data, error }, { data: tagData, error: tagError }] = await Promise.all([
+    query.order(orderColumn, { ascending: false, nullsFirst: false }),
+    supabase.from("user_movie_tags").select("movie_id, tags(*)").eq("user_id", user.id),
+  ]);
 
   if (error) {
     throwDatabaseError("Failed to load user movies.", error);
+  }
+
+  if (tagError) {
+    throwDatabaseError("Failed to load movie tags.", tagError);
+  }
+
+  const tagsMap = new Map<string, Tag[]>();
+  for (const row of (tagData ?? []) as unknown as MovieTagJoinRow[]) {
+    if (!row.tags) continue;
+    const existing = tagsMap.get(row.movie_id) ?? [];
+    existing.push(row.tags);
+    tagsMap.set(row.movie_id, existing);
   }
 
   return ((data ?? []) as unknown as UserMovieJoinRow[]).flatMap((row) => {
@@ -65,7 +82,7 @@ export async function listUserMovies(options: UserMovieListOptions = {}) {
     }
 
     const { movies, ...userMovie } = row;
-    return [{ ...userMovie, movie: movies } satisfies UserMovieWithMovie];
+    return [{ ...userMovie, movie: movies, tags: tagsMap.get(movies.id) ?? [] } satisfies UserMovieWithMovie];
   });
 }
 

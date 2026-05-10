@@ -604,6 +604,7 @@ export type SyncRun = TableRow<"sync_runs">;
 
 export type UserMovieWithMovie = UserMovie & {
   movie: Movie;
+  tags: Tag[];
 };
 
 export type MovieDetail = Movie & {
