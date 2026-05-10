@@ -509,6 +509,27 @@ export type Database = {
           },
         ];
       };
+      user_preferences: {
+        Row: {
+          user_id: string;
+          co_watch_tag: string | null;
+          theme: "light" | "dark" | null;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          co_watch_tag?: string | null;
+          theme?: "light" | "dark" | null;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          co_watch_tag?: string | null;
+          theme?: "light" | "dark" | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       sync_runs: {
         Row: {
           id: string;
@@ -601,6 +622,8 @@ export type SyncEventUpdate = TableUpdate<"sync_events">;
 export type SyncItemFailure = TableRow<"sync_item_failures">;
 export type SyncItemFailureInsert = TableInsert<"sync_item_failures">;
 export type SyncRun = TableRow<"sync_runs">;
+export type UserPreferences = TableRow<"user_preferences">;
+export type Theme = NonNullable<UserPreferences["theme"]> | "auto";
 
 export type UserMovieWithMovie = UserMovie & {
   movie: Movie;

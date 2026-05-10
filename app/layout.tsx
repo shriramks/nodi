@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import { AuthStateListener } from "@/components/auth/auth-state-listener";
 import { PwaController } from "@/components/pwa/pwa-controller";
 import "./globals.css";
@@ -43,13 +44,20 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const jar = await cookies();
+  const theme = jar.get("nodi-theme")?.value;
+
   return (
-    <html lang="en" className="h-full scroll-smooth">
+    <html
+      lang="en"
+      className="h-full scroll-smooth"
+      {...(theme === "light" || theme === "dark" ? { "data-theme": theme } : {})}
+    >
       <body className="min-h-dvh bg-background text-foreground antialiased">
         <PwaController />
         <AuthStateListener />
