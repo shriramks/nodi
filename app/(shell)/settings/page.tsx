@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { ChevronRight, Cloud, LogOut } from "lucide-react";
 
 import { signOut } from "@/app/auth/actions";
 import { requireUser } from "@/lib/auth/server";
+import { AppearancePicker } from "@/components/settings/appearance-picker";
+import type { Theme } from "@/lib/db/types";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -11,6 +14,9 @@ export const metadata: Metadata = {
 
 export default async function SettingsPage() {
   const user = await requireUser();
+  const jar = await cookies();
+  const rawTheme = jar.get("nodi-theme")?.value;
+  const theme: Theme = rawTheme === "light" || rawTheme === "dark" ? rawTheme : "auto";
 
   return (
     <main className="space-y-6">
@@ -19,6 +25,13 @@ export default async function SettingsPage() {
         <p className="mt-1 truncate text-[13px] text-text-2">
           {user.email ?? "Signed in"}
         </p>
+      </section>
+
+      <section className="space-y-2">
+        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-text-faint">
+          Appearance
+        </p>
+        <AppearancePicker current={theme} />
       </section>
 
       <section className="space-y-3">

@@ -22,7 +22,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg-primary: #000000;
     --bg-secondary: #1c1c1e;
     --bg-tertiary: #2c2c2e;
@@ -36,6 +36,26 @@
     --divider: rgba(255, 255, 255, 0.08);
     --tap-active: rgba(255, 255, 255, 0.06);
   }
+}
+
+:root[data-theme="dark"] {
+  --bg-primary: #000000;
+  --bg-secondary: #1c1c1e;
+  --bg-tertiary: #2c2c2e;
+  --bg-nav: rgba(0, 0, 0, 0.9);
+  --text-primary: #ffffff;
+  --text-2: rgba(255, 255, 255, 0.6);
+  --text-muted: rgba(255, 255, 255, 0.4);
+  --text-faint: rgba(255, 255, 255, 0.25);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-faint: rgba(255, 255, 255, 0.05);
+  --divider: rgba(255, 255, 255, 0.08);
+  --tap-active: rgba(255, 255, 255, 0.06);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
 }
 
 @theme inline {
