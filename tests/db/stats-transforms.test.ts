@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildLibraryStats,
+  type RatingAnalyticsRow,
   type TagAnalyticsRow,
   type WatchLogAnalyticsRow,
 } from "@/lib/db/queries/stats-transforms";
@@ -48,8 +49,13 @@ describe("stats transforms", () => {
       { movie_id: "movie-a", tags: { id: "tag-1", name: "Mind-bending" } },
       { movie_id: "movie-c", tags: { id: "tag-2", name: "Ignored" } },
     ];
+    const ratingRows: RatingAnalyticsRow[] = [
+      { personal_rating: 8 },
+      { personal_rating: 8 },
+      { personal_rating: 10 },
+    ];
 
-    const stats = buildLibraryStats(watchRows, tagRows);
+    const stats = buildLibraryStats(watchRows, tagRows, ratingRows);
 
     expect(stats.watchedCount).toBe(2);
     expect(stats.watchEventCount).toBe(3);
@@ -65,25 +71,29 @@ describe("stats transforms", () => {
     expect(stats.tagBreakdown).toEqual([
       { count: 1, key: "tag-1", label: "Mind-bending", percentage: 50 },
     ]);
-    expect(stats.timeBuckets.map((bucket) => [bucket.key, bucket.count])).toEqual([
-      ["2025-10", 0],
-      ["2025-11", 0],
-      ["2025-12", 0],
+    // monthBuckets: all months from earliest to latest watch date
+    expect(stats.monthBuckets.map((b) => [b.key, b.count])).toEqual([
       ["2026-01", 1],
       ["2026-02", 1],
       ["2026-03", 1],
     ]);
+    expect(stats.yearBuckets.map((b) => [b.key, b.count])).toEqual([["2026", 3]]);
+    expect(stats.ratingBreakdown.find((b) => b.rating === 8)?.count).toBe(2);
+    expect(stats.ratingBreakdown.find((b) => b.rating === 10)?.count).toBe(1);
+    expect(stats.ratingBreakdown.find((b) => b.rating === 5)?.count).toBe(0);
   });
 
   it("returns empty collections when there are no watch events", () => {
-    expect(buildLibraryStats([], [])).toMatchObject({
+    expect(buildLibraryStats([], [], [])).toMatchObject({
       genreBreakdown: [],
       languageBreakdown: [],
+      monthBuckets: [],
+      ratingBreakdown: [],
       runtimeMinutes: 0,
       tagBreakdown: [],
-      timeBuckets: [],
       watchEventCount: 0,
       watchedCount: 0,
+      yearBuckets: [],
     });
   });
 });

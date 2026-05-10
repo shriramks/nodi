@@ -627,12 +627,19 @@ export type LibraryStatsBreakdownItem = {
   percentage: number;
 };
 
+export type LibraryStatsRatingBucket = {
+  rating: number;
+  count: number;
+};
+
 export type LibraryStats = {
   watchedCount: number;
   watchEventCount: number;
   runtimeMinutes: number;
-  timeBuckets: LibraryStatsTimeBucket[];
+  monthBuckets: LibraryStatsTimeBucket[];
+  yearBuckets: LibraryStatsTimeBucket[];
   genreBreakdown: LibraryStatsBreakdownItem[];
   languageBreakdown: LibraryStatsBreakdownItem[];
   tagBreakdown: LibraryStatsBreakdownItem[];
+  ratingBreakdown: LibraryStatsRatingBucket[];
 };
