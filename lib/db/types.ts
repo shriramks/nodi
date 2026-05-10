@@ -636,6 +636,10 @@ export type LibraryStats = {
   watchedCount: number;
   watchEventCount: number;
   runtimeMinutes: number;
+  avgRuntimeMinutes: number;
+  avgRating: number | null;
+  favGenre: string | null;
+  favDecade: string | null;
   monthBuckets: LibraryStatsTimeBucket[];
   yearBuckets: LibraryStatsTimeBucket[];
   genreBreakdown: LibraryStatsBreakdownItem[];

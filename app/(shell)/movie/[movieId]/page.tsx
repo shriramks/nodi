@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { MovieDetailView } from "@/components/movie/movie-detail-view";
 import { isAppError } from "@/lib/errors";
-import { getMovieDetail } from "@/lib/db/queries";
+import { getMovieDetail, listTags } from "@/lib/db/queries";
 import { enrichTmdbMovieOnDemand } from "@/lib/providers/tmdb/enrichment";
 import {
   RatingSheet,
@@ -28,7 +28,11 @@ export default async function MovieDetailPage({
   params,
 }: MovieDetailPageProps) {
   const { movieId } = await params;
-  let movie = await loadMovieOrNotFound(movieId);
+  const [movieRaw, allTags] = await Promise.all([
+    loadMovieOrNotFound(movieId),
+    listTags(),
+  ]);
+  let movie = movieRaw;
   const enrichedMovie = await enrichTmdbMovieOnDemand(movie);
 
   if (enrichedMovie.tmdb_enriched_at && enrichedMovie.tmdb_enriched_at !== movie.tmdb_enriched_at) {
@@ -52,7 +56,7 @@ export default async function MovieDetailPage({
       }
       status={status}
       tagEditor={
-        status ? <TagEditor movieId={movie.id} tags={movie.tags} /> : null
+        status ? <TagEditor movieId={movie.id} tags={movie.tags} allTags={allTags} /> : null
       }
       watchDateForm={
         status === "watched" ? <WatchDateForm movieId={movie.id} /> : null

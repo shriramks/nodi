@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useState, useTransition } from "react";
-import { CalendarPlus, Check, ChevronDown, Heart, Plus, Tag, X } from "lucide-react";
+import { CalendarPlus, Check, ChevronDown, Heart, Plus, X } from "lucide-react";
 
 function parseLocalDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -11,6 +11,7 @@ import {
   addTagAction,
   addToWatchlistAction,
   addWatchDateAction,
+  attachTagByIdAction,
   markWatchedAction,
   removeFromLibraryAction,
   removeTagAction,
@@ -222,10 +223,9 @@ export function WatchDateForm({ movieId }: { movieId: string }) {
   const [error, setError] = useState<string | null>(null);
   const today = todayDateValue();
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function handleAdd() {
+    if (!watchedDate) return;
     setError(null);
-
     startTransition(async () => {
       try {
         await addWatchDateAction(movieId, watchedDate);
@@ -239,51 +239,45 @@ export function WatchDateForm({ movieId }: { movieId: string }) {
     ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(
         parseLocalDate(watchedDate),
       )
-    : "Pick date";
+    : "Pick a date";
 
   return (
-    <section className="space-y-2">
+    <section>
       <p className="px-4 py-1 text-[11px] uppercase tracking-wide text-text-faint">
         Watched on
       </p>
-      <form className="space-y-2" onSubmit={handleSubmit}>
-        <div className="flex gap-2">
-          <label className="relative flex h-11 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface-muted px-3">
-            <CalendarPlus
-              aria-hidden="true"
-              className="h-4 w-4 shrink-0 text-text-muted"
-              strokeWidth={1.8}
-            />
-            <span className="min-w-0 flex-1 text-[15px] text-foreground">
-              {displayDate}
-            </span>
-            <ChevronDown
-              aria-hidden="true"
-              className="h-3.5 w-3.5 shrink-0 text-text-muted"
-              strokeWidth={2}
-            />
-            <input
-              aria-label="Watch date"
-              className="absolute inset-0 cursor-pointer opacity-0"
-              max={today}
-              onChange={(event) => setWatchedDate(event.target.value)}
-              type="date"
-              value={watchedDate}
-            />
-          </label>
-
-          <button
-            className="inline-flex h-11 items-center gap-1.5 rounded-xl bg-accent/15 px-3 text-[13px] font-semibold text-accent active:opacity-70 disabled:opacity-50"
-            disabled={isPending || !watchedDate}
-            type="submit"
-          >
-            <Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
-            Add
-          </button>
-        </div>
-
-        {error ? <p className="text-[13px] text-unsynced">{error}</p> : null}
-      </form>
+      <div className="flex items-center gap-1 border-b border-divider px-4 py-2.5">
+        <label className="relative flex flex-1 cursor-pointer items-center gap-3 min-w-0">
+          <CalendarPlus
+            aria-hidden="true"
+            className="h-4 w-4 shrink-0 text-text-muted"
+            strokeWidth={1.8}
+          />
+          <span className="flex-1 min-w-0 text-[15px] text-foreground">{displayDate}</span>
+          <ChevronDown
+            aria-hidden="true"
+            className="h-3.5 w-3.5 shrink-0 text-text-muted"
+            strokeWidth={2}
+          />
+          <input
+            aria-label="Watch date"
+            className="absolute inset-0 cursor-pointer opacity-0"
+            max={today}
+            onChange={(e) => setWatchedDate(e.target.value)}
+            type="date"
+            value={watchedDate}
+          />
+        </label>
+        <button
+          onClick={handleAdd}
+          disabled={isPending || !watchedDate}
+          className="ml-2 shrink-0 text-[15px] font-semibold text-accent disabled:opacity-40 active:opacity-60"
+          style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "flex-end" }}
+        >
+          {isPending ? "…" : "Add"}
+        </button>
+      </div>
+      {error ? <p className="px-4 pt-1 text-[13px] text-unsynced">{error}</p> : null}
     </section>
   );
 }
@@ -291,29 +285,28 @@ export function WatchDateForm({ movieId }: { movieId: string }) {
 export function TagEditor({
   movieId,
   tags,
+  allTags,
 }: {
   movieId: string;
   tags: MovieTag[];
+  allTags: MovieTag[];
 }) {
-  const [tagName, setTagName] = useState("");
+  const [newTagName, setNewTagName] = useState("");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function handleAdd(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const nextTagName = tagName.replace(/\s+/g, " ").trim();
+  const movieTagIds = new Set(tags.map((t) => t.id));
 
-    if (!nextTagName) {
-      return;
-    }
+  // Tags the user has created but not yet on this movie
+  const availableTags = allTags.filter((t) => !movieTagIds.has(t.id));
 
+  function handleAttach(tagId: string) {
     setError(null);
     startTransition(async () => {
       try {
-        await addTagAction(movieId, nextTagName);
-        setTagName("");
+        await attachTagByIdAction(movieId, tagId);
       } catch {
-        setError("Tag was not saved. Try again.");
+        setError("Tag could not be added. Try again.");
       }
     });
   }
@@ -324,68 +317,90 @@ export function TagEditor({
       try {
         await removeTagAction(movieId, tagId);
       } catch {
-        setError("Tag was not removed. Try again.");
+        setError("Tag could not be removed. Try again.");
+      }
+    });
+  }
+
+  function handleCreateNew(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const name = newTagName.replace(/\s+/g, " ").trim();
+    if (!name) return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        await addTagAction(movieId, name);
+        setNewTagName("");
+      } catch {
+        setError("Tag could not be saved. Try again.");
       }
     });
   }
 
   return (
-    <section className="space-y-2">
+    <section>
       <p className="px-4 py-1 text-[11px] uppercase tracking-wide text-text-faint">
         Tags
       </p>
-      <form className="flex gap-2" onSubmit={handleAdd}>
-        <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-surface-muted px-3">
-          <Tag
-            aria-hidden="true"
-            className="h-4 w-4 shrink-0 text-text-muted"
-            strokeWidth={1.8}
-          />
-          <input
-            aria-label="Tag name"
-            className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-text-muted"
-            maxLength={80}
-            onChange={(event) => setTagName(event.target.value)}
-            placeholder="Add tag"
-            value={tagName}
-          />
-        </label>
 
+      {/* Current tags on this movie */}
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-2 px-4 pb-3 pt-1">
+          {tags.map((tag) => (
+            <button
+              key={tag.id}
+              type="button"
+              onClick={() => handleRemove(tag.id)}
+              disabled={isPending}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-accent/12 px-2.5 text-[13px] font-medium text-accent active:opacity-70 disabled:opacity-50"
+            >
+              <span>{tag.name}</span>
+              <X aria-hidden="true" className="h-3 w-3 opacity-60" strokeWidth={2.5} />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Existing tags to pick from */}
+      {availableTags.length > 0 && (
+        <div className="flex flex-wrap gap-2 px-4 pb-3">
+          {availableTags.map((tag) => (
+            <button
+              key={tag.id}
+              type="button"
+              onClick={() => handleAttach(tag.id)}
+              disabled={isPending}
+              className="inline-flex h-8 items-center gap-1 rounded-lg border border-border px-2.5 text-[13px] text-text-2 active:opacity-70 disabled:opacity-50"
+            >
+              <Plus aria-hidden="true" className="h-3 w-3 opacity-50" strokeWidth={2.5} />
+              <span>{tag.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* New tag input */}
+      <form className="flex items-center gap-1 border-t border-divider px-4 py-2" onSubmit={handleCreateNew}>
+        <input
+          aria-label="New tag name"
+          className="min-w-0 flex-1 bg-transparent py-2 text-[15px] text-foreground outline-none placeholder:text-text-muted"
+          maxLength={80}
+          onChange={(e) => setNewTagName(e.target.value)}
+          placeholder="New tag…"
+          value={newTagName}
+        />
         <button
           aria-label="Add tag"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent active:opacity-70 disabled:opacity-50"
-          disabled={isPending || tagName.trim().length === 0}
-          title="Add tag"
+          disabled={isPending || newTagName.trim().length === 0}
           type="submit"
+          className="shrink-0 text-[15px] font-semibold text-accent disabled:opacity-40 active:opacity-60"
+          style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "flex-end" }}
         >
-          <Plus aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
+          {isPending ? "…" : "Add"}
         </button>
       </form>
 
-      {tags.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {tags.map((tag) => (
-            <span
-              key={tag.id}
-              className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-lg border border-border bg-surface px-2.5 text-[13px] text-text-2"
-            >
-              <span className="truncate">{tag.name}</span>
-              <button
-                aria-label={`Remove ${tag.name}`}
-                className="-mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-text-muted hover:bg-tap-active hover:text-foreground disabled:opacity-50"
-                disabled={isPending}
-                onClick={() => handleRemove(tag.id)}
-                title={`Remove ${tag.name}`}
-                type="button"
-              >
-                <X aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
-              </button>
-            </span>
-          ))}
-        </div>
-      ) : null}
-
-      {error ? <p className="text-[13px] text-unsynced">{error}</p> : null}
+      {error ? <p className="px-4 pt-1 text-[13px] text-unsynced">{error}</p> : null}
     </section>
   );
 }

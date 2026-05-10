@@ -16,7 +16,7 @@ export const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Au
 
 export type WatchLogAnalyticsMovie = Pick<
   Movie,
-  "id" | "runtime_minutes" | "original_language" | "primary_genre_name"
+  "id" | "runtime_minutes" | "original_language" | "primary_genre_name" | "release_year"
 >;
 
 export type WatchLogAnalyticsRow = Pick<WatchLog, "id" | "movie_id" | "watched_at"> & {
@@ -35,6 +35,7 @@ type WatchedMovieSummary = {
   movieId: string;
   originalLanguage: string | null;
   primaryGenreName: string | null;
+  releaseYear: number | null;
 };
 
 export function buildLibraryStats(
@@ -49,19 +50,25 @@ export function buildLibraryStats(
     0,
   );
 
+  const genreBreakdown = buildMovieBreakdown(watchedMovies, (movie) => {
+    const genre = movie.primaryGenreName?.trim();
+    return {
+      key: genre ? genre.toLowerCase() : unknownKey,
+      label: genre || unknownLabel,
+    };
+  });
+
   return {
     watchedCount: watchedMovies.length,
     watchEventCount: watchRows.length,
     runtimeMinutes,
+    avgRuntimeMinutes: watchedMovies.length > 0 ? Math.round(runtimeMinutes / watchedMovies.length) : 0,
+    avgRating: computeAvgRating(ratingRows),
+    favGenre: genreBreakdown.find((g) => g.key !== unknownKey)?.label ?? null,
+    favDecade: buildFavDecade(watchedMovies),
     monthBuckets: buildMonthBuckets(watchRows),
     yearBuckets: buildYearBuckets(watchRows),
-    genreBreakdown: buildMovieBreakdown(watchedMovies, (movie) => {
-      const genre = movie.primaryGenreName?.trim();
-      return {
-        key: genre ? genre.toLowerCase() : unknownKey,
-        label: genre || unknownLabel,
-      };
-    }),
+    genreBreakdown,
     languageBreakdown: buildMovieBreakdown(watchedMovies, (movie) => {
       const language = movie.originalLanguage?.trim();
       return {
@@ -86,10 +93,30 @@ function buildWatchedMovies(rows: WatchLogAnalyticsRow[]): WatchedMovieSummary[]
       movieId: row.movie_id,
       originalLanguage: row.movies?.original_language ?? null,
       primaryGenreName: row.movies?.primary_genre_name ?? null,
+      releaseYear: row.movies?.release_year ?? null,
     });
   }
 
   return Array.from(movies.values());
+}
+
+function computeAvgRating(rows: RatingAnalyticsRow[]): number | null {
+  const ratings = rows.map((r) => r.personal_rating).filter((r): r is number => r !== null);
+  if (ratings.length === 0) return null;
+  const sum = ratings.reduce((acc, r) => acc + r, 0);
+  return Math.round((sum / ratings.length) * 10) / 10;
+}
+
+function buildFavDecade(movies: WatchedMovieSummary[]): string | null {
+  const counts = new Map<number, number>();
+  for (const movie of movies) {
+    if (movie.releaseYear === null) continue;
+    const decade = Math.floor(movie.releaseYear / 10) * 10;
+    counts.set(decade, (counts.get(decade) ?? 0) + 1);
+  }
+  if (counts.size === 0) return null;
+  const best = Array.from(counts.entries()).reduce((a, b) => (b[1] > a[1] ? b : a));
+  return `${best[0]}s`;
 }
 
 function buildMonthBuckets(rows: WatchLogAnalyticsRow[]): LibraryStatsTimeBucket[] {

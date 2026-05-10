@@ -19,6 +19,7 @@ describe("stats transforms", () => {
           original_language: "ja",
           primary_genre_name: "Animation",
           runtime_minutes: 80,
+          release_year: 2000,
         },
       },
       {
@@ -30,6 +31,7 @@ describe("stats transforms", () => {
           original_language: "ja",
           primary_genre_name: "Animation",
           runtime_minutes: 80,
+          release_year: 2000,
         },
       },
       {
@@ -41,6 +43,7 @@ describe("stats transforms", () => {
           original_language: null,
           primary_genre_name: null,
           runtime_minutes: 95,
+          release_year: null,
         },
       },
     ];

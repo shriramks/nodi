@@ -7,13 +7,20 @@ import type { LibraryStatsTimeBucket } from "@/lib/db/types";
 type View = "month" | "year";
 
 function axisLabel(key: string, index: number): string {
-  if (key.length === 4) return key; // year bucket
+  if (key.length === 4) return key;
   const monthIdx = parseInt(key.slice(5, 7), 10) - 1;
-  // Show year shorthand on January or the very first bucket
-  if (monthIdx === 0 || index === 0) {
-    return `'${key.slice(2, 4)}`;
-  }
+  if (monthIdx === 0 || index === 0) return `'${key.slice(2, 4)}`;
   return monthLabels[monthIdx];
+}
+
+function detectOutlierScale(buckets: LibraryStatsTimeBucket[]): number {
+  const counts = buckets.map((b) => b.count).filter((c) => c > 0);
+  if (counts.length <= 1) return Math.max(...counts, 1);
+  const sorted = [...counts].sort((a, b) => a - b);
+  const p75 = sorted[Math.floor(sorted.length * 0.75)] ?? sorted[sorted.length - 1];
+  const threshold = p75 * 3;
+  const nonOutliers = counts.filter((c) => c <= threshold);
+  return Math.max(...nonOutliers, p75, 1);
 }
 
 export function MoviesOverTime({
@@ -27,9 +34,9 @@ export function MoviesOverTime({
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const buckets = view === "month" ? monthBuckets : yearBuckets;
-  const maxCount = Math.max(...buckets.map((b) => b.count), 1);
   const barWidth = view === "month" ? 32 : 52;
   const barGap = view === "month" ? 4 : 8;
+  const scaleMax = detectOutlierScale(buckets);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -37,13 +44,15 @@ export function MoviesOverTime({
     }
   }, [view]);
 
+  const hasOutlier = buckets.some((b) => b.count > scaleMax);
+
   return (
-    <section className="rounded-2xl border border-border bg-surface p-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[20px] font-semibold">Over time</h2>
+    <section>
+      <div className="flex items-center justify-between gap-3 pt-4 pb-3">
+        <p className="text-[17px] font-semibold">Over time</p>
         <div
           className="flex rounded-xl p-1 gap-0.5"
-          style={{ backgroundColor: "var(--bg-tertiary)" }}
+          style={{ backgroundColor: "var(--bg-secondary)" }}
           role="tablist"
         >
           {(["month", "year"] as View[]).map((v) => (
@@ -55,7 +64,7 @@ export function MoviesOverTime({
               className={`rounded-lg px-3 text-[13px] font-semibold transition-colors ${
                 view === v ? "bg-accent/10 text-accent" : "text-text-2"
               }`}
-              style={{ minHeight: 44 }}
+              style={{ minHeight: 36 }}
             >
               {v === "month" ? "Month" : "Year"}
             </button>
@@ -65,49 +74,72 @@ export function MoviesOverTime({
 
       <div
         ref={scrollRef}
-        className="mt-5 overflow-x-auto [&::-webkit-scrollbar]:hidden"
+        className="overflow-x-auto [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: "none" }}
       >
         <div
           className="flex items-end"
           style={{
             gap: barGap,
-            height: 152,
-            paddingBottom: 20, // space for axis labels
-            paddingTop: 20,    // space for count labels
+            height: 120,
+            paddingBottom: 20,
+            paddingTop: 20,
             width: buckets.length * (barWidth + barGap) - barGap,
             minWidth: "100%",
           }}
         >
-          {buckets.map((bucket, index) => (
-            <div
-              key={bucket.key}
-              className="flex flex-col items-center justify-end gap-1.5"
-              style={{ width: barWidth, flexShrink: 0, height: "100%" }}
-            >
-              <span className="tabnum text-[11px] text-text-faint" style={{ minHeight: 16 }}>
-                {bucket.count > 0 ? bucket.count : ""}
-              </span>
+          {buckets.map((bucket, index) => {
+            const isOutlier = bucket.count > scaleMax;
+            const barHeight = bucket.count > 0
+              ? `${Math.max((Math.min(bucket.count, scaleMax) / scaleMax) * 64, 5)}px`
+              : "2px";
+            return (
               <div
-                className="w-full rounded-t-lg bg-watched transition-all duration-300"
-                style={{
-                  height: bucket.count > 0
-                    ? `${Math.max((bucket.count / maxCount) * 80, 6)}px`
-                    : "2px",
-                  opacity: bucket.count > 0 ? 1 : 0.15,
-                }}
-                aria-label={`${bucket.label}: ${bucket.count} ${bucket.count === 1 ? "movie" : "movies"}`}
-              />
-              <span
-                className="tabnum text-[11px] text-text-faint truncate"
-                style={{ width: barWidth }}
+                key={bucket.key}
+                className="flex flex-col items-center justify-end gap-1"
+                style={{ width: barWidth, flexShrink: 0, height: "100%" }}
               >
-                {axisLabel(bucket.key, index)}
-              </span>
-            </div>
-          ))}
+                <span
+                  className={`tabnum text-[10px] ${isOutlier ? "text-accent font-semibold" : "text-text-faint"}`}
+                  style={{ minHeight: 14 }}
+                >
+                  {bucket.count > 0 ? bucket.count : ""}
+                </span>
+                <div
+                  className={`w-full bg-watched transition-all duration-300 ${isOutlier ? "rounded-md" : "rounded-t-md"}`}
+                  style={{
+                    height: barHeight,
+                    opacity: bucket.count > 0 ? 1 : 0.15,
+                    position: "relative",
+                  }}
+                  aria-label={`${bucket.label}: ${bucket.count}`}
+                >
+                  {isOutlier && (
+                    <span
+                      className="absolute text-[9px] text-accent font-bold"
+                      style={{ top: -12, left: "50%", transform: "translateX(-50%)" }}
+                    >
+                      ↑
+                    </span>
+                  )}
+                </div>
+                <span
+                  className="tabnum text-[10px] text-text-faint truncate"
+                  style={{ width: barWidth, textAlign: "center" }}
+                >
+                  {axisLabel(bucket.key, index)}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
+
+      {hasOutlier && (
+        <p className="pb-3 text-[11px] text-text-muted" style={{ fontStyle: "italic" }}>
+          ↑ import year — bar capped for scale.
+        </p>
+      )}
     </section>
   );
 }

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import {
   addMovieWatchDate,
+  attachTagToMovie,
   createAndAttachTag,
   detachTagFromMovie,
   ingestTmdbMovie,
@@ -118,6 +119,11 @@ export async function addWatchDateAction(
 
 export async function addTagAction(movieId: string, name: string): Promise<void> {
   await createAndAttachTag(movieId, { name });
+  revalidateMovieState(movieId);
+}
+
+export async function attachTagByIdAction(movieId: string, tagId: string): Promise<void> {
+  await attachTagToMovie(movieId, tagId);
   revalidateMovieState(movieId);
 }
 
