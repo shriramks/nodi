@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getStringSnapshotDelta,
   latestTimestamp,
   parseRatingSnapshot,
   parseStringArrayCursor,
@@ -25,6 +26,31 @@ describe("Trakt sync cursors", () => {
     expect(snapshot).toBe("[\"tmdb:1\",\"trakt:2\"]");
     expect(parseStringArrayCursor(snapshot)).toEqual(["tmdb:1", "trakt:2"]);
     expect(parseStringArrayCursor("not-json")).toEqual([]);
+  });
+
+  it("detects added and removed keys from a previous string snapshot", () => {
+    const delta = getStringSnapshotDelta(
+      ["trakt:3", "tmdb:1", "tmdb:1"],
+      serializeStringSnapshot(["tmdb:1", "trakt:2"]),
+    );
+
+    expect(delta).toEqual({
+      addedKeys: ["trakt:3"],
+      changed: true,
+      currentKeys: ["tmdb:1", "trakt:3"],
+      hadPreviousSnapshot: true,
+      removedKeys: ["trakt:2"],
+      snapshot: "[\"tmdb:1\",\"trakt:3\"]",
+    });
+  });
+
+  it("treats a missing string snapshot as a first import", () => {
+    expect(getStringSnapshotDelta(["trakt:2"], undefined)).toMatchObject({
+      addedKeys: ["trakt:2"],
+      changed: true,
+      hadPreviousSnapshot: false,
+      removedKeys: [],
+    });
   });
 
   it("serializes rating snapshots in stable key order", () => {
