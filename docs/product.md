@@ -496,11 +496,13 @@ Reason:
 - grid density should adapt to screen width instead of being fixed
 - tap card -> detail
 - watched date is explicit and editable
+- multi-select: "Select" button enters selection mode; tapping posters toggles selection; bulk bar offers Tag, Rate, and Unwatch (moves to watchlist)
 
 ### To Watch
 - same card pattern as Movies
 - likely no rating shown unless user pre-rated later
 - if marked watched, auto-remove from To Watch
+- multi-select: same Select flow; bulk bar offers Tag, Rate, and Mark Watched
 
 ### Stats
 - total watched

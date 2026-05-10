@@ -1,3 +1,4 @@
+export * from "@/lib/db/mutations/bulk";
 export * from "@/lib/db/mutations/movies";
 export * from "@/lib/db/mutations/sync";
 export * from "@/lib/db/mutations/tags";

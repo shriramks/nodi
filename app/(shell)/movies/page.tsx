@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
 import { MovieLibraryGrid } from "@/components/movie/movie-library-grid";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
-import { getLibraryStats, listUserMovies } from "@/lib/db/queries";
+import { getLibraryStats, listTags, listUserMovies } from "@/lib/db/queries";
 
 export const metadata: Metadata = {
   title: "Movies",
 };
 
 export default async function MoviesPage() {
-  const [watchedMovies, stats] = await Promise.all([
+  const [watchedMovies, stats, allTags] = await Promise.all([
     listUserMovies({ status: "watched" }),
     getLibraryStats(),
+    listTags(),
   ]);
 
   return (
@@ -28,7 +29,7 @@ export default async function MoviesPage() {
       </section>
 
       {watchedMovies.length > 0 ? (
-        <MovieLibraryGrid movies={watchedMovies} />
+        <MovieLibraryGrid movies={watchedMovies} allTags={allTags} pageStatus="watched" showGenreFilter={false} />
       ) : (
         <section className="rounded-2xl border border-dashed border-border bg-surface p-4 text-[15px] leading-[1.4] text-text-2">
           No watched movies yet. Search for a film to get started.
