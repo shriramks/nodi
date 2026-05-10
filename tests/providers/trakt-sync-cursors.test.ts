@@ -16,6 +16,7 @@ describe("Trakt sync cursors", () => {
     expect(snapshotCursorKey("ratings")).toBe("ratings.snapshot");
     expect(snapshotCursorKey("lists.favorites")).toBe("lists.favorites.snapshot");
     expect(pullPhaseCheckpointCursorKey("history")).toBe("pull.history.completed_at");
+    expect(pullPhaseCheckpointCursorKey("lists")).toBe("pull.lists.completed_at");
   });
 
   it("serializes string snapshots in stable sorted order", () => {
