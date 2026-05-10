@@ -67,7 +67,12 @@ export async function ingestTmdbMovie(
   credits: TmdbMovieCredits,
 ): Promise<Movie> {
   const supabase = createSupabaseAdminClient();
-  const movie = toMovieInsert(toMoviePayload(detail));
+  const metadataTimestamp = new Date().toISOString();
+  const movie = {
+    ...toMovieInsert(toMoviePayload(detail)),
+    metadata_updated_at: metadataTimestamp,
+    tmdb_enriched_at: metadataTimestamp,
+  };
 
   const { data, error } = await supabase
     .from("movies")

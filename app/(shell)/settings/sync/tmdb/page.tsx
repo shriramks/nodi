@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { BackButton } from "@/components/navigation/back-button";
 import { SettingsErrorModal } from "@/components/settings/settings-error-modal";
+import { TmdbBackfillControls } from "@/components/settings/tmdb-backfill-controls";
 import { getProviderSyncSettings } from "@/lib/db/queries";
 import { disconnectTmdbAction, saveTmdbTokenAction } from "../actions";
 
@@ -92,6 +93,8 @@ export default async function TmdbSettingsPage({ searchParams }: TmdbSettingsPag
           </form>
         ) : null}
       </section>
+
+      <TmdbBackfillControls enabled={connected} />
     </main>
   );
 }

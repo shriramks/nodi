@@ -66,6 +66,10 @@ type SearchTmdbMoviesOptions = {
   language?: string | null;
 };
 
+export type TmdbAuth = {
+  apiToken: string;
+};
+
 function tmdbUrl(path: string, params: Record<string, string | number | boolean | null | undefined> = {}) {
   const url = new URL(`${tmdbBaseUrl}${path}`);
 
@@ -78,12 +82,8 @@ function tmdbUrl(path: string, params: Record<string, string | number | boolean 
   return url;
 }
 
-async function fetchTmdbJson<T>(
-  path: string,
-  params?: Record<string, string | number | boolean | null | undefined>,
-) {
-  const user = await requireUser();
-  const apiToken = await readProviderSecret(user.id, "tmdb", "api_token_encrypted");
+export async function loadTmdbAuthForUser(userId: string): Promise<TmdbAuth> {
+  const apiToken = await readProviderSecret(userId, "tmdb", "api_token_encrypted");
 
   if (!apiToken) {
     throw new AppError("Add your TMDB API Read Access Token in settings before using TMDB.", {
@@ -92,9 +92,27 @@ async function fetchTmdbJson<T>(
     });
   }
 
+  return { apiToken };
+}
+
+async function fetchTmdbJson<T>(
+  path: string,
+  params?: Record<string, string | number | boolean | null | undefined>,
+) {
+  const user = await requireUser();
+  const auth = await loadTmdbAuthForUser(user.id);
+
+  return fetchTmdbJsonWithAuth<T>(auth, path, params);
+}
+
+function fetchTmdbJsonWithAuth<T>(
+  auth: TmdbAuth,
+  path: string,
+  params?: Record<string, string | number | boolean | null | undefined>,
+) {
   return fetchJson<T>(tmdbUrl(path, params), {
     headers: {
-      authorization: `Bearer ${apiToken}`,
+      authorization: `Bearer ${auth.apiToken}`,
     },
   });
 }
@@ -118,8 +136,28 @@ export function getTmdbMovieDetails(tmdbId: number, language?: string | null) {
   });
 }
 
+export function getTmdbMovieDetailsWithAuth(
+  auth: TmdbAuth,
+  tmdbId: number,
+  language?: string | null,
+) {
+  return fetchTmdbJsonWithAuth<TmdbMovieDetails>(auth, `/movie/${tmdbId}`, {
+    language,
+  });
+}
+
 export function getTmdbMovieCredits(tmdbId: number, language?: string | null) {
   return fetchTmdbJson<TmdbMovieCredits>(`/movie/${tmdbId}/credits`, {
+    language,
+  });
+}
+
+export function getTmdbMovieCreditsWithAuth(
+  auth: TmdbAuth,
+  tmdbId: number,
+  language?: string | null,
+) {
+  return fetchTmdbJsonWithAuth<TmdbMovieCredits>(auth, `/movie/${tmdbId}/credits`, {
     language,
   });
 }

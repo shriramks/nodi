@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { MovieDetailView } from "@/components/movie/movie-detail-view";
 import { isAppError } from "@/lib/errors";
 import { getMovieDetail } from "@/lib/db/queries";
+import { enrichTmdbMovieOnDemand } from "@/lib/providers/tmdb/enrichment";
 import {
   RatingPicker,
   TagEditor,
@@ -27,7 +28,13 @@ export default async function MovieDetailPage({
   params,
 }: MovieDetailPageProps) {
   const { movieId } = await params;
-  const movie = await loadMovieOrNotFound(movieId);
+  let movie = await loadMovieOrNotFound(movieId);
+  const enrichedMovie = await enrichTmdbMovieOnDemand(movie);
+
+  if (enrichedMovie.tmdb_enriched_at && enrichedMovie.tmdb_enriched_at !== movie.tmdb_enriched_at) {
+    movie = await loadMovieOrNotFound(enrichedMovie.id);
+  }
+
   const { userMovie } = movie;
   const status = userMovie?.status ?? null;
 

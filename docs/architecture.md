@@ -145,6 +145,10 @@ tag only remote movies that were not in the previous snapshot. Remote list remov
 snapshot but do not remove local `user_movie_tags`, preserving local tag edits and removals unless a
 future strict reconciliation mode is added.
 
+Trakt pull keeps movie resolution lightweight. Unknown Trakt movies are stored as minimal local rows
+with provider mappings, then TMDB detail, credits, posters, and runtime are filled later through
+manual metadata backfill or lazy enrichment when the local movie detail page is opened.
+
 ## 4. Search Architecture
 
 ### Route contract
@@ -226,6 +230,10 @@ saves the movie as watched, to-watch, rated, tagged, or synced.
 7. replace/upsert `movie_cast`
 8. ensure `provider_mappings` contains `tmdb` and `imdb` references where available
 9. create or update `user_movies` / `watch_logs`
+
+If a local movie exists only as a minimal Trakt-imported row, opening its local detail page may fetch
+TMDB details and credits first, mark `tmdb_enriched_at`, and then render the enriched local record. A
+missing TMDB token or transient TMDB failure must leave the minimal local page renderable.
 
 ### Why ingest on save
 
