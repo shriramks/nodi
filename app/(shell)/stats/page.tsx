@@ -24,12 +24,9 @@ export default async function StatsPage() {
   const stats = await getLibraryStats();
   const hasData = stats.watchEventCount > 0;
 
-  const favGenreLabel =
-    stats.favGenre !== null
-      ? stats.favGenreCount !== null
-        ? `${stats.favGenre} (${stats.favGenreCount})`
-        : stats.favGenre
-      : "—";
+  const favGenreValue = stats.favGenre ?? "—";
+  const favGenreSubLabel =
+    stats.favGenreCount !== null ? `Fav genre · ${stats.favGenreCount}` : "Fav genre";
 
   const ameleLabel = stats.ameleWatchMinutes > 0 ? formatRuntime(stats.ameleWatchMinutes) : "—";
 
@@ -79,20 +76,21 @@ export default async function StatsPage() {
       {hasData && (
         <section className="flex pb-5">
           <HeroMetric
-            value={favGenreLabel}
-            label="Fav genre"
-            valueClass="text-text-2"
-            secondary
-          />
-          <HeroMetric
-            value={stats.favDecade ?? "—"}
-            label="Fav decade"
+            value={favGenreValue}
+            label={favGenreSubLabel}
             valueClass="text-text-2"
             secondary
           />
           <HeroMetric
             value={ameleLabel}
             label="Watched with Amele"
+            valueClass="text-text-2"
+            secondary
+            flexGrow={1.5}
+          />
+          <HeroMetric
+            value={stats.favDecade ?? "—"}
+            label="Fav decade"
             valueClass="text-text-2"
             secondary
           />
