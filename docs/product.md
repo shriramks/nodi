@@ -215,6 +215,9 @@ docs/
 - active and historical provider sync run lifecycle state, including cancellation and stale-run
   recovery
 
+`sync_item_failures`
+- retryable item-level pull/list failures that must survive summary truncation and cursor movement
+
 `sync_events`
 - audit log of push/pull operations, failures, and conflicts
 
@@ -391,6 +394,17 @@ Indexes:
 - progress fields: `phase`, `label`, `current`, `total`
 - terminal fields: `summary`, `error_message`, `finished_at`, `cancelled_at`
 - unique active-run index on `(user_id, provider) where status = 'running'`
+
+`public.sync_item_failures`
+- `id uuid primary key default gen_random_uuid()`
+- `user_id uuid not null references auth.users(id) on delete cascade`
+- `sync_run_id uuid null references public.sync_runs(id) on delete set null`
+- `provider text not null`
+- `direction text not null check (direction in ('push', 'pull'))`
+- retry identity fields: `phase`, `item_key`, `retry_status`
+- retry detail fields: `item_payload`, `error_message`, `attempt_count`, `first_failed_at`,
+  `last_failed_at`, `resolved_at`
+- unique pending identity on `(user_id, provider, direction, phase, item_key, retry_status)`
 
 ## 6. Why This Data Model Matters
 

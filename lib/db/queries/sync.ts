@@ -44,6 +44,7 @@ export type ProviderSyncSettings = {
   lastRun: ProviderLastSyncRun | null;
   lastSuccessAt: string | null;
   pendingCount: number;
+  retryableFailureCount: number;
 };
 
 const syncSummaryEventTypes = ["trakt.push.summary", "trakt.pull.summary"];
@@ -156,6 +157,7 @@ export async function getProviderSyncSettings(
     lastRunResult,
     legacyLastRunResult,
     activeProgressResult,
+    retryableFailureCountResult,
   ] = await Promise.all([
     supabase
       .from("provider_connections")
@@ -242,6 +244,12 @@ export async function getProviderSyncSettings(
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from("sync_item_failures")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("provider", provider)
+      .eq("retry_status", "pending"),
   ]);
 
   if (connectionResult.error) {
@@ -282,6 +290,13 @@ export async function getProviderSyncSettings(
 
   if (activeProgressResult.error) {
     throwDatabaseError("Failed to load active sync progress.", activeProgressResult.error);
+  }
+
+  if (retryableFailureCountResult.error) {
+    throwDatabaseError(
+      "Failed to count retryable sync item failures.",
+      retryableFailureCountResult.error,
+    );
   }
 
   const activeProgress = activeProgressResult.data
@@ -348,6 +363,7 @@ export async function getProviderSyncSettings(
       : legacyLastRun,
     lastSuccessAt,
     pendingCount: pendingCountResult.count ?? 0,
+    retryableFailureCount: retryableFailureCountResult.count ?? 0,
   };
 }
 

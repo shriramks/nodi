@@ -9,6 +9,7 @@ export type ProviderMappingProvider = Provider | "imdb";
 export type ProviderConnectionStatus = "active" | "revoked" | "error";
 export type SyncDirection = "push" | "pull";
 export type SyncEventStatus = "pending" | "success" | "error";
+export type SyncItemFailureStatus = "pending" | "resolved";
 export type SyncRunStatus = "running" | "success" | "error" | "cancelled";
 
 export type Database = {
@@ -446,6 +447,68 @@ export type Database = {
         };
         Relationships: [];
       };
+      sync_item_failures: {
+        Row: {
+          id: string;
+          user_id: string;
+          sync_run_id: string | null;
+          provider: Provider;
+          direction: SyncDirection;
+          phase: string;
+          item_key: string;
+          item_payload: Json;
+          error_message: string;
+          retry_status: SyncItemFailureStatus;
+          attempt_count: number;
+          first_failed_at: string;
+          last_failed_at: string;
+          resolved_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          sync_run_id?: string | null;
+          provider: Provider;
+          direction: SyncDirection;
+          phase: string;
+          item_key: string;
+          item_payload?: Json;
+          error_message: string;
+          retry_status?: SyncItemFailureStatus;
+          attempt_count?: number;
+          first_failed_at?: string;
+          last_failed_at?: string;
+          resolved_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          sync_run_id?: string | null;
+          provider?: Provider;
+          direction?: SyncDirection;
+          phase?: string;
+          item_key?: string;
+          item_payload?: Json;
+          error_message?: string;
+          retry_status?: SyncItemFailureStatus;
+          attempt_count?: number;
+          first_failed_at?: string;
+          last_failed_at?: string;
+          resolved_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "sync_item_failures_sync_run_id_fkey";
+            columns: ["sync_run_id"];
+            isOneToOne: false;
+            referencedRelation: "sync_runs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       sync_runs: {
         Row: {
           id: string;
@@ -535,6 +598,8 @@ export type ProviderMappingInsert = TableInsert<"provider_mappings">;
 export type SyncCursor = TableRow<"sync_cursors">;
 export type SyncEvent = TableRow<"sync_events">;
 export type SyncEventUpdate = TableUpdate<"sync_events">;
+export type SyncItemFailure = TableRow<"sync_item_failures">;
+export type SyncItemFailureInsert = TableInsert<"sync_item_failures">;
 export type SyncRun = TableRow<"sync_runs">;
 
 export type UserMovieWithMovie = UserMovie & {

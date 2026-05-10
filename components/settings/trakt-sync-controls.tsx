@@ -166,6 +166,10 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
           <dt className="text-text-muted">Failures</dt>
           <dd className="mt-1 tabnum text-foreground">{syncState.errorCount}</dd>
         </div>
+        <div className="rounded-2xl border border-border bg-surface p-3">
+          <dt className="text-text-muted">Retry backlog</dt>
+          <dd className="mt-1 tabnum text-foreground">{syncState.retryableFailureCount}</dd>
+        </div>
       </dl>
 
       {syncState.lastFailure ? (

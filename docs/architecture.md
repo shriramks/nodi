@@ -153,6 +153,11 @@ Trakt pull keeps movie resolution lightweight. Unknown Trakt movies are stored a
 with provider mappings, then TMDB detail, credits, posters, and runtime are filled later through
 manual metadata backfill or lazy enrichment when the local movie detail page is opened.
 
+Recoverable item-level pull failures are stored in `sync_item_failures` before phase checkpoints,
+list snapshots, or pull cursors advance. Pull summaries keep only capped `failureSamples` for UI
+readability, while the retry rows keep the phase, item key, error, run id, and attempt count needed
+to inspect or retry affected items later.
+
 ## 4. Search Architecture
 
 ### Route contract
