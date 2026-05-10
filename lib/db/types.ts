@@ -34,6 +34,7 @@ export type Database = {
           tmdb_vote_count: number | null;
           popularity: number | null;
           metadata_updated_at: string;
+          tmdb_enriched_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -54,6 +55,7 @@ export type Database = {
           tmdb_vote_count?: number | null;
           popularity?: number | null;
           metadata_updated_at?: string;
+          tmdb_enriched_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -74,6 +76,7 @@ export type Database = {
           tmdb_vote_count?: number | null;
           popularity?: number | null;
           metadata_updated_at?: string;
+          tmdb_enriched_at?: string | null;
           created_at?: string;
         };
         Relationships: [];

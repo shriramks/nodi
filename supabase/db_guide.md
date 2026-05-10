@@ -127,6 +127,11 @@ state for provider sync jobs. `sync_events` remains the append-only queue/audit 
 `sync_runs` owns active progress, cancellation, stale-run failure marking, and the one-active-run
 constraint per user/provider.
 
+`supabase/migrations/20260510120000_add_movie_tmdb_enrichment_marker.sql` adds
+`movies.tmdb_enriched_at` and marks existing non-minimal metadata rows as already enriched. Trakt
+pull can continue inserting minimal movie rows, while manual TMDB backfill and lazy detail-page
+enrichment mark rows after TMDB details and credits are ingested.
+
 ## 8. Operational Notes
 
 Keep these server-side only:
