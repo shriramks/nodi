@@ -47,7 +47,7 @@ product direction.
 - Never override ignore rules and never force-add ignored files.
 - Keep secrets, tokens, local exports, imported watch-history files, and database dumps out of Git. Use `.local/` or `tmp/` for private working data.
 - Treat the worktree as user-owned; do not revert unrelated changes.
-- For substantial UI exploration, use local mockups such as `mocks.html` or `.local/`, but never commit them.
+- For substantial UI exploration, use local mockups inside the `mocks/` folder only — never place mock files in the repo root or elsewhere. The `mocks/` folder is gitignored and must never be committed.
 - Before changing schema behavior, check `supabase/db_guide.md` and the existing migration files first.
 - Schema changes must be additive through new files in `supabase/migrations/`; do not rewrite an applied migration.
 
