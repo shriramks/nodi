@@ -120,6 +120,7 @@ type TraktListImport = {
   items: TraktListMovie[];
   listKey: string;
   metadataCursor: string;
+  previousMetadataCursor: string | undefined;
   previousSnapshot: string | undefined;
   tagName: string;
 };
@@ -1066,11 +1067,12 @@ async function listAllListsWithMovieItems(
       updatedAt: list.updated_at,
     });
     const previousSnapshot = cursors.get(snapshotCursorKey(`lists.${listKey}`));
+    const previousMetadataCursor = cursors.get(listMetadataCursorKey(listKey));
     const canReuseSnapshot = canSkipListItemFetch({
       currentMetadataCursor: metadataCursor,
       hasStableMetadata: hasStableTraktListMetadata(list),
       previousItemSnapshot: previousSnapshot,
-      previousMetadataCursor: cursors.get(listMetadataCursorKey(listKey)),
+      previousMetadataCursor,
     });
 
     if (canReuseSnapshot) {
@@ -1080,6 +1082,7 @@ async function listAllListsWithMovieItems(
         items: [],
         listKey,
         metadataCursor,
+        previousMetadataCursor,
         previousSnapshot,
         tagName,
       });
@@ -1117,6 +1120,7 @@ async function listAllListsWithMovieItems(
       items,
       listKey,
       metadataCursor,
+      previousMetadataCursor,
       previousSnapshot,
       tagName,
     });
@@ -1301,17 +1305,7 @@ function normalizeListStates(
       movieStatesByKey.keys(),
       listImport.previousSnapshot ?? cursors.get(snapshotCursorKey(`lists.${listImport.listKey}`)),
     );
-    const movieStatesToTag: RemoteTraktMovieState[] = [];
-
-    if (delta.changed) {
-      for (const key of delta.addedKeys) {
-        const movie = movieStatesByKey.get(key);
-
-        if (movie) {
-          movieStatesToTag.push(movie);
-        }
-      }
-    }
+    const movieStatesToTag: RemoteTraktMovieState[] = Array.from(movieStatesByKey.values());
 
     states.push({
       changed: delta.changed,
