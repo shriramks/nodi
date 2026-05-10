@@ -60,7 +60,7 @@ export function MovieLibraryGrid({
   const selectedIdsArray = Array.from(selectedIds);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         {showGenreFilter && genres.length > 0 ? (
           <section className="flex flex-1 gap-2 overflow-x-auto pb-1">
@@ -103,7 +103,7 @@ export function MovieLibraryGrid({
       </div>
 
       {filtered.length > 0 ? (
-        <section className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-3">
+        <section className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2">
           {filtered.map(({ movie }) => (
             <PosterCard
               key={movie.id}

@@ -58,14 +58,18 @@ export function buildLibraryStats(
     };
   });
 
+  const favGenreItem = genreBreakdown.find((g) => g.key !== unknownKey);
+
   return {
     watchedCount: watchedMovies.length,
     watchEventCount: watchRows.length,
     runtimeMinutes,
     avgRuntimeMinutes: watchedMovies.length > 0 ? Math.round(runtimeMinutes / watchedMovies.length) : 0,
     avgRating: computeAvgRating(ratingRows),
-    favGenre: genreBreakdown.find((g) => g.key !== unknownKey)?.label ?? null,
+    favGenre: favGenreItem?.label ?? null,
+    favGenreCount: favGenreItem?.count ?? null,
     favDecade: buildFavDecade(watchedMovies),
+    ameleWatchMinutes: buildTagWatchMinutes(watchRows, tagRows, watchedMovieIds, "amele"),
     monthBuckets: buildMonthBuckets(watchRows),
     yearBuckets: buildYearBuckets(watchRows),
     genreBreakdown,
@@ -238,6 +242,33 @@ function buildMovieBreakdown(
   }
 
   return finalizeBreakdown(groups, movies.length);
+}
+
+function buildTagWatchMinutes(
+  watchRows: WatchLogAnalyticsRow[],
+  tagRows: TagAnalyticsRow[],
+  watchedMovieIds: Set<string>,
+  tagName: string,
+): number {
+  const movieRuntime = new Map<string, number>();
+  for (const row of watchRows) {
+    if (!movieRuntime.has(row.movie_id) && watchedMovieIds.has(row.movie_id)) {
+      movieRuntime.set(row.movie_id, row.movies?.runtime_minutes ?? 0);
+    }
+  }
+
+  const tagMovieIds = new Set<string>();
+  for (const row of tagRows) {
+    if (row.tags?.name.toLowerCase() === tagName.toLowerCase() && watchedMovieIds.has(row.movie_id)) {
+      tagMovieIds.add(row.movie_id);
+    }
+  }
+
+  let total = 0;
+  for (const movieId of tagMovieIds) {
+    total += movieRuntime.get(movieId) ?? 0;
+  }
+  return total;
 }
 
 function buildTagBreakdown(
