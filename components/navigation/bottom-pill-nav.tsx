@@ -17,7 +17,7 @@ export function BottomPillNav() {
   return (
     <nav
       className="fixed inset-x-0 z-50 px-4"
-      style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}
+      style={{ bottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="mx-auto flex h-[72px] w-full max-w-md items-center gap-1 rounded-full border border-border bg-nav-surface p-2 backdrop-blur-md">
         {items.map((item) => {

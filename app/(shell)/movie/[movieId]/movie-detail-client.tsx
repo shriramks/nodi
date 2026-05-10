@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useState, useTransition } from "react";
-import { CalendarPlus, Heart, Plus, Tag, X } from "lucide-react";
+import { CalendarPlus, Check, ChevronDown, Heart, Plus, Tag, X } from "lucide-react";
 import {
   addTagAction,
   addToWatchlistAction,
@@ -96,22 +96,36 @@ export function UserStateActions({
   );
 }
 
-export function RatingPicker({
+const RATING_LABELS: Record<number, string> = {
+  1: "Awful",
+  2: "Bad",
+  3: "Poor",
+  4: "Below Average",
+  5: "Average",
+  6: "Fine",
+  7: "Good",
+  8: "Great",
+  9: "Excellent",
+  10: "Masterpiece",
+};
+
+export function RatingSheet({
   movieId,
   currentRating,
 }: {
   movieId: string;
   currentRating: number | null;
 }) {
+  const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function handleRate(n: number) {
-    const next = currentRating === n ? null : n;
+  function handleRate(n: number | null) {
     setError(null);
     startTransition(async () => {
       try {
-        await updateRatingAction(movieId, next);
+        await updateRatingAction(movieId, n);
+        setOpen(false);
       } catch {
         setError("Rating was not saved. Try again.");
       }
@@ -119,35 +133,81 @@ export function RatingPicker({
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-1.5 text-[15px] text-foreground"
+        aria-label={currentRating !== null ? `Rating: ${currentRating}. Tap to change` : "Tap to rate"}
+      >
         <Heart
           aria-hidden="true"
           className="h-4 w-4 shrink-0 text-text-muted"
           strokeWidth={1.8}
         />
-        <div className="flex flex-1 gap-1">
-          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-            <button
-              key={n}
-              onClick={() => handleRate(n)}
-              disabled={isPending}
-              style={{ flex: "1 1 0" }}
-              className={[
-                "flex h-8 min-w-0 items-center justify-center rounded-lg text-[12px] font-semibold transition-colors disabled:opacity-50",
-                currentRating === n
-                  ? "bg-accent/15 text-accent"
-                  : "border border-border text-text-2",
-              ].join(" ")}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-      </div>
+        <span>{currentRating !== null ? currentRating : "Rate"}</span>
+        <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 text-text-muted" strokeWidth={2} />
+      </button>
 
-      {error ? <p className="text-[13px] text-unsynced">{error}</p> : null}
-    </div>
+      {open && (
+        <>
+          <div
+            aria-hidden="true"
+            className="fixed inset-0 z-40 bg-black/60"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Your Rating"
+            className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl bg-[var(--bg-secondary)] px-5 pt-3"
+            style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
+          >
+            <div className="mx-auto mb-5 mt-2 h-1 w-9 rounded-full bg-[var(--bg-tertiary)]" />
+
+            <p className="mb-2 text-[17px] font-semibold text-foreground">Your Rating</p>
+
+            <div>
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => handleRate(n)}
+                  disabled={isPending}
+                  className={[
+                    "flex w-full items-center justify-between border-b border-[var(--divider)] py-3 text-left last:border-b-0 disabled:opacity-50",
+                    currentRating === n ? "text-accent" : "",
+                  ].join(" ")}
+                >
+                  <span className="flex items-baseline gap-3 text-[15px]">
+                    <span className="tabnum w-4 font-semibold">{n}</span>
+                    <span className={currentRating === n ? "text-accent" : "text-text-2"}>
+                      {RATING_LABELS[n]}
+                    </span>
+                  </span>
+                  {currentRating === n && (
+                    <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-accent" strokeWidth={2.5} />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {currentRating !== null && (
+              <button
+                type="button"
+                onClick={() => handleRate(null)}
+                disabled={isPending}
+                className="mt-4 h-11 w-full rounded-xl border border-[var(--border)] text-[15px] font-semibold text-text-2 disabled:opacity-50"
+              >
+                Clear rating
+              </button>
+            )}
+
+            {error && <p className="mt-2 text-[13px] text-unsynced">{error}</p>}
+          </div>
+        </>
+      )}
+    </>
   );
 }
 

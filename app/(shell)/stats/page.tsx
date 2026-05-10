@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getLibraryStats } from "@/lib/db/queries";
 import type { LibraryStatsBreakdownItem, LibraryStatsTimeBucket } from "@/lib/db/types";
+import { SettingsSheet } from "@/components/settings/settings-sheet";
 
 export const metadata: Metadata = {
   title: "Stats",
@@ -16,7 +17,10 @@ export default async function StatsPage() {
   return (
     <main className="space-y-6">
       <section className="space-y-2">
-        <h1 className="text-[32px] font-bold leading-[1.1]">Stats</h1>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="text-[32px] font-bold leading-[1.1]">Stats</h1>
+          <SettingsSheet />
+        </div>
       </section>
 
       <section className="grid grid-cols-2 gap-3">

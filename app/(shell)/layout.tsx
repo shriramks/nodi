@@ -12,7 +12,7 @@ export default function ShellLayout({ children }: ShellLayoutProps) {
         className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4"
         style={{
           paddingTop: "calc(1.5rem + env(safe-area-inset-top))",
-          paddingBottom: "calc(var(--nav-h) + 3rem + env(safe-area-inset-bottom))",
+          paddingBottom: "calc(var(--nav-h) + 1.5rem + env(safe-area-inset-bottom))",
         }}
       >
         {children}
