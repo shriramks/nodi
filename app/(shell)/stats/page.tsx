@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import { getLibraryStats } from "@/lib/db/queries";
+import Link from "next/link";
+import { getLibraryStats, listTags } from "@/lib/db/queries";
 import type { LibraryStatsBreakdownItem, LibraryStatsRatingBucket } from "@/lib/db/types";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { MoviesOverTime } from "./movies-over-time";
@@ -18,30 +19,75 @@ const LANGUAGE_COLORS = [
   "#64D2FF",
 ];
 
+const GENRE_COLORS = [
+  "#0A84FF",
+  "#34C759",
+  "#FF375F",
+  "#BF5AF2",
+  "#FF9F0A",
+  "#64D2FF",
+];
+
 const MIN_LANGUAGE_COUNT = 4;
 
-export default async function StatsPage() {
-  const stats = await getLibraryStats();
+export default async function StatsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tag?: string }>;
+}) {
+  const { tag: tagFilter } = await searchParams;
+
+  const [stats, tags] = await Promise.all([
+    getLibraryStats(tagFilter),
+    listTags(),
+  ]);
+
   const hasData = stats.watchEventCount > 0;
 
-
-  const coWatchTag = process.env.STAT_CO_WATCH_TAG ?? null;
-  const coWatchLabel = stats.coWatchMinutes > 0 ? formatRuntime(stats.coWatchMinutes) : "—";
-  const coWatchMetricLabel = coWatchTag ? `Watched with ${coWatchTag}` : "Co-watch time";
-
-  const filteredLanguages = stats.languageBreakdown.filter(
-    (item) => item.key === "unknown" || item.count >= MIN_LANGUAGE_COUNT,
-  );
+  const filteredLanguages = stats.languageBreakdown
+    .filter((item) => item.key !== "unknown")
+    .slice(0, 5);
 
   return (
     <main>
       {/* Header */}
-      <section className="flex items-start justify-between gap-4 pb-5">
+      <section className="flex items-start justify-between gap-4 pb-3">
         <h1 className="text-[32px] font-bold leading-[1.1]">Stats</h1>
         <SettingsSheet />
       </section>
 
-      {/* Hero metrics — grid keeps both rows column-aligned */}
+      {/* Tag filter chips */}
+      {tags.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-4" style={{ scrollbarWidth: "none" }}>
+          <Link
+            href="/stats"
+            className={[
+              "flex-shrink-0 h-[30px] rounded-full px-3 text-[13px] font-medium flex items-center",
+              !tagFilter
+                ? "bg-accent text-black font-semibold"
+                : "bg-surface text-text-2",
+            ].join(" ")}
+          >
+            All
+          </Link>
+          {tags.map((tag) => (
+            <Link
+              key={tag.id}
+              href={`?tag=${encodeURIComponent(tag.name)}`}
+              className={[
+                "flex-shrink-0 h-[30px] rounded-full px-3 text-[13px] font-medium flex items-center",
+                tagFilter === tag.name
+                  ? "bg-accent text-black font-semibold"
+                  : "bg-surface text-text-2",
+              ].join(" ")}
+            >
+              {tag.name}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* Hero metrics */}
       <div
         className="grid pb-5"
         style={{ gridTemplateColumns: "1fr 1.5fr 1fr", rowGap: 20 }}
@@ -96,8 +142,8 @@ export default async function StatsPage() {
               secondary
             />
             <HeroMetric
-              value={coWatchLabel}
-              label={coWatchMetricLabel}
+              value={stats.avgRuntimeMinutes > 0 ? formatRuntime(stats.avgRuntimeMinutes) : "—"}
+              label="Avg runtime"
               valueClass="text-text-2"
               secondary
               border
@@ -124,17 +170,26 @@ export default async function StatsPage() {
 
           <div className="h-px bg-divider" />
 
-          <SectionHeader title="By language" />
-          {filteredLanguages.length === 0 ? (
+          <SectionHeader title="By genre" />
+          {stats.genreBreakdown.length === 0 ? (
             <EmptyBreakdown />
           ) : (
-            <ProportionBreakdown items={filteredLanguages} colors={LANGUAGE_COLORS} />
+            <ProportionBreakdown items={stats.genreBreakdown} colors={GENRE_COLORS} />
           )}
 
           <div className="h-px bg-divider" />
 
           <SectionHeader title="By rating" />
           <RatingDistribution breakdown={stats.ratingBreakdown} />
+
+          <div className="h-px bg-divider" />
+
+          <SectionHeader title="By language" />
+          {filteredLanguages.length === 0 ? (
+            <EmptyBreakdown />
+          ) : (
+            <LanguageDonut items={filteredLanguages} />
+          )}
 
           <div className="h-px bg-divider" />
 
@@ -272,7 +327,6 @@ function ProportionBreakdown({
 
   return (
     <div className="pb-4">
-      {/* Stacked proportion bar */}
       <div className="flex h-2 w-full overflow-hidden rounded-full gap-px mb-3" style={{ background: "var(--bg-secondary)" }}>
         {segments.map(({ item, color }) => (
           <div
@@ -285,8 +339,6 @@ function ProportionBreakdown({
           />
         ))}
       </div>
-
-      {/* Legend */}
       <div className="flex flex-wrap gap-x-4 gap-y-1.5">
         {segments.map(({ item, color, isUnknown }) => (
           <div key={item.key} className="flex items-center gap-1.5">
@@ -297,6 +349,81 @@ function ProportionBreakdown({
             <span className={`text-[12px] ${isUnknown ? "text-text-muted" : "text-text-2"}`}>
               {item.label}
             </span>
+            <span className="tabnum text-[12px] text-text-faint">{item.count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LanguageDonut({ items }: { items: LibraryStatsBreakdownItem[] }) {
+  const size = 140;
+  const cx = 70;
+  const cy = 70;
+  const outerR = 64;
+  const innerR = 44;
+  const GAP = 0.03;
+
+  const total = items.reduce((s, i) => s + i.count, 0);
+  if (total === 0) return <EmptyBreakdown />;
+
+  let angle = -Math.PI / 2;
+  const segments = items.map((item, idx) => {
+    const sweep = (item.count / total) * 2 * Math.PI - GAP;
+    const a1 = angle + GAP / 2;
+    const a2 = a1 + sweep;
+    angle = a2 + GAP / 2;
+    const large = a2 - a1 > Math.PI ? 1 : 0;
+    const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
+    const cos2 = Math.cos(a2), sin2 = Math.sin(a2);
+    const x1o = cx + outerR * cos1, y1o = cy + outerR * sin1;
+    const x2o = cx + outerR * cos2, y2o = cy + outerR * sin2;
+    const x2i = cx + innerR * cos2, y2i = cy + innerR * sin2;
+    const x1i = cx + innerR * cos1, y1i = cy + innerR * sin1;
+    const d = `M${x1o.toFixed(2)} ${y1o.toFixed(2)} A${outerR} ${outerR} 0 ${large} 1 ${x2o.toFixed(2)} ${y2o.toFixed(2)} L${x2i.toFixed(2)} ${y2i.toFixed(2)} A${innerR} ${innerR} 0 ${large} 0 ${x1i.toFixed(2)} ${y1i.toFixed(2)} Z`;
+    return { item, d, color: LANGUAGE_COLORS[idx % LANGUAGE_COLORS.length] };
+  });
+
+  const top = items[0];
+  const topShort = top.label.slice(0, 3);
+
+  return (
+    <div className="flex flex-col items-center gap-3 pb-4">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        {segments.map(({ item, d, color }) => (
+          <path key={item.key} d={d} fill={color} />
+        ))}
+        <text
+          x={cx}
+          y={cy - 6}
+          textAnchor="middle"
+          fontSize={13}
+          fontWeight={700}
+          fill="var(--color-foreground)"
+          fontFamily="-apple-system,sans-serif"
+        >
+          {topShort}
+        </text>
+        <text
+          x={cx}
+          y={cy + 10}
+          textAnchor="middle"
+          fontSize={11}
+          fill="var(--color-text-faint)"
+          fontFamily="-apple-system,sans-serif"
+        >
+          {top.count}
+        </text>
+      </svg>
+      <div className="flex justify-center">
+        {segments.map(({ item, color }, idx) => (
+          <div
+            key={item.key}
+            className={`flex items-center gap-1.5 px-2.5 ${idx > 0 ? "border-l border-divider" : ""}`}
+          >
+            <div className="h-[7px] w-[7px] rounded-full shrink-0" style={{ background: color }} />
+            <span className="text-[12px] text-text-2">{item.label.slice(0, 3)}</span>
             <span className="tabnum text-[12px] text-text-faint">{item.count}</span>
           </div>
         ))}

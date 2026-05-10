@@ -28,6 +28,7 @@ export type TagAnalyticsRow = Pick<UserMovieTag, "movie_id"> & {
 };
 
 export type RatingAnalyticsRow = {
+  movie_id: string;
   personal_rating: number | null;
 };
 
@@ -42,11 +43,25 @@ export function buildLibraryStats(
   watchRows: WatchLogAnalyticsRow[],
   tagRows: TagAnalyticsRow[],
   ratingRows: RatingAnalyticsRow[],
-  coWatchTag?: string,
+  tagFilter?: string,
 ): LibraryStats {
-  const watchedMovies = buildWatchedMovies(watchRows);
+  let filteredWatchRows = watchRows;
+  let filteredRatingRows = ratingRows;
+
+  if (tagFilter) {
+    const taggedMovieIds = new Set<string>();
+    for (const row of tagRows) {
+      if (row.tags?.name.toLowerCase() === tagFilter.toLowerCase()) {
+        taggedMovieIds.add(row.movie_id);
+      }
+    }
+    filteredWatchRows = watchRows.filter((r) => taggedMovieIds.has(r.movie_id));
+    filteredRatingRows = ratingRows.filter((r) => taggedMovieIds.has(r.movie_id));
+  }
+
+  const watchedMovies = buildWatchedMovies(filteredWatchRows);
   const watchedMovieIds = new Set(watchedMovies.map((movie) => movie.movieId));
-  const runtimeMinutes = watchRows.reduce(
+  const runtimeMinutes = filteredWatchRows.reduce(
     (total, row) => total + (row.movies?.runtime_minutes ?? 0),
     0,
   );
@@ -63,18 +78,15 @@ export function buildLibraryStats(
 
   return {
     watchedCount: watchedMovies.length,
-    watchEventCount: watchRows.length,
+    watchEventCount: filteredWatchRows.length,
     runtimeMinutes,
     avgRuntimeMinutes: watchedMovies.length > 0 ? Math.round(runtimeMinutes / watchedMovies.length) : 0,
-    avgRating: computeAvgRating(ratingRows),
+    avgRating: computeAvgRating(filteredRatingRows),
     favGenre: favGenreItem?.label ?? null,
     favGenreCount: favGenreItem?.count ?? null,
     favDecade: buildFavDecade(watchedMovies),
-    coWatchMinutes: coWatchTag
-      ? buildTagWatchMinutes(watchRows, tagRows, watchedMovieIds, coWatchTag)
-      : 0,
-    monthBuckets: buildMonthBuckets(watchRows),
-    yearBuckets: buildYearBuckets(watchRows),
+    monthBuckets: buildMonthBuckets(filteredWatchRows),
+    yearBuckets: buildYearBuckets(filteredWatchRows),
     genreBreakdown,
     languageBreakdown: buildMovieBreakdown(watchedMovies, (movie) => {
       const language = movie.originalLanguage?.trim();
@@ -84,7 +96,7 @@ export function buildLibraryStats(
       };
     }),
     tagBreakdown: buildTagBreakdown(tagRows, watchedMovieIds, watchedMovies.length),
-    ratingBreakdown: buildRatingBreakdown(ratingRows),
+    ratingBreakdown: buildRatingBreakdown(filteredRatingRows),
   };
 }
 
@@ -247,32 +259,6 @@ function buildMovieBreakdown(
   return finalizeBreakdown(groups, movies.length);
 }
 
-function buildTagWatchMinutes(
-  watchRows: WatchLogAnalyticsRow[],
-  tagRows: TagAnalyticsRow[],
-  watchedMovieIds: Set<string>,
-  tagName: string,
-): number {
-  const movieRuntime = new Map<string, number>();
-  for (const row of watchRows) {
-    if (!movieRuntime.has(row.movie_id) && watchedMovieIds.has(row.movie_id)) {
-      movieRuntime.set(row.movie_id, row.movies?.runtime_minutes ?? 0);
-    }
-  }
-
-  const tagMovieIds = new Set<string>();
-  for (const row of tagRows) {
-    if (row.tags?.name.toLowerCase() === tagName.toLowerCase() && watchedMovieIds.has(row.movie_id)) {
-      tagMovieIds.add(row.movie_id);
-    }
-  }
-
-  let total = 0;
-  for (const movieId of tagMovieIds) {
-    total += movieRuntime.get(movieId) ?? 0;
-  }
-  return total;
-}
 
 function buildTagBreakdown(
   rows: TagAnalyticsRow[],
