@@ -136,54 +136,34 @@ async function listCurrentUserTmdbEnrichmentCandidates(
     scanLimit: number;
   },
 ) {
-  const movieIds = await loadCurrentUserImportedMovieIds(userId, options.scanLimit);
+  const movieIds = await loadCurrentUserMovieIds(userId);
 
   if (movieIds.length === 0) {
     return [];
   }
 
-  const mappingsByMovieId = await loadTmdbMappingsByMovieId(movieIds);
-  const moviesById = await loadMovieMapByIds(mappingsByMovieId.keys());
+  const unenrichedMovies = await loadUnenrichedMoviesByIds(movieIds, options.scanLimit);
+  const mappingsByMovieId = await loadTmdbMappingsByMovieId(unenrichedMovies.map((m) => m.id));
   const candidates: TmdbEnrichmentCandidate[] = [];
 
-  for (const movieId of movieIds) {
-    const tmdbId = mappingsByMovieId.get(movieId);
-    const movie = moviesById.get(movieId);
+  for (const movie of unenrichedMovies) {
+    const tmdbId = mappingsByMovieId.get(movie.id);
 
-    if (
-      !movie ||
-      !tmdbId ||
-      movie.tmdb_id !== tmdbId ||
-      !needsTmdbMetadataEnrichment(movie)
-    ) {
+    if (!tmdbId || movie.tmdb_id !== tmdbId || !needsTmdbMetadataEnrichment(movie)) {
       continue;
     }
 
     candidates.push({ movie, tmdbId });
-
-    if (candidates.length >= options.limit) {
-      break;
-    }
   }
 
   return candidates;
 }
 
-async function loadCurrentUserImportedMovieIds(userId: string, scanLimit: number) {
+async function loadCurrentUserMovieIds(userId: string) {
   const supabase = createSupabaseAdminClient();
   const [libraryResult, tagResult] = await Promise.all([
-    supabase
-      .from("user_movies")
-      .select("movie_id")
-      .eq("user_id", userId)
-      .order("updated_at", { ascending: false })
-      .limit(scanLimit),
-    supabase
-      .from("user_movie_tags")
-      .select("movie_id")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(scanLimit),
+    supabase.from("user_movies").select("movie_id").eq("user_id", userId),
+    supabase.from("user_movie_tags").select("movie_id").eq("user_id", userId),
   ]);
 
   if (libraryResult.error) {
@@ -198,6 +178,30 @@ async function loadCurrentUserImportedMovieIds(userId: string, scanLimit: number
     ...(libraryResult.data ?? []).map((row) => row.movie_id),
     ...(tagResult.data ?? []).map((row) => row.movie_id),
   ]);
+}
+
+async function loadUnenrichedMoviesByIds(movieIds: string[], limit: number) {
+  const movies: Movie[] = [];
+  const supabase = createSupabaseAdminClient();
+
+  for (const chunk of chunkArray(uniqueArray(movieIds), dbReadChunkSize)) {
+    if (movies.length >= limit) break;
+
+    const { data, error } = await supabase
+      .from("movies")
+      .select("*")
+      .in("id", chunk)
+      .is("tmdb_enriched_at", null)
+      .limit(limit - movies.length);
+
+    if (error) {
+      throwDatabaseError("Failed to load unenriched TMDB backfill movies.", error);
+    }
+
+    movies.push(...(data ?? []));
+  }
+
+  return movies;
 }
 
 async function loadTmdbMappingsByMovieId(movieIds: Iterable<string>) {
@@ -227,24 +231,6 @@ async function loadTmdbMappingsByMovieId(movieIds: Iterable<string>) {
   return mappings;
 }
 
-async function loadMovieMapByIds(movieIds: Iterable<string>) {
-  const movies = new Map<string, Movie>();
-  const supabase = createSupabaseAdminClient();
-
-  for (const movieIdChunk of chunkArray(uniqueArray(movieIds), dbReadChunkSize)) {
-    const { data, error } = await supabase.from("movies").select("*").in("id", movieIdChunk);
-
-    if (error) {
-      throwDatabaseError("Failed to load TMDB backfill movies.", error);
-    }
-
-    for (const movie of data ?? []) {
-      movies.set(movie.id, movie);
-    }
-  }
-
-  return movies;
-}
 
 function normalizeTmdbBackfillScanLimit(value: number | null | undefined) {
   if (typeof value !== "number" || !Number.isInteger(value)) {
