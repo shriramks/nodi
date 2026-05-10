@@ -49,6 +49,30 @@ export function serializeListMetadataCursor(metadata: ListMetadataCursor) {
   });
 }
 
+export function parseListMetadataCursor(cursor: string | undefined): ListMetadataCursor | null {
+  if (!cursor) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(cursor) as unknown;
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+
+    const obj = parsed as Record<string, unknown>;
+
+    return {
+      itemCount: typeof obj.itemCount === "number" ? obj.itemCount : null,
+      tagName: typeof obj.tagName === "string" ? obj.tagName : null,
+      updatedAt: typeof obj.updatedAt === "string" ? obj.updatedAt : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function canSkipListItemFetch({
   currentMetadataCursor,
   hasStableMetadata,

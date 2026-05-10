@@ -466,8 +466,13 @@ Then:
 On schedule:
 1. pull latest Trakt history / ratings / watchlist deltas plus user lists
 2. resolve movie IDs through local mapping and TMDB lookup if needed
-3. upsert user state, watch logs, and newly added list-derived tag links
+3. upsert user state, watch logs, and list-derived tag links (all current list movies re-tagged on each full list fetch, idempotent)
 4. store cursor
+
+#### TMDB metadata backfill
+Trakt-imported movies arrive as minimal rows without genre, language, poster, or runtime. The
+backfill button in settings enriches all pending movies in batches of 50, looping automatically
+until none remain. Genre and language stats are only meaningful after backfill completes.
 
 ### Conflict rule
 For v1, keep it simple:

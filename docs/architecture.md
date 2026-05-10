@@ -140,18 +140,25 @@ Vercel Cron
     -> log sync_events
 ```
 
-Trakt list imports are snapshot-based. Each list stores a `lists.<id>.snapshot` cursor; later pulls
-tag only remote movies that were not in the previous snapshot. Remote list removals advance the
-snapshot but do not remove local `user_movie_tags`, preserving local tag edits and removals unless a
-future strict reconciliation mode is added.
+Trakt list imports are snapshot-based. Each list stores a `lists.<id>.snapshot` cursor. When a list's
+item pages are fetched (because metadata changed or no prior snapshot exists), all current remote
+movies are tagged — not just additions. This is idempotent via upsert and ensures correctness even if
+a prior run left tag links in a partial state (e.g. due to a list rename mid-sync). Remote list
+removals advance the snapshot but do not remove local `user_movie_tags`, preserving local tag edits
+and removals unless a future strict reconciliation mode is added.
 
 List pulls also store a `lists.<id>.metadata` cursor from Trakt list metadata. When that metadata is
 unchanged and an item snapshot already exists, the pull reuses the snapshot and skips fetching the
-list's item pages.
+list's item pages entirely.
 
 Trakt pull keeps movie resolution lightweight. Unknown Trakt movies are stored as minimal local rows
 with provider mappings, then TMDB detail, credits, posters, and runtime are filled later through
-manual metadata backfill or lazy enrichment when the local movie detail page is opened.
+TMDB metadata backfill or lazy enrichment when the local movie detail page is opened.
+
+TMDB metadata backfill runs in the browser via `POST /api/movies/tmdb/backfill?limit=50`. The UI
+loops until `remaining === 0`, enriching all pending movies in successive batches of 50 with live
+progress feedback. Each batch makes two TMDB calls per movie (details + credits). A stop button
+interrupts the loop between batches without leaving state inconsistent.
 
 Recoverable item-level pull failures are stored in `sync_item_failures` before phase checkpoints,
 list snapshots, or pull cursors advance. Pull summaries keep only capped `failureSamples` for UI
