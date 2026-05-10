@@ -24,11 +24,10 @@ export default async function StatsPage() {
   const stats = await getLibraryStats();
   const hasData = stats.watchEventCount > 0;
 
-  const favGenreValue = stats.favGenre ?? "—";
-  const favGenreSubLabel =
-    stats.favGenreCount !== null ? `Fav genre · ${stats.favGenreCount}` : "Fav genre";
 
-  const ameleLabel = stats.ameleWatchMinutes > 0 ? formatRuntime(stats.ameleWatchMinutes) : "—";
+  const coWatchTag = process.env.STAT_CO_WATCH_TAG ?? null;
+  const coWatchLabel = stats.coWatchMinutes > 0 ? formatRuntime(stats.coWatchMinutes) : "—";
+  const coWatchMetricLabel = coWatchTag ? `Watched with ${coWatchTag}` : "Co-watch time";
 
   const filteredLanguages = stats.languageBreakdown.filter(
     (item) => item.key === "unknown" || item.count >= MIN_LANGUAGE_COUNT,
@@ -42,8 +41,11 @@ export default async function StatsPage() {
         <SettingsSheet />
       </section>
 
-      {/* Primary hero — 3 main metrics */}
-      <section className="flex pb-4">
+      {/* Hero metrics — grid keeps both rows column-aligned */}
+      <div
+        className="grid pb-5"
+        style={{ gridTemplateColumns: "1fr 1.5fr 1fr", rowGap: 20 }}
+      >
         <HeroMetric
           value={stats.watchedCount.toString()}
           label="Movies"
@@ -54,7 +56,7 @@ export default async function StatsPage() {
           label="Time watched"
           valueClass="text-accent"
           fontSize={stats.runtimeMinutes >= 86400 ? 20 : 22}
-          flexGrow={1.5}
+          border
         />
         <HeroMetric
           value={
@@ -69,33 +71,47 @@ export default async function StatsPage() {
           }
           label="Avg rating"
           valueClass={stats.avgRating !== null ? "text-watched" : "text-text-faint"}
+          border
         />
-      </section>
 
-      {/* Secondary hero — supporting metrics */}
-      {hasData && (
-        <section className="flex pb-5">
-          <HeroMetric
-            value={favGenreValue}
-            label={favGenreSubLabel}
-            valueClass="text-text-2"
-            secondary
-          />
-          <HeroMetric
-            value={ameleLabel}
-            label="Watched with Amele"
-            valueClass="text-text-2"
-            secondary
-            flexGrow={1.5}
-          />
-          <HeroMetric
-            value={stats.favDecade ?? "—"}
-            label="Fav decade"
-            valueClass="text-text-2"
-            secondary
-          />
-        </section>
-      )}
+        {hasData && (
+          <>
+            <HeroMetric
+              value={
+                stats.favGenre !== null ? (
+                  <>
+                    {stats.favGenre}
+                    {stats.favGenreCount !== null && (
+                      <span className="tabnum ml-1.5 text-[12px] font-normal text-text-faint">
+                        {stats.favGenreCount}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  "—"
+                )
+              }
+              label="Fav genre"
+              valueClass="text-text-2"
+              secondary
+            />
+            <HeroMetric
+              value={coWatchLabel}
+              label={coWatchMetricLabel}
+              valueClass="text-text-2"
+              secondary
+              border
+            />
+            <HeroMetric
+              value={stats.favDecade ?? "—"}
+              label="Fav decade"
+              valueClass="text-text-2"
+              secondary
+              border
+            />
+          </>
+        )}
+      </div>
 
       <div className="h-px bg-divider" />
 
@@ -144,23 +160,25 @@ function HeroMetric({
   valueClass,
   secondary = false,
   fontSize,
-  flexGrow = 1,
+  border = false,
 }: {
   value: ReactNode;
   label: string;
   valueClass: string;
   secondary?: boolean;
   fontSize?: number;
-  flexGrow?: number;
+  border?: boolean;
 }) {
   const size = secondary ? 15 : (fontSize ?? 22);
   return (
     <div
-      className="min-w-0 flex flex-col gap-0.5 pr-3 [&+&]:pl-3 [&+&]:border-l [&+&]:border-divider last:pr-0"
-      style={{ flexGrow }}
+      className={[
+        "min-w-0 flex flex-col gap-0.5 pr-3 last:pr-0",
+        border ? "border-l border-divider pl-3" : "",
+      ].join(" ")}
     >
       <p
-        className={`tabnum font-bold leading-[1.1] truncate ${valueClass}`}
+        className={`tabnum leading-[1.1] truncate ${valueClass}`}
         style={{ fontSize: size, fontWeight: secondary ? 600 : 700 }}
       >
         {value}

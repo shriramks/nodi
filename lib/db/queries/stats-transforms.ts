@@ -42,6 +42,7 @@ export function buildLibraryStats(
   watchRows: WatchLogAnalyticsRow[],
   tagRows: TagAnalyticsRow[],
   ratingRows: RatingAnalyticsRow[],
+  coWatchTag?: string,
 ): LibraryStats {
   const watchedMovies = buildWatchedMovies(watchRows);
   const watchedMovieIds = new Set(watchedMovies.map((movie) => movie.movieId));
@@ -69,7 +70,9 @@ export function buildLibraryStats(
     favGenre: favGenreItem?.label ?? null,
     favGenreCount: favGenreItem?.count ?? null,
     favDecade: buildFavDecade(watchedMovies),
-    ameleWatchMinutes: buildTagWatchMinutes(watchRows, tagRows, watchedMovieIds, "amele"),
+    coWatchMinutes: coWatchTag
+      ? buildTagWatchMinutes(watchRows, tagRows, watchedMovieIds, coWatchTag)
+      : 0,
     monthBuckets: buildMonthBuckets(watchRows),
     yearBuckets: buildYearBuckets(watchRows),
     genreBreakdown,

@@ -21,7 +21,7 @@ export async function getLibraryStats() {
     listRatingAnalyticsRows(user.id),
   ]);
 
-  return buildLibraryStats(watchRows, tagRows, ratingRows);
+  return buildLibraryStats(watchRows, tagRows, ratingRows, process.env.STAT_CO_WATCH_TAG);
 }
 
 async function listWatchLogAnalyticsRows(userId: string) {
