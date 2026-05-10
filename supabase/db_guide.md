@@ -81,6 +81,7 @@ These tables are scoped per authenticated user:
 - `provider_connections`
 - `sync_cursors`
 - `sync_runs`
+- `sync_item_failures`
 - `sync_events`
 
 These are protected with RLS policies based on `auth.uid()`.
@@ -131,6 +132,11 @@ constraint per user/provider.
 `movies.tmdb_enriched_at` and marks existing non-minimal metadata rows as already enriched. Trakt
 pull can continue inserting minimal movie rows, while manual TMDB backfill and lazy detail-page
 enrichment mark rows after TMDB details and credits are ingested.
+
+`supabase/migrations/20260510143000_add_sync_item_failures.sql` adds `sync_item_failures` for
+durable item-level retry context. Recoverable Trakt pull/list failures are written before related
+phase checkpoints and list snapshots advance, while `sync_runs.summary` and `sync_events.payload`
+keep compact capped samples for UI display.
 
 ## 8. Operational Notes
 

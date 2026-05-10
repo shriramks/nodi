@@ -14,6 +14,8 @@ import type {
   ProviderMappingProvider,
   SyncDirection,
   SyncEvent,
+  SyncItemFailure,
+  SyncItemFailureInsert,
   SyncRunStatus,
   Tag,
   TagInsert,
@@ -92,6 +94,7 @@ type PullResult = {
   listsImported: number;
   ratingsCleared: number;
   ratingsImported: number;
+  retryableFailures: number;
   skipped: number;
   watchlistImported: number;
   watchlistRemoved: number;
@@ -151,6 +154,12 @@ type PullFailurePhase =
   | "tag"
   | "watch-log"
   | "watchlist";
+type PullItemFailure = {
+  errorMessage: string;
+  itemKey: string;
+  itemPayload: Json;
+  phase: PullFailurePhase;
+};
 type MovieResolutionResult = {
   failedRemoteKeys: Map<string, string>;
   movieIdByRemoteKey: Map<string, string>;
@@ -172,6 +181,7 @@ const dbWriteChunkSize = 200;
 const failureSampleLimit = 10;
 const staleSyncMessage = "Sync run stopped reporting progress and was marked failed.";
 const importedTagNameMaxLength = 80;
+const pullItemFailuresByResult = new WeakMap<PullResult, Map<string, PullItemFailure>>();
 
 export async function pushTraktSync(origin: string, limit = 50): Promise<PushResult> {
   const user = await requireUser();
@@ -304,19 +314,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     await refreshTraktConnection(user.id, connection);
 
     const cursors = await loadCursorMap(user.id);
-    const result: PullResult = {
-      failed: 0,
-      failureSamples: [],
-      historyImported: 0,
-      listItemFetchesSkipped: 0,
-      listItemsTagged: 0,
-      listsImported: 0,
-      ratingsCleared: 0,
-      ratingsImported: 0,
-      skipped: 0,
-      watchlistImported: 0,
-      watchlistRemoved: 0,
-    };
+    const result = createPullResult();
 
     const historyCursor = cursors.get(historyLastWatchedCursorKey) ?? null;
     await updateTraktSyncRunProgress(user.id, run.id, {
@@ -379,6 +377,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     const listFetch = await listAllListsWithMovieItems(
       connection,
       cursors,
+      result,
       runContext,
       async (counts) => {
         await updateTraktSyncRunProgress(user.id, run.id, {
@@ -514,6 +513,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     applyUserMoviePlanToMap(existingUserMovies, historyPlan);
     const historyLogs = buildWatchLogInserts(user.id, historyStates, movieResolution);
     await insertWatchLogs(user.id, historyLogs, result, runContext);
+    await flushPendingPullItemFailures(runContext, result);
     await storeHistoryCheckpoint(runContext, {
       changed: historyStates.length > 0,
       itemCount: historyStates.length,
@@ -542,6 +542,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     await deleteUserMovies(user.id, watchlistPlan.deleteMovieIds, result, runContext);
     await upsertUserMovieDrafts(user.id, watchlistPlan.upserts, result, runContext);
     applyUserMoviePlanToMap(existingUserMovies, watchlistPlan);
+    await flushPendingPullItemFailures(runContext, result);
     await storeSnapshotCheckpoint("watchlist", runContext, {
       changed: watchlistChanged,
       itemCount: activeWatchlistStates.length + activeRemovedWatchlistKeys.length,
@@ -569,6 +570,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
 
     await upsertUserMovieDrafts(user.id, ratingPlan.upserts, result, runContext);
     applyUserMoviePlanToMap(existingUserMovies, ratingPlan);
+    await flushPendingPullItemFailures(runContext, result);
     await storeSnapshotCheckpoint("ratings", runContext, {
       changed: ratingsChanged,
       itemCount: activeRatingStates.length + activeRemovedRatingKeys.length,
@@ -591,6 +593,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       result,
       runContext,
     );
+    await flushPendingPullItemFailures(runContext, result);
     await storeListSnapshots(listStates, runContext);
     let listProgressLabel = "No Trakt lists to import";
 
@@ -620,6 +623,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     });
 
     const processedAt = new Date().toISOString();
+    await flushPendingPullItemFailures(runContext, result);
     await upsertSyncCursor(provider, lastPullCursorKey, processedAt);
     await createSyncEvent({
       provider,
@@ -1035,6 +1039,7 @@ async function listAllRatings(
 async function listAllListsWithMovieItems(
   auth: TraktAuth,
   cursors: CursorMap,
+  result: PullResult,
   run: SyncRunContext,
   onProgress?: (counts: TraktListFetchProgress) => Promise<void>,
 ): Promise<TraktListFetchResult> {
@@ -1086,13 +1091,25 @@ async function listAllListsWithMovieItems(
       continue;
     }
 
-    const items = await listAllListMovieItems(auth, listKey, run, async (count) => {
+    let items: TraktListMovie[];
+
+    try {
+      items = await listAllListMovieItems(auth, listKey, run, async (count) => {
+        await onProgress?.({
+          itemCount: itemCount + count,
+          listCount: imports.length + 1,
+          skippedListCount,
+        });
+      });
+    } catch (error) {
+      recordPullFailure(result, "list", listKey, error);
       await onProgress?.({
-        itemCount: itemCount + count,
-        listCount: imports.length + 1,
+        itemCount,
+        listCount: imports.length,
         skippedListCount,
       });
-    });
+      continue;
+    }
 
     itemCount += items.length;
     imports.push({
@@ -2353,6 +2370,121 @@ function resolveImportedMovieId(
   return null;
 }
 
+function createPullResult(): PullResult {
+  const result: PullResult = {
+    failed: 0,
+    failureSamples: [],
+    historyImported: 0,
+    listItemFetchesSkipped: 0,
+    listItemsTagged: 0,
+    listsImported: 0,
+    ratingsCleared: 0,
+    ratingsImported: 0,
+    retryableFailures: 0,
+    skipped: 0,
+    watchlistImported: 0,
+    watchlistRemoved: 0,
+  };
+
+  pullItemFailuresByResult.set(result, new Map());
+
+  return result;
+}
+
+async function flushPendingPullItemFailures(run: SyncRunContext, result: PullResult) {
+  const failures = pullItemFailuresByResult.get(result);
+
+  if (!failures || failures.size === 0) {
+    return;
+  }
+
+  await assertTraktSyncRunActive(run.userId, run.runId);
+
+  const items = Array.from(failures.values());
+  const existingByKey = await loadPendingPullItemFailureMap(run.userId, items);
+  const now = new Date().toISOString();
+  const rows = items.map((failure): SyncItemFailureInsert => {
+    const existing = existingByKey.get(pullItemFailureMapKey(failure.phase, failure.itemKey));
+
+    return {
+      user_id: run.userId,
+      sync_run_id: run.runId,
+      provider,
+      direction: "pull",
+      phase: failure.phase,
+      item_key: failure.itemKey,
+      item_payload: failure.itemPayload,
+      error_message: failure.errorMessage,
+      retry_status: "pending",
+      attempt_count: (existing?.attempt_count ?? 0) + 1,
+      last_failed_at: now,
+      resolved_at: null,
+    };
+  });
+  const supabase = createSupabaseAdminClient();
+
+  for (const rowChunk of chunkArray(rows, dbWriteChunkSize)) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const { error } = await supabase
+      .from("sync_item_failures")
+      .upsert(rowChunk, {
+        onConflict: "user_id,provider,direction,phase,item_key,retry_status",
+      });
+
+    if (error) {
+      throwDatabaseError("Failed to store Trakt item failure retry rows.", error);
+    }
+  }
+
+  failures.clear();
+}
+
+async function loadPendingPullItemFailureMap(
+  userId: string,
+  failures: PullItemFailure[],
+): Promise<Map<string, Pick<SyncItemFailure, "attempt_count" | "item_key" | "phase">>> {
+  const existingByKey = new Map<
+    string,
+    Pick<SyncItemFailure, "attempt_count" | "item_key" | "phase">
+  >();
+  const supabase = createSupabaseAdminClient();
+
+  for (const failureChunk of chunkArray(failures, dbReadChunkSize)) {
+    const phases = uniqueArray(failureChunk.map((failure) => failure.phase));
+    const itemKeys = uniqueArray(failureChunk.map((failure) => failure.itemKey));
+    const chunkKeys = new Set(
+      failureChunk.map((failure) => pullItemFailureMapKey(failure.phase, failure.itemKey)),
+    );
+    const { data, error } = await supabase
+      .from("sync_item_failures")
+      .select("attempt_count, item_key, phase")
+      .eq("user_id", userId)
+      .eq("provider", provider)
+      .eq("direction", "pull")
+      .eq("retry_status", "pending")
+      .in("phase", phases)
+      .in("item_key", itemKeys);
+
+    if (error) {
+      throwDatabaseError("Failed to load Trakt item failure retry rows.", error);
+    }
+
+    for (const row of data ?? []) {
+      const key = pullItemFailureMapKey(row.phase as PullFailurePhase, row.item_key);
+
+      if (chunkKeys.has(key)) {
+        existingByKey.set(key, row);
+      }
+    }
+  }
+
+  return existingByKey;
+}
+
+function pullItemFailureMapKey(phase: PullFailurePhase, itemKey: string) {
+  return `${phase}:${itemKey}`;
+}
+
 function draftFromUserMovie(userMovie: UserMovie): UserMovieDraft {
   return {
     lastWatchedAt: userMovie.last_watched_at,
@@ -2439,13 +2571,32 @@ function recordPullFailure(
   itemKey: string,
   error: unknown,
 ) {
+  const errorMessage = getErrorMessage(error);
+  const failures = pullItemFailuresByResult.get(result);
+
   result.failed += 1;
+
+  if (failures) {
+    const failureKey = pullItemFailureMapKey(phase, itemKey);
+    const alreadyPending = failures.has(failureKey);
+
+    failures.set(failureKey, {
+      errorMessage,
+      itemKey,
+      itemPayload: {},
+      phase,
+    });
+
+    if (!alreadyPending) {
+      result.retryableFailures += 1;
+    }
+  }
 
   if (result.failureSamples.length >= failureSampleLimit) {
     return;
   }
 
-  result.failureSamples.push(`${phase}:${itemKey}: ${getErrorMessage(error)}`);
+  result.failureSamples.push(`${phase}:${itemKey}: ${errorMessage}`);
 }
 
 function chunkArray<T>(items: T[], size: number) {
