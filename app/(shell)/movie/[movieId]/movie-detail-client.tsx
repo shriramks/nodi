@@ -143,15 +143,22 @@ export function RatingSheet({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-1.5 text-[15px] text-foreground"
+        className={[
+          "flex items-center gap-1.5 text-[15px] active:opacity-70",
+          currentRating !== null ? "text-accent" : "text-foreground",
+        ].join(" ")}
+        style={{ minHeight: 44 }}
         aria-label={currentRating !== null ? `Rating: ${currentRating}. Tap to change` : "Tap to rate"}
       >
         <Heart
           aria-hidden="true"
-          className="h-4 w-4 shrink-0 text-text-muted"
+          className={[
+            "h-5 w-5 shrink-0",
+            currentRating !== null ? "fill-accent/20 text-accent" : "text-text-muted",
+          ].join(" ")}
           strokeWidth={1.8}
         />
-        <span>{currentRating !== null ? currentRating : "Rate"}</span>
+        <span className="font-semibold">{currentRating !== null ? currentRating : "Rate"}</span>
         <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 text-text-muted" strokeWidth={2} />
       </button>
 
