@@ -370,36 +370,11 @@ export async function updateMovieRating(movieId: string, payload: unknown): Prom
   return data;
 }
 
-async function resyncLastWatchedAt(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userId: string,
-  movieId: string,
-): Promise<void> {
-  const { data, error } = await supabase
-    .from("watch_logs")
-    .select("watched_at")
-    .eq("user_id", userId)
-    .eq("movie_id", movieId)
-    .order("watched_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throwDatabaseError("Failed to recompute last watched date.", error);
-
-  const { error: updateError } = await supabase
-    .from("user_movies")
-    .update({ last_watched_at: data?.watched_at ?? null })
-    .eq("user_id", userId)
-    .eq("movie_id", movieId);
-
-  if (updateError) throwDatabaseError("Failed to update last watched date.", updateError);
-}
-
 export async function deleteWatchLog(movieId: string, logId: string): Promise<void> {
   const user = await requireUser();
   const supabase = await createSupabaseServerClient();
   const id = validateUuid(logId, "logId");
-  const mId = validateUuid(movieId, "movieId");
+  validateUuid(movieId, "movieId");
 
   const { error } = await supabase
     .from("watch_logs")
@@ -410,15 +385,13 @@ export async function deleteWatchLog(movieId: string, logId: string): Promise<vo
   if (error) {
     throwDatabaseError("Failed to delete watch log.", error);
   }
-
-  await resyncLastWatchedAt(supabase, user.id, mId);
 }
 
 export async function updateWatchLogDate(movieId: string, logId: string, watchedAt: string): Promise<void> {
   const user = await requireUser();
   const supabase = await createSupabaseServerClient();
   const id = validateUuid(logId, "logId");
-  const mId = validateUuid(movieId, "movieId");
+  validateUuid(movieId, "movieId");
 
   const { error } = await supabase
     .from("watch_logs")
@@ -429,6 +402,4 @@ export async function updateWatchLogDate(movieId: string, logId: string, watched
   if (error) {
     throwDatabaseError("Failed to update watch log.", error);
   }
-
-  await resyncLastWatchedAt(supabase, user.id, mId);
 }
