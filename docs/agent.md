@@ -81,6 +81,104 @@ start with the listed files and only expand outward if those files point elsewhe
 | Product or architecture questions | `docs/product.md`, `docs/architecture.md` | `supabase/db_guide.md` for DB-specific questions |
 | Progress tracking | `progress.md` | no code lookup unless progress and code disagree |
 
+## Feature code map
+
+Use this section for common repo questions before scanning. The goal is to start from the known owner
+files, then inspect only direct imports, direct callers, or the relevant route boundary.
+
+### Movies library
+
+- Watched movies route: `app/(shell)/movies/page.tsx`
+  - Loads watched user movies with `listUserMovies({ status: "watched" })`.
+  - Loads overall stats with `getLibraryStats()` for the header watched count.
+  - Renders `MovieLibraryGrid`.
+- To Watch route: `app/(shell)/to-watch/page.tsx`
+  - Loads queued movies with `listUserMovies({ status: "to_watch" })`.
+  - Reuses `MovieLibraryGrid` with `pageStatus="to_watch"`.
+- Grid UI, sorting, local filter sheet, grouping, selection: `components/movie/movie-library-grid.tsx`
+  - Client component.
+  - Sorts watched by watched date, rating, or title.
+  - Sorts to-watch by added date or title.
+  - Watched filters are URL-backed and applied by the server query.
+  - Filter sheet exposes genre, language, watched year/month, tags, and rating.
+  - Watched date filters intentionally stop at year/month granularity.
+  - Groups by month/year label when sorting by watched or added date.
+- Poster card navigation/selection: `components/movie/poster-card.tsx`
+- Bulk actions from a grid selection: `components/movie/bulk-actions-bar.tsx`
+
+### Movie read data
+
+- Library query owner: `lib/db/queries/movies.ts`
+  - `listUserMovies()` joins `user_movies` to `movies`.
+  - It accepts status, limit, offset, and watched-library filters.
+  - Genre/language/rating filters apply directly to `user_movies`/`movies`.
+  - Tag and watched year/month filters first resolve matching movie ids, then intersect.
+  - Month filter keys are `YYYY-MM`; year filter keys are `YYYY`; month takes precedence.
+  - It separately loads tags through `user_movie_tags`.
+  - If a route-level library filter is needed, this is the server query to extend.
+- Shared movie/user/tag types: `lib/db/types.ts`
+  - `UserMovieWithMovie` is the shape passed to `MovieLibraryGrid`.
+  - `Movie` includes `primary_genre_name`, `original_language`, `release_year`, and poster metadata.
+- Tags query owner: `lib/db/queries/tags.ts`
+
+### Stats
+
+- Stats route: `app/(shell)/stats/page.tsx`
+  - Reads optional `tag` search param for stats-level tag filtering.
+  - Loads `getLibraryStats(tagFilter)` and `listTags()`.
+  - Renders hero metrics, `MoviesOverTime`, genre breakdown, rating distribution, language breakdown, and tag breakdown.
+  - Genre and language visual components currently live in this file.
+  - Genre and language breakdown items link to `/movies` with matching filters and `from=stats`.
+- Time chart: `app/(shell)/stats/movies-over-time.tsx`
+  - Client component.
+  - Toggles month/year view internally.
+  - Consumes `LibraryStatsTimeBucket[]` for month and year buckets.
+  - Buckets have `key`, `label`, `count`, and `runtimeMinutes`.
+  - Non-empty month/year bars link to `/movies` with `month` or `year` filters.
+- Stats tag selector: `app/(shell)/stats/stats-tag-filter.tsx`
+  - Client component.
+  - Navigates to `/stats?tag=<tag name>` or `/stats`.
+- Stats query owner: `lib/db/queries/stats.ts`
+  - Loads watch-log analytics rows, tag analytics rows, and rating rows.
+  - Delegates all aggregation to `buildLibraryStats()`.
+- Stats transforms: `lib/db/queries/stats-transforms.ts`
+  - Builds watched movie summaries from watch-log rows.
+  - Builds genre, language, tag, rating, month, and year stats.
+  - Month bucket keys are `YYYY-MM`.
+  - Year bucket keys are `YYYY`.
+  - Genre breakdown keys are lower-cased genre labels.
+  - Language breakdown keys are lower-cased original language codes, labels use `Intl.DisplayNames`.
+
+### Navigation and return paths
+
+- Shell layout and bottom nav: `app/(shell)/layout.tsx`, `components/navigation/bottom-pill-nav.tsx`
+  - Bottom nav includes `/movies`, `/to-watch`, `/stats`, and `/search`.
+- Generic back button: `components/navigation/back-button.tsx`
+  - Client component calling `router.back()`.
+- Movie detail pages:
+  - Local detail route: `app/(shell)/movie/[movieId]/page.tsx`
+  - Local detail client: `app/(shell)/movie/[movieId]/movie-detail-client.tsx`
+  - Remote TMDB detail route: `app/(shell)/movie/tmdb/[tmdbId]/page.tsx`
+
+### Database fields relevant to stats filters
+
+- Movie metadata table: `supabase/migrations/20260505220000_initial_schema.sql`
+  - `movies.primary_genre_name`
+  - `movies.original_language`
+  - `movies.release_year`
+- User library table:
+  - `user_movies.status`
+  - `user_movies.last_watched_at`
+  - `user_movies.personal_rating`
+- Watch history table:
+  - `watch_logs.movie_id`
+  - `watch_logs.watched_at`
+  - Stats month/year buckets are based on `watch_logs`, not just `user_movies.last_watched_at`.
+- User tags:
+  - `tags.name`
+  - `user_movie_tags.movie_id`
+  - `user_movie_tags.tag_id`
+
 ## Search discipline
 
 - For routine changes, use path-specific search, for example `rg "sync_events" lib/db supabase`

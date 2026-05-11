@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PosterCard } from "@/components/movie/poster-card";
 import { BulkActionsBar } from "@/components/movie/bulk-actions-bar";
-import type { Tag, UserMovieWithMovie } from "@/lib/db/types";
+import type { LibraryStatsTimeBucket, Tag, UserMovieWithMovie } from "@/lib/db/types";
 
 // ─── Sort / filter types ──────────────────────────────────────────────────────
 
 type SortKey = "watched_date" | "added_date" | "rating" | "title";
 type SortDir = "asc" | "desc";
 type RatingOp = ">=" | ">" | "=" | "<" | "<=";
+type TimeMode = "year" | "month";
 
 interface SortOption {
   key: SortKey;
@@ -69,67 +71,77 @@ type Props = {
   movies: UserMovieWithMovie[];
   allTags?: Tag[];
   pageStatus?: "watched" | "to_watch";
+  activeFilters?: MovieLibraryActiveFilters;
+  filterOptions?: MovieLibraryFilterOptions;
+};
+
+export type MovieLibraryActiveFilters = {
+  genre?: string;
+  language?: string;
+  tags: string[];
+  ratingOp: RatingOp;
+  ratingVal: number | null;
+  year?: string;
+  month?: string;
+};
+
+export type MovieLibraryFilterOptions = {
+  genres: Array<{ key: string; label: string; count: number }>;
+  languages: Array<{ key: string; label: string; count: number }>;
+  years: LibraryStatsTimeBucket[];
+  months: LibraryStatsTimeBucket[];
 };
 
 export function MovieLibraryGrid({
   movies,
   allTags = [],
   pageStatus = "watched",
+  activeFilters = emptyActiveFilters,
+  filterOptions = emptyFilterOptions,
 }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isWatched = pageStatus === "watched";
   const sortOptions = isWatched ? WATCHED_SORT_OPTIONS : TO_WATCH_SORT_OPTIONS;
 
   const sortStorageKey = `nodi:lib:sort:${pageStatus}`;
-  const filterStorageKey = `nodi:lib:filter:${pageStatus}`;
 
-  const [sortKey, setSortKey] = useState<SortKey>(sortOptions[0].key);
-  const [sortDir, setSortDir] = useState<SortDir>(sortOptions[0].defaultDir);
-
-  const [filterTags, setFilterTags] = useState<Set<string>>(new Set());
-  const [filterRatingOp, setFilterRatingOp] = useState<RatingOp>(">=");
-  const [filterRatingVal, setFilterRatingVal] = useState<number | null>(null);
+  const [sortState, setSortState] = useState(() => initialSortState(sortOptions));
+  const sortKey = sortState.key;
+  const sortDir = sortState.dir;
+  const [sortHydrated, setSortHydrated] = useState(false);
 
   const [sortSheetOpen, setSortSheetOpen] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [draftGenre, setDraftGenre] = useState<string | undefined>(activeFilters.genre);
+  const [draftLanguage, setDraftLanguage] = useState<string | undefined>(activeFilters.language);
+  const [draftTags, setDraftTags] = useState<Set<string>>(new Set(activeFilters.tags));
+  const [draftRatingOp, setDraftRatingOp] = useState<RatingOp>(activeFilters.ratingOp);
+  const [draftRatingVal, setDraftRatingVal] = useState<number | null>(activeFilters.ratingVal);
+  const [draftTimeMode, setDraftTimeMode] = useState<TimeMode>(activeFilters.month ? "month" : "year");
+  const [draftYear, setDraftYear] = useState<string | undefined>(activeFilters.year ?? yearFromMonth(activeFilters.month));
+  const [draftMonth, setDraftMonth] = useState<string | undefined>(activeFilters.month);
 
-  // Hydrate persisted sort + filter state on mount
   useEffect(() => {
-    try {
-      const sortStr = localStorage.getItem(sortStorageKey);
-      if (sortStr) {
-        const { key, dir } = JSON.parse(sortStr) as { key: SortKey; dir: SortDir };
-        if (sortOptions.some((o) => o.key === key)) {
-          setSortKey(key);
-          setSortDir(dir);
-        }
+    const timeout = window.setTimeout(() => {
+      const storedSort = storedSortState(sortStorageKey, sortOptions);
+      if (storedSort) {
+        setSortState(storedSort);
       }
-      const filterStr = localStorage.getItem(filterStorageKey);
-      if (filterStr) {
-        const { tags, ratingOp, ratingVal } = JSON.parse(filterStr) as {
-          tags: string[];
-          ratingOp: RatingOp;
-          ratingVal: number | null;
-        };
-        if (tags?.length) setFilterTags(new Set(tags));
-        if (ratingOp) setFilterRatingOp(ratingOp);
-        setFilterRatingVal(ratingVal ?? null);
-      }
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      setSortHydrated(true);
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [sortOptions, sortStorageKey]);
 
   // Persist sort state
   useEffect(() => {
+    if (!sortHydrated) {
+      return;
+    }
     localStorage.setItem(sortStorageKey, JSON.stringify({ key: sortKey, dir: sortDir }));
-  }, [sortKey, sortDir, sortStorageKey]);
-
-  // Persist filter state
-  useEffect(() => {
-    localStorage.setItem(
-      filterStorageKey,
-      JSON.stringify({ tags: [...filterTags], ratingOp: filterRatingOp, ratingVal: filterRatingVal }),
-    );
-  }, [filterTags, filterRatingOp, filterRatingVal, filterStorageKey]);
+  }, [sortHydrated, sortKey, sortDir, sortStorageKey]);
 
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -138,28 +150,60 @@ export function MovieLibraryGrid({
 
   function handleSortSelect(key: SortKey) {
     if (key === sortKey) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+      setSortState((state) => ({ ...state, dir: state.dir === "asc" ? "desc" : "asc" }));
     } else {
       const opt = sortOptions.find((o) => o.key === key)!;
-      setSortKey(key);
-      setSortDir(opt.defaultDir);
+      setSortState({ key, dir: opt.defaultDir });
     }
   }
 
-  function toggleFilterTag(tagId: string) {
-    setFilterTags((prev) => {
+  function toggleDraftTag(tagName: string) {
+    setDraftTags((prev) => {
       const next = new Set(prev);
-      if (next.has(tagId)) next.delete(tagId);
-      else next.add(tagId);
+      if (next.has(tagName)) next.delete(tagName);
+      else next.add(tagName);
       return next;
     });
   }
 
   function clearFilters() {
-    setFilterTags(new Set());
-    setFilterRatingVal(null);
-    setFilterRatingOp(">=");
-    localStorage.removeItem(filterStorageKey);
+    router.push(pathname);
+  }
+
+  function openFilterSheet() {
+    setDraftGenre(activeFilters.genre);
+    setDraftLanguage(activeFilters.language);
+    setDraftTags(new Set(activeFilters.tags));
+    setDraftRatingOp(activeFilters.ratingOp);
+    setDraftRatingVal(activeFilters.ratingVal);
+    setDraftTimeMode(activeFilters.month ? "month" : "year");
+    setDraftYear(activeFilters.year ?? yearFromMonth(activeFilters.month));
+    setDraftMonth(activeFilters.month);
+    setFilterSheetOpen(true);
+  }
+
+  function applyFilters() {
+    const params = new URLSearchParams(searchParams.toString());
+    clearFilterParams(params);
+
+    if (draftGenre) params.set("genre", draftGenre);
+    if (draftLanguage) params.set("language", draftLanguage);
+    for (const tag of draftTags) {
+      params.append("tag", tag);
+    }
+    if (draftRatingVal !== null) {
+      params.set("ratingOp", draftRatingOp);
+      params.set("rating", String(draftRatingVal));
+    }
+    if (draftTimeMode === "month" && draftMonth) {
+      params.set("month", draftMonth);
+    } else if (draftTimeMode === "year" && draftYear) {
+      params.set("year", draftYear);
+    }
+
+    const query = params.toString();
+    router.push(query ? `${pathname}?${query}` : pathname);
+    setFilterSheetOpen(false);
   }
 
   const handleToggle = useCallback((movieId: string) => {
@@ -183,32 +227,22 @@ export function MovieLibraryGrid({
 
   // ─── Derived state ────────────────────────────────────────────────────────
 
-  const hasActiveFilter = filterTags.size > 0 || filterRatingVal !== null;
+  const activeFilterCount = countActiveFilters(activeFilters);
+  const hasActiveFilter = activeFilterCount > 0;
   const sortPillActive = sortKey !== sortOptions[0].key;
   const sortPillLabel = sortPillActive
     ? sortOptions.find((o) => o.key === sortKey)!.label
     : "Sort";
-  const currentSortOption = sortOptions.find((o) => o.key === sortKey)!;
+  const filterPillLabel = hasActiveFilter ? summarizeFilters(activeFilters) : "Filter";
+  const selectedYearForMonths = draftYear ?? yearFromMonth(draftMonth) ?? filterOptions.years[0]?.key;
+  const visibleMonths = selectedYearForMonths
+    ? filterOptions.months.filter((bucket) => bucket.key.startsWith(`${selectedYearForMonths}-`))
+    : [];
 
   // ─── Processed movies ─────────────────────────────────────────────────────
 
   const processed = useMemo(() => {
-    let result = movies.filter((um) => {
-      if (filterTags.size > 0) {
-        const movieTagIds = new Set(um.tags.map((t) => t.id));
-        if (![...filterTags].some((id) => movieTagIds.has(id))) return false;
-      }
-      if (filterRatingVal !== null) {
-        const r = um.personal_rating;
-        if (r === null) return false;
-        if (filterRatingOp === ">=" && r < filterRatingVal) return false;
-        if (filterRatingOp === ">" && r <= filterRatingVal) return false;
-        if (filterRatingOp === "=" && r !== filterRatingVal) return false;
-        if (filterRatingOp === "<" && r >= filterRatingVal) return false;
-        if (filterRatingOp === "<=" && r > filterRatingVal) return false;
-      }
-      return true;
-    });
+    let result = movies;
 
     result = [...result].sort((a, b) => {
       let cmp = 0;
@@ -240,7 +274,7 @@ export function MovieLibraryGrid({
     });
 
     return result;
-  }, [movies, sortKey, sortDir, filterTags, filterRatingVal, filterRatingOp]);
+  }, [movies, sortKey, sortDir]);
 
   // ─── Grouping ─────────────────────────────────────────────────────────────
 
@@ -303,7 +337,7 @@ export function MovieLibraryGrid({
               {isWatched && (
                 <button
                   type="button"
-                  onClick={() => setFilterSheetOpen(true)}
+                  onClick={openFilterSheet}
                   className={[
                     "inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-[13px]",
                     hasActiveFilter
@@ -311,7 +345,7 @@ export function MovieLibraryGrid({
                       : "border-border bg-surface text-text-2",
                   ].join(" ")}
                 >
-                  Filter
+                  {filterPillLabel}
                   {hasActiveFilter && (
                     <span className="size-1.5 rounded-full bg-accent" />
                   )}
@@ -462,30 +496,168 @@ export function MovieLibraryGrid({
         <div className="fixed inset-0 z-[60]" onClick={() => setFilterSheetOpen(false)}>
           <div className="absolute inset-0 bg-black/50" />
           <div
-            className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-surface"
+            className="absolute bottom-0 left-0 right-0 max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-t-3xl bg-surface"
             style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-center py-2.5">
               <div className="h-1 w-9 rounded-full bg-surface-muted" />
             </div>
-            <p className="px-5 pb-3 text-[17px] font-semibold">Filter</p>
+            <div className="flex items-center justify-between px-5 pb-3">
+              <p className="text-[17px] font-semibold">Filter</p>
+              {hasActiveFilter && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="min-h-11 text-[13px] font-semibold text-accent"
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+
+            {filterOptions.genres.length > 0 && (
+              <>
+                <FilterLabel label="Genre" />
+                <div className="flex flex-wrap gap-2 px-5 pb-4">
+                  {filterOptions.genres.slice(0, 12).map((genre) => (
+                    <FilterChip
+                      key={genre.key}
+                      active={draftGenre === genre.label}
+                      label={genre.label}
+                      count={genre.count}
+                      onClick={() => setDraftGenre((current) => current === genre.label ? undefined : genre.label)}
+                    />
+                  ))}
+                </div>
+                <div className="mx-5 h-px bg-divider" />
+              </>
+            )}
+
+            {filterOptions.languages.length > 0 && (
+              <>
+                <FilterLabel label="Language" top />
+                <div className="flex flex-wrap gap-2 px-5 pb-4">
+                  {filterOptions.languages.slice(0, 12).map((language) => (
+                    <FilterChip
+                      key={language.key}
+                      active={draftLanguage === language.key}
+                      label={language.label}
+                      count={language.count}
+                      onClick={() => setDraftLanguage((current) => current === language.key ? undefined : language.key)}
+                    />
+                  ))}
+                </div>
+                <div className="mx-5 h-px bg-divider" />
+              </>
+            )}
+
+            <FilterLabel label="Watched date" top />
+            <div className="px-5 pb-3">
+              <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-muted p-1">
+                {(["year", "month"] as TimeMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setDraftTimeMode(mode)}
+                    className={[
+                      "min-h-10 rounded-lg text-[13px] font-semibold",
+                      draftTimeMode === mode ? "bg-accent/10 text-accent" : "text-text-2",
+                    ].join(" ")}
+                  >
+                    {mode === "year" ? "Year" : "Month"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {filterOptions.years.length > 0 && (
+              <div className="px-5 pb-4">
+                {draftTimeMode === "year" ? (
+                  <div className="grid gap-2">
+                    {filterOptions.years.map((year) => (
+                      <button
+                        key={year.key}
+                        type="button"
+                        onClick={() => {
+                          setDraftYear((current) => current === year.key ? undefined : year.key);
+                          setDraftMonth(undefined);
+                        }}
+                        className={[
+                          "flex min-h-11 items-center justify-between rounded-xl border px-3 text-left",
+                          draftYear === year.key
+                            ? "border-accent/30 bg-accent/15 text-accent"
+                            : "border-border text-text-2",
+                        ].join(" ")}
+                      >
+                        <span className="text-[15px] font-semibold">{year.label}</span>
+                        <span className="tabnum text-[13px] opacity-70">{year.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none" }}>
+                      {filterOptions.years.map((year) => (
+                        <button
+                          key={year.key}
+                          type="button"
+                          onClick={() => {
+                            setDraftYear(year.key);
+                            setDraftMonth(undefined);
+                          }}
+                          className={[
+                            "min-h-9 shrink-0 rounded-full border px-3 text-[13px]",
+                            selectedYearForMonths === year.key
+                              ? "border-accent/30 bg-accent/15 font-semibold text-accent"
+                              : "border-border text-text-2",
+                          ].join(" ")}
+                        >
+                          {year.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {visibleMonths.map((month) => (
+                        <button
+                          key={month.key}
+                          type="button"
+                          onClick={() => {
+                            setDraftMonth((current) => current === month.key ? undefined : month.key);
+                            setDraftYear(yearFromMonth(month.key));
+                          }}
+                          className={[
+                            "flex min-h-12 flex-col items-center justify-center rounded-xl border text-[13px]",
+                            draftMonth === month.key
+                              ? "border-accent/30 bg-accent/15 font-semibold text-accent"
+                              : "border-border text-text-2",
+                          ].join(" ")}
+                        >
+                          <span>{shortMonthLabel(month.key)}</span>
+                          <span className="tabnum text-[11px] opacity-60">{month.count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mx-5 h-px bg-divider" />
 
             {allTags.length > 0 && (
               <>
-                <p className="px-5 pb-2 text-[11px] font-semibold uppercase tracking-wide text-text-faint">
-                  Tags
-                </p>
+                <FilterLabel label="Tags" top />
                 <div className="flex flex-wrap gap-2 px-5 pb-4">
                   {allTags.map((tag) => {
-                    const active = filterTags.has(tag.id);
+                    const active = draftTags.has(tag.name);
                     return (
                       <button
                         key={tag.id}
                         type="button"
-                        onClick={() => toggleFilterTag(tag.id)}
+                        onClick={() => toggleDraftTag(tag.name)}
                         className={[
-                          "h-8 rounded-full border px-3 text-[13px]",
+                          "min-h-9 rounded-full border px-3 text-[13px]",
                           active
                             ? "border-accent/30 bg-accent/15 font-semibold text-accent"
                             : "border-border text-text-2",
@@ -500,19 +672,17 @@ export function MovieLibraryGrid({
               </>
             )}
 
-            <p className="px-5 pb-2 pt-3 text-[11px] font-semibold uppercase tracking-wide text-text-faint">
-              Rating
-            </p>
+            <FilterLabel label="Rating" top />
 
             <div className="flex gap-1.5 px-5 pb-3">
               {RATING_OPS.map((op) => (
                 <button
                   key={op}
                   type="button"
-                  onClick={() => setFilterRatingOp(op)}
+                  onClick={() => setDraftRatingOp(op)}
                   className={[
-                    "flex h-8 w-9 items-center justify-center rounded-xl border text-[14px]",
-                    filterRatingOp === op
+                    "flex min-h-9 w-9 items-center justify-center rounded-xl border text-[14px]",
+                    draftRatingOp === op
                       ? "border-accent/30 bg-accent/15 font-semibold text-accent"
                       : "border-border text-text-2",
                   ].join(" ")}
@@ -528,27 +698,27 @@ export function MovieLibraryGrid({
                   type="button"
                   className="text-[20px] font-light text-text-2 active:text-foreground"
                   onClick={() =>
-                    setFilterRatingVal((v) => (v === null || v <= 1 ? null : v - 1))
+                    setDraftRatingVal((v) => (v === null || v <= 1 ? null : v - 1))
                   }
                 >
                   −
                 </button>
                 <span className="tabnum min-w-[20px] text-center text-[20px] font-semibold text-accent">
-                  {filterRatingVal ?? "—"}
+                  {draftRatingVal ?? "—"}
                 </span>
                 <button
                   type="button"
                   className="text-[20px] font-light text-text-2 active:text-foreground"
                   onClick={() =>
-                    setFilterRatingVal((v) => (v === null ? 7 : Math.min(v + 1, 10)))
+                    setDraftRatingVal((v) => (v === null ? 7 : Math.min(v + 1, 10)))
                   }
                 >
                   +
                 </button>
               </div>
-              {filterRatingVal !== null ? (
+              {draftRatingVal !== null ? (
                 <span className="text-[12px] text-text-faint">
-                  rated {OP_SYMBOL[filterRatingOp]} {filterRatingVal}
+                  rated {OP_SYMBOL[draftRatingOp]} {draftRatingVal}
                 </span>
               ) : (
                 <span className="text-[12px] text-text-faint">tap + to set a rating filter</span>
@@ -562,7 +732,7 @@ export function MovieLibraryGrid({
               <button
                 type="button"
                 onClick={() => {
-                  clearFilters();
+                  router.push(pathname);
                   setFilterSheetOpen(false);
                 }}
                 className="flex h-11 flex-1 items-center justify-center rounded-xl border border-border text-[15px] font-medium text-text-2"
@@ -571,10 +741,10 @@ export function MovieLibraryGrid({
               </button>
               <button
                 type="button"
-                onClick={() => setFilterSheetOpen(false)}
+                onClick={applyFilters}
                 className="flex h-11 flex-[1.6] items-center justify-center rounded-xl bg-accent text-[15px] font-semibold text-black"
               >
-                Apply
+                Show movies
               </button>
             </div>
           </div>
@@ -582,4 +752,130 @@ export function MovieLibraryGrid({
       )}
     </>
   );
+}
+
+const emptyActiveFilters: MovieLibraryActiveFilters = {
+  tags: [],
+  ratingOp: ">=",
+  ratingVal: null,
+};
+
+const emptyFilterOptions: MovieLibraryFilterOptions = {
+  genres: [],
+  languages: [],
+  years: [],
+  months: [],
+};
+
+function initialSortState(sortOptions: SortOption[]) {
+  return {
+    key: sortOptions[0].key,
+    dir: sortOptions[0].defaultDir,
+  };
+}
+
+function storedSortState(storageKey: string, sortOptions: SortOption[]) {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const sortStr = window.localStorage.getItem(storageKey);
+    if (!sortStr) {
+      return null;
+    }
+
+    const parsed = JSON.parse(sortStr) as { key: SortKey; dir: SortDir };
+    if (sortOptions.some((option) => option.key === parsed.key) && (parsed.dir === "asc" || parsed.dir === "desc")) {
+      return parsed;
+    }
+  } catch {}
+
+  return null;
+}
+
+function FilterLabel({ label, top = false }: { label: string; top?: boolean }) {
+  return (
+    <p className={`px-5 pb-2 ${top ? "pt-3" : ""} text-[11px] font-semibold uppercase tracking-wide text-text-faint`}>
+      {label}
+    </p>
+  );
+}
+
+function FilterChip({
+  active,
+  label,
+  count,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-[13px]",
+        active
+          ? "border-accent/30 bg-accent/15 font-semibold text-accent"
+          : "border-border text-text-2",
+      ].join(" ")}
+    >
+      <span>{label}</span>
+      <span className="tabnum text-[11px] opacity-60">{count}</span>
+    </button>
+  );
+}
+
+function clearFilterParams(params: URLSearchParams) {
+  for (const key of ["genre", "language", "tag", "ratingOp", "rating", "year", "month"]) {
+    params.delete(key);
+  }
+}
+
+function countActiveFilters(filters: MovieLibraryActiveFilters) {
+  let count = 0;
+  if (filters.genre) count += 1;
+  if (filters.language) count += 1;
+  if (filters.tags.length > 0) count += filters.tags.length;
+  if (filters.ratingVal !== null) count += 1;
+  if (filters.month || filters.year) count += 1;
+  return count;
+}
+
+function summarizeFilters(filters: MovieLibraryActiveFilters) {
+  const count = countActiveFilters(filters);
+  if (count > 1) return `${count} filters`;
+  if (filters.genre) return filters.genre;
+  if (filters.language) return languageLabel(filters.language);
+  if (filters.month) return monthLabel(filters.month);
+  if (filters.year) return `Year: ${filters.year}`;
+  if (filters.tags[0]) return filters.tags[0];
+  if (filters.ratingVal !== null) return `Rating ${OP_SYMBOL[filters.ratingOp]} ${filters.ratingVal}`;
+  return "Filter";
+}
+
+function yearFromMonth(month: string | undefined) {
+  return month?.slice(0, 4);
+}
+
+function shortMonthLabel(month: string) {
+  const date = new Date(`${month}-01T12:00:00Z`);
+  return new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(date);
+}
+
+function monthLabel(month: string) {
+  const date = new Date(`${month}-01T12:00:00Z`);
+  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(date);
+}
+
+function languageLabel(code: string) {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code.toUpperCase();
+  } catch {
+    return code.toUpperCase();
+  }
 }

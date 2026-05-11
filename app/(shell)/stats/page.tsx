@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { getLibraryStats, listTags } from "@/lib/db/queries";
 import type { LibraryStatsBreakdownItem, LibraryStatsRatingBucket } from "@/lib/db/types";
@@ -28,8 +29,6 @@ const GENRE_COLORS = [
   "#64D2FF",
 ];
 
-const MIN_LANGUAGE_COUNT = 4;
-
 export default async function StatsPage({
   searchParams,
 }: {
@@ -47,6 +46,7 @@ export default async function StatsPage({
   const filteredLanguages = stats.languageBreakdown
     .filter((item) => item.key !== "unknown")
     .slice(0, 5);
+  const statsHref = tagFilter ? `/stats?tag=${encodeURIComponent(tagFilter)}` : "/stats";
 
   return (
     <main>
@@ -138,6 +138,8 @@ export default async function StatsPage({
           <MoviesOverTime
             monthBuckets={stats.monthBuckets}
             yearBuckets={stats.yearBuckets}
+            tagFilter={tagFilter}
+            returnTo={statsHref}
           />
 
           <div className="h-px bg-divider" />
@@ -146,7 +148,11 @@ export default async function StatsPage({
           {stats.genreBreakdown.length === 0 ? (
             <EmptyBreakdown />
           ) : (
-            <GenreTreemap items={stats.genreBreakdown} colors={GENRE_COLORS} />
+            <GenreTreemap
+              items={stats.genreBreakdown}
+              colors={GENRE_COLORS}
+              hrefForItem={(item) => moviesFilterHref({ genre: item.label, tag: tagFilter, returnTo: statsHref })}
+            />
           )}
 
           <div className="h-px bg-divider" />
@@ -160,7 +166,10 @@ export default async function StatsPage({
           {filteredLanguages.length === 0 ? (
             <EmptyBreakdown />
           ) : (
-            <LanguageDonut items={filteredLanguages} />
+            <LanguageDonut
+              items={filteredLanguages}
+              hrefForItem={(item) => moviesFilterHref({ language: item.key, tag: tagFilter, returnTo: statsHref })}
+            />
           )}
 
           <div className="h-px bg-divider" />
@@ -275,9 +284,11 @@ function BarBreakdown({
 function GenreTreemap({
   items,
   colors,
+  hrefForItem,
 }: {
   items: LibraryStatsBreakdownItem[];
   colors: string[];
+  hrefForItem: (item: LibraryStatsBreakdownItem) => string;
 }) {
   const known = items.filter((i) => i.key !== "unknown").slice(0, 8);
   if (known.length === 0) return <EmptyBreakdown />;
@@ -290,8 +301,6 @@ function GenreTreemap({
   const row2Items = known.slice(2);
 
   const row1Sum = row1Items.reduce((s, i) => s + i.count, 0);
-  const row2Sum = row2Items.reduce((s, i) => s + i.count, 0);
-
   const row1H = row2Items.length === 0
     ? TOTAL_H
     : Math.round((row1Sum / total) * TOTAL_H);
@@ -301,13 +310,13 @@ function GenreTreemap({
     <div className="pb-4 flex flex-col" style={{ gap: 2 }}>
       <div className="flex" style={{ gap: 2, height: row1H }}>
         {row1Items.map((item, idx) => (
-          <TreemapCell key={item.key} item={item} color={colors[idx % colors.length]} />
+          <TreemapCell key={item.key} item={item} color={colors[idx % colors.length]} href={hrefForItem(item)} />
         ))}
       </div>
       {row2Items.length > 0 && (
         <div className="flex" style={{ gap: 2, height: row2H }}>
           {row2Items.map((item, idx) => (
-            <TreemapCell key={item.key} item={item} color={colors[(idx + 2) % colors.length]} />
+            <TreemapCell key={item.key} item={item} color={colors[(idx + 2) % colors.length]} href={hrefForItem(item)} />
           ))}
         </div>
       )}
@@ -318,12 +327,15 @@ function GenreTreemap({
 function TreemapCell({
   item,
   color,
+  href,
 }: {
   item: LibraryStatsBreakdownItem;
   color: string;
+  href: string;
 }) {
   return (
-    <div
+    <Link
+      href={href}
       className="flex flex-col justify-end overflow-hidden"
       style={{
         flex: item.count,
@@ -332,6 +344,7 @@ function TreemapCell({
         padding: "5px 7px",
         minWidth: 0,
       }}
+      aria-label={`View ${item.label} movies`}
     >
       <span
         style={{
@@ -355,11 +368,17 @@ function TreemapCell({
       >
         {item.count}
       </span>
-    </div>
+    </Link>
   );
 }
 
-function LanguageDonut({ items }: { items: LibraryStatsBreakdownItem[] }) {
+function LanguageDonut({
+  items,
+  hrefForItem,
+}: {
+  items: LibraryStatsBreakdownItem[];
+  hrefForItem: (item: LibraryStatsBreakdownItem) => string;
+}) {
   const size = 140;
   const cx = 70;
   const cy = 70;
@@ -370,12 +389,12 @@ function LanguageDonut({ items }: { items: LibraryStatsBreakdownItem[] }) {
   const total = items.reduce((s, i) => s + i.count, 0);
   if (total === 0) return <EmptyBreakdown />;
 
-  let angle = -Math.PI / 2;
-  const segments = items.map((item, idx) => {
+  const segments = items.reduce<Array<{ item: LibraryStatsBreakdownItem; d: string; color: string; nextAngle: number }>>((acc, item, idx) => {
+    const angle = acc[idx - 1]?.nextAngle ?? -Math.PI / 2;
     const sweep = (item.count / total) * 2 * Math.PI - GAP;
     const a1 = angle + GAP / 2;
     const a2 = a1 + sweep;
-    angle = a2 + GAP / 2;
+    const nextAngle = a2 + GAP / 2;
     const large = a2 - a1 > Math.PI ? 1 : 0;
     const cos1 = Math.cos(a1), sin1 = Math.sin(a1);
     const cos2 = Math.cos(a2), sin2 = Math.sin(a2);
@@ -384,8 +403,8 @@ function LanguageDonut({ items }: { items: LibraryStatsBreakdownItem[] }) {
     const x2i = cx + innerR * cos2, y2i = cy + innerR * sin2;
     const x1i = cx + innerR * cos1, y1i = cy + innerR * sin1;
     const d = `M${x1o.toFixed(2)} ${y1o.toFixed(2)} A${outerR} ${outerR} 0 ${large} 1 ${x2o.toFixed(2)} ${y2o.toFixed(2)} L${x2i.toFixed(2)} ${y2i.toFixed(2)} A${innerR} ${innerR} 0 ${large} 0 ${x1i.toFixed(2)} ${y1i.toFixed(2)} Z`;
-    return { item, d, color: LANGUAGE_COLORS[idx % LANGUAGE_COLORS.length] };
-  });
+    return [...acc, { item, d, color: LANGUAGE_COLORS[idx % LANGUAGE_COLORS.length], nextAngle }];
+  }, []);
 
   const top = items[0];
   const topShort = top.label.slice(0, 3);
@@ -394,7 +413,9 @@ function LanguageDonut({ items }: { items: LibraryStatsBreakdownItem[] }) {
     <div className="flex flex-col items-center gap-3 pb-4">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         {segments.map(({ item, d, color }) => (
-          <path key={item.key} d={d} fill={color} />
+          <a key={item.key} href={hrefForItem(item)} aria-label={`View ${item.label} movies`}>
+            <path d={d} fill={color} />
+          </a>
         ))}
         <text
           x={cx}
@@ -420,14 +441,15 @@ function LanguageDonut({ items }: { items: LibraryStatsBreakdownItem[] }) {
       </svg>
       <div className="flex justify-center">
         {segments.map(({ item, color }, idx) => (
-          <div
+          <Link
             key={item.key}
+            href={hrefForItem(item)}
             className={`flex items-center gap-1.5 px-2.5 ${idx > 0 ? "border-l border-divider" : ""}`}
           >
             <div className="shrink-0 rounded-full" style={{ width: 9, height: 9, background: color }} />
             <span className="text-[13px] text-text-2">{item.label.slice(0, 3)}</span>
             <span className="tabnum text-[13px] font-medium text-text-2">{item.count}</span>
-          </div>
+          </Link>
         ))}
       </div>
     </div>
@@ -458,6 +480,32 @@ function RatingDistribution({ breakdown }: { breakdown: LibraryStatsRatingBucket
       ))}
     </div>
   );
+}
+
+function moviesFilterHref({
+  genre,
+  language,
+  tag,
+  month,
+  year,
+  returnTo,
+}: {
+  genre?: string;
+  language?: string;
+  tag?: string;
+  month?: string;
+  year?: string;
+  returnTo: string;
+}) {
+  const params = new URLSearchParams();
+  params.set("from", "stats");
+  params.set("returnTo", returnTo);
+  if (tag) params.set("tag", tag);
+  if (genre) params.set("genre", genre);
+  if (language) params.set("language", language);
+  if (month) params.set("month", month);
+  if (year) params.set("year", year);
+  return `/movies?${params.toString()}`;
 }
 
 function formatRuntime(minutes: number) {
