@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { PosterCard } from "@/components/movie/poster-card";
 import { BulkActionsBar } from "@/components/movie/bulk-actions-bar";
 import type { Tag, UserMovieWithMovie } from "@/lib/db/types";
@@ -79,6 +79,9 @@ export function MovieLibraryGrid({
   const isWatched = pageStatus === "watched";
   const sortOptions = isWatched ? WATCHED_SORT_OPTIONS : TO_WATCH_SORT_OPTIONS;
 
+  const sortStorageKey = `nodi:lib:sort:${pageStatus}`;
+  const filterStorageKey = `nodi:lib:filter:${pageStatus}`;
+
   const [sortKey, setSortKey] = useState<SortKey>(sortOptions[0].key);
   const [sortDir, setSortDir] = useState<SortDir>(sortOptions[0].defaultDir);
 
@@ -88,6 +91,45 @@ export function MovieLibraryGrid({
 
   const [sortSheetOpen, setSortSheetOpen] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+
+  // Hydrate persisted sort + filter state on mount
+  useEffect(() => {
+    try {
+      const sortStr = localStorage.getItem(sortStorageKey);
+      if (sortStr) {
+        const { key, dir } = JSON.parse(sortStr) as { key: SortKey; dir: SortDir };
+        if (sortOptions.some((o) => o.key === key)) {
+          setSortKey(key);
+          setSortDir(dir);
+        }
+      }
+      const filterStr = localStorage.getItem(filterStorageKey);
+      if (filterStr) {
+        const { tags, ratingOp, ratingVal } = JSON.parse(filterStr) as {
+          tags: string[];
+          ratingOp: RatingOp;
+          ratingVal: number | null;
+        };
+        if (tags?.length) setFilterTags(new Set(tags));
+        if (ratingOp) setFilterRatingOp(ratingOp);
+        setFilterRatingVal(ratingVal ?? null);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist sort state
+  useEffect(() => {
+    localStorage.setItem(sortStorageKey, JSON.stringify({ key: sortKey, dir: sortDir }));
+  }, [sortKey, sortDir, sortStorageKey]);
+
+  // Persist filter state
+  useEffect(() => {
+    localStorage.setItem(
+      filterStorageKey,
+      JSON.stringify({ tags: [...filterTags], ratingOp: filterRatingOp, ratingVal: filterRatingVal }),
+    );
+  }, [filterTags, filterRatingOp, filterRatingVal, filterStorageKey]);
 
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -117,6 +159,7 @@ export function MovieLibraryGrid({
     setFilterTags(new Set());
     setFilterRatingVal(null);
     setFilterRatingOp(">=");
+    localStorage.removeItem(filterStorageKey);
   }
 
   const handleToggle = useCallback((movieId: string) => {
@@ -247,7 +290,7 @@ export function MovieLibraryGrid({
                 type="button"
                 onClick={() => setSortSheetOpen(true)}
                 className={[
-                  "inline-flex h-[30px] items-center gap-1.5 rounded-full border px-3 text-[13px]",
+                  "inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-[13px]",
                   sortPillActive
                     ? "border-accent/30 bg-accent/10 font-semibold text-accent"
                     : "border-border bg-surface text-text-2",
@@ -262,7 +305,7 @@ export function MovieLibraryGrid({
                   type="button"
                   onClick={() => setFilterSheetOpen(true)}
                   className={[
-                    "inline-flex h-[30px] items-center gap-1.5 rounded-full border px-3 text-[13px]",
+                    "inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-[13px]",
                     hasActiveFilter
                       ? "border-accent/30 bg-accent/10 font-semibold text-accent"
                       : "border-border bg-surface text-text-2",
@@ -275,6 +318,17 @@ export function MovieLibraryGrid({
                   <span className="text-[9px] opacity-40">▾</span>
                 </button>
               )}
+
+              {isWatched && hasActiveFilter && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="inline-flex h-11 items-center gap-1 px-1 text-[13px] text-text-2 active:text-foreground"
+                  aria-label="Reset filters"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           )}
 
@@ -285,7 +339,7 @@ export function MovieLibraryGrid({
               "shrink-0 font-medium",
               isSelecting ? "text-[15px] text-accent" : "text-[13px] text-text-2",
             ].join(" ")}
-            style={{ minHeight: 36, paddingLeft: 8, paddingRight: 8 }}
+            style={{ minHeight: 44, paddingLeft: 8, paddingRight: 8 }}
           >
             {isSelecting ? "Done" : "Select"}
           </button>
