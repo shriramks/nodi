@@ -523,7 +523,7 @@ export function WatchHistoryEditor({
                 onClick={cancelEdit}
                 disabled={isPending}
                 className="text-text-2 active:opacity-60 disabled:opacity-40"
-                style={{ minHeight: 44, minWidth: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
+                style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
               >
                 <X aria-label="Cancel" className="h-4 w-4" strokeWidth={2} />
               </button>
@@ -543,7 +543,7 @@ export function WatchHistoryEditor({
                 disabled={isPending}
                 aria-label="Edit date"
                 className="text-text-muted active:opacity-60 disabled:opacity-40"
-                style={{ minHeight: 44, minWidth: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
+                style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
               >
                 <Pencil aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
               </button>
@@ -553,7 +553,7 @@ export function WatchHistoryEditor({
                 disabled={isPending}
                 aria-label="Delete entry"
                 className="text-unsynced active:opacity-60 disabled:opacity-40"
-                style={{ minHeight: 44, minWidth: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
+                style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
               >
                 <Trash2 aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
               </button>
