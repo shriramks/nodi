@@ -1,40 +1,188 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { MovieLibraryGrid } from "@/components/movie/movie-library-grid";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { getLibraryStats, listTags, listUserMovies } from "@/lib/db/queries";
+import type { LibraryStatsBreakdownItem } from "@/lib/db/types";
 
 export const metadata: Metadata = {
   title: "Movies",
 };
 
-export default async function MoviesPage() {
+const ratingOps = [">=", ">", "=", "<", "<="] as const;
+
+type MoviesSearchParams = Record<string, string | string[] | undefined>;
+
+export default async function MoviesPage({
+  searchParams,
+}: {
+  searchParams: Promise<MoviesSearchParams>;
+}) {
+  const params = await searchParams;
+  const filters = parseMovieFilters(params);
   const [watchedMovies, stats, allTags] = await Promise.all([
-    listUserMovies({ status: "watched" }),
+    listUserMovies({
+      status: "watched",
+      filters: {
+        genre: filters.genre,
+        language: filters.language,
+        tagNames: filters.tags,
+        rating: filters.ratingVal === null ? undefined : {
+          op: filters.ratingOp,
+          value: filters.ratingVal,
+        },
+        watchedYear: filters.year,
+        watchedMonth: filters.month,
+      },
+    }),
     getLibraryStats(),
     listTags(),
   ]);
+  const activeLabels = filterLabels(filters, allTags);
+  const returnToStatsHref = safeStatsHref(firstParam(params.returnTo));
+  const showStatsReturn = firstParam(params.from) === "stats";
 
   return (
     <main className="space-y-4">
       <section>
+        {showStatsReturn && (
+          <Link
+            href={returnToStatsHref}
+            className="-ml-1 mb-1 inline-flex min-h-11 items-center text-[17px] text-accent"
+          >
+            ‹ Stats
+          </Link>
+        )}
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-[32px] font-bold leading-[1.1]">Movies</h1>
             <p className="mt-1 text-[13px] text-text-2">
-              <span className="tabnum">{stats.watchedCount}</span> watched
+              <span className="tabnum">
+                {activeLabels.length > 0 ? watchedMovies.length : stats.watchedCount}
+              </span>{" "}
+              watched
+              {activeLabels.length > 0 && <> · {activeLabels.join(" · ")}</>}
             </p>
           </div>
           <SettingsSheet />
         </div>
       </section>
 
-      {watchedMovies.length > 0 ? (
-        <MovieLibraryGrid movies={watchedMovies} allTags={allTags} pageStatus="watched" />
+      {watchedMovies.length > 0 || activeLabels.length > 0 ? (
+        <MovieLibraryGrid
+          movies={watchedMovies}
+          allTags={allTags}
+          pageStatus="watched"
+          activeFilters={filters}
+          filterOptions={{
+            genres: breakdownOptions(stats.genreBreakdown),
+            languages: breakdownOptions(stats.languageBreakdown.filter((item) => item.key !== "unknown")),
+            years: [...stats.yearBuckets].filter((bucket) => bucket.count > 0).reverse(),
+            months: stats.monthBuckets,
+          }}
+        />
       ) : (
         <section className="rounded-2xl border border-dashed border-border bg-surface p-4 text-[15px] leading-[1.4] text-text-2">
-          No watched movies yet. Search for a film to get started.
+          {activeLabels.length > 0
+            ? "No movies match the current filter."
+            : "No watched movies yet. Search for a film to get started."}
         </section>
       )}
     </main>
   );
+}
+
+function parseMovieFilters(params: MoviesSearchParams) {
+  const ratingOp = parseRatingOp(firstParam(params.ratingOp)) ?? ">=";
+  const ratingVal = parseRating(firstParam(params.rating));
+  const month = parseMonth(firstParam(params.month));
+  const year = month ? undefined : parseYear(firstParam(params.year));
+
+  return {
+    genre: cleanParam(firstParam(params.genre)),
+    language: cleanParam(firstParam(params.language))?.toLowerCase(),
+    tags: allParams(params.tag).map((tag) => tag.trim()).filter(Boolean),
+    ratingOp,
+    ratingVal,
+    year,
+    month,
+  };
+}
+
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function allParams(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  return value ? [value] : [];
+}
+
+function cleanParam(value: string | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed.slice(0, 80) : undefined;
+}
+
+function parseRatingOp(value: string | undefined) {
+  return ratingOps.find((op) => op === value);
+}
+
+function parseRating(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const rating = Number(value);
+  if (!Number.isInteger(rating) || rating < 1 || rating > 10) {
+    return null;
+  }
+  return rating;
+}
+
+function parseYear(value: string | undefined) {
+  return value && /^\d{4}$/.test(value) ? value : undefined;
+}
+
+function parseMonth(value: string | undefined) {
+  return value && /^\d{4}-(0[1-9]|1[0-2])$/.test(value) ? value : undefined;
+}
+
+function safeStatsHref(value: string | undefined) {
+  return value?.startsWith("/stats") ? value : "/stats";
+}
+
+function breakdownOptions(items: LibraryStatsBreakdownItem[]) {
+  return items
+    .filter((item) => item.key !== "unknown")
+    .map((item) => ({ key: item.key, label: item.label, count: item.count }));
+}
+
+function filterLabels(filters: ReturnType<typeof parseMovieFilters>, tags: { name: string }[]) {
+  const labels: string[] = [];
+
+  if (filters.genre) labels.push(filters.genre);
+  if (filters.language) labels.push(languageLabel(filters.language));
+  if (filters.month) labels.push(monthLabel(filters.month));
+  else if (filters.year) labels.push(filters.year);
+  for (const tag of filters.tags) {
+    labels.push(tags.find((t) => t.name.toLowerCase() === tag.toLowerCase())?.name ?? tag);
+  }
+  if (filters.ratingVal !== null) labels.push(`Rating ${filters.ratingOp} ${filters.ratingVal}`);
+
+  return labels;
+}
+
+function languageLabel(code: string) {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code.toUpperCase();
+  } catch {
+    return code.toUpperCase();
+  }
+}
+
+function monthLabel(value: string) {
+  const date = new Date(`${value}-01T12:00:00Z`);
+  return new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "UTC" }).format(date);
 }

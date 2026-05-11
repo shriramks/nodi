@@ -403,8 +403,13 @@ For v1, online-first is fine. No offline mutation support is required.
 
 - `/auth`
 - `/movies`
+  - URL filters: `genre`, `language`, repeated `tag`, `ratingOp`, `rating`, `year`, `month`
+  - Stats drill-down helpers: `from=stats`, `returnTo=/stats...`
+  - `month` (`YYYY-MM`) takes precedence over `year` (`YYYY`) when both are present
 - `/to-watch`
 - `/stats`
+  - `tag` scopes stats to movies with that tag
+  - genre, language, month, and year breakdowns link to `/movies` filters
 - `/search`
 - `/movie/[movieId]`
 - `/movie/tmdb/[tmdbId]`

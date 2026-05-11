@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { monthLabels } from "@/lib/db/queries/stats-transforms";
 import type { LibraryStatsTimeBucket } from "@/lib/db/types";
 
@@ -26,9 +27,13 @@ function detectOutlierScale(buckets: LibraryStatsTimeBucket[]): number {
 export function MoviesOverTime({
   monthBuckets,
   yearBuckets,
+  tagFilter,
+  returnTo,
 }: {
   monthBuckets: LibraryStatsTimeBucket[];
   yearBuckets: LibraryStatsTimeBucket[];
+  tagFilter?: string;
+  returnTo: string;
 }) {
   const [view, setView] = useState<View>("month");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -114,6 +119,18 @@ export function MoviesOverTime({
                   }}
                   aria-label={`${bucket.label}: ${bucket.count}`}
                 >
+                  {bucket.count > 0 && (
+                    <Link
+                      href={moviesTimeHref({
+                        view,
+                        key: bucket.key,
+                        tagFilter,
+                        returnTo,
+                      })}
+                      className="absolute inset-0"
+                      aria-label={`View ${bucket.label} movies`}
+                    />
+                  )}
                   {isOutlier && (
                     <span
                       className="absolute text-[9px] text-accent font-bold"
@@ -142,4 +159,23 @@ export function MoviesOverTime({
       )}
     </section>
   );
+}
+
+function moviesTimeHref({
+  view,
+  key,
+  tagFilter,
+  returnTo,
+}: {
+  view: View;
+  key: string;
+  tagFilter?: string;
+  returnTo: string;
+}) {
+  const params = new URLSearchParams();
+  params.set("from", "stats");
+  params.set("returnTo", returnTo);
+  if (tagFilter) params.set("tag", tagFilter);
+  params.set(view, key);
+  return `/movies?${params.toString()}`;
 }

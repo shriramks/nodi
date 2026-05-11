@@ -500,6 +500,12 @@ Reason:
 - grid density adapts to screen width via auto-fill minmax(96px, 1fr)
 - tap card -> detail
 - watched date is explicit and editable
+- filters are URL-backed on `/movies` so direct navigation, clear, and stats drill-downs share the
+  same behavior
+- filter dimensions: genre, language, watched year, watched month, tag, and personal rating
+- watched date filters stop at year/month granularity only; no day picker, calendar range, week, or
+  custom date range
+- month/year filters use `watch_logs.watched_at`; the grid still shows unique movie posters
 - multi-select: "Select" button (top-right, header row) enters selection mode; Sort/Filter toolbar hides; tapping posters toggles selection; bulk bar offers Tag, Rate, and Unwatch (moves to watchlist)
 - `UserMovieWithMovie` includes `tags: Tag[]` (fetched via parallel query in `listUserMovies`)
 
@@ -520,6 +526,9 @@ Reason:
 - genre breakdown
 - monthly summary
 - yearly summary
+- genre, language, month, and year breakdown items link into `/movies` with the matching filters
+- stats drill-down links include an explicit return path so the filtered Movies view can return to
+  the originating Stats screen
 
 These all become cleaner if runtime and watch logs are stored explicitly.
 
