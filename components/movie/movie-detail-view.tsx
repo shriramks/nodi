@@ -6,6 +6,24 @@ import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { OverviewText } from "@/components/movie/overview-text";
 import type { MovieStatus } from "@/lib/db/types";
 
+function languageDisplayName(code: string): string {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code.toUpperCase();
+  } catch {
+    return code.toUpperCase();
+  }
+}
+
+function formatReleaseDate(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
 const posterBaseUrl = "https://image.tmdb.org/t/p/w342";
 const profileBaseUrl = "https://image.tmdb.org/t/p/w185";
 
@@ -30,10 +48,6 @@ type DetailMovie = {
     id: string;
     name: string;
   }>;
-  watchLogs?: Array<{
-    id: string;
-    watched_at: string;
-  }>;
 };
 
 type MovieDetailViewProps = {
@@ -43,6 +57,7 @@ type MovieDetailViewProps = {
   ratingPicker?: ReactNode;
   tagEditor?: ReactNode;
   watchDateForm?: ReactNode;
+  watchHistory?: ReactNode;
 };
 
 export function MovieDetailView({
@@ -52,6 +67,7 @@ export function MovieDetailView({
   status,
   tagEditor,
   watchDateForm,
+  watchHistory,
 }: MovieDetailViewProps) {
   const statusLabel =
     status === "watched" ? "Watched" : status === "to_watch" ? "To Watch" : null;
@@ -63,18 +79,17 @@ export function MovieDetailView({
         : null;
   const metaLine = [
     movie.release_year,
-    movie.original_language?.toUpperCase(),
+    movie.original_language ? languageDisplayName(movie.original_language) : null,
     movie.primary_genre_name,
   ]
     .filter(Boolean)
     .join(" · ");
   const visibleTags = (movie.tags ?? []).slice(0, 3);
-  const watchLogs = movie.watchLogs ?? [];
   const detailRows = [
-    movie.release_date ? { label: "Release", value: movie.release_date } : null,
+    movie.release_date ? { label: "Release", value: formatReleaseDate(movie.release_date) } : null,
     movie.runtime_minutes ? { label: "Runtime", value: `${movie.runtime_minutes} min` } : null,
     movie.original_language
-      ? { label: "Language", value: movie.original_language.toUpperCase() }
+      ? { label: "Language", value: languageDisplayName(movie.original_language) }
       : null,
     movie.tmdb_vote_average !== null && movie.tmdb_vote_average !== undefined
       ? {
@@ -161,12 +176,12 @@ export function MovieDetailView({
       {status === "watched" ? watchDateForm : null}
 
       <section className="space-y-2">
-        <p className="text-[11px] uppercase tracking-wide text-text-faint">Plot</p>
+        <p className="text-[11px] uppercase tracking-wide text-text-muted">Plot</p>
         <OverviewText text={movie.overview} />
       </section>
 
       <section className="space-y-2">
-        <p className="text-[11px] uppercase tracking-wide text-text-faint">Cast</p>
+        <p className="text-[11px] uppercase tracking-wide text-text-muted">Cast</p>
         {movie.cast.length > 0 ? (
           <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
             {movie.cast.map((member) => (
@@ -210,7 +225,7 @@ export function MovieDetailView({
       {status ? tagEditor : null}
 
       <section className="space-y-2">
-        <p className="text-[11px] uppercase tracking-wide text-text-faint">
+        <p className="text-[11px] uppercase tracking-wide text-text-muted">
           Details
         </p>
         {detailRows.length > 0 ? (
@@ -226,25 +241,7 @@ export function MovieDetailView({
         )}
       </section>
 
-      {watchLogs.length > 0 && (
-        <section className="space-y-2">
-          <p className="text-[11px] uppercase tracking-wide text-text-faint">
-            Watch history
-            {watchLogs.length > 1 ? ` · ${watchLogs.length}×` : ""}
-          </p>
-          <div>
-            {watchLogs.slice(0, 5).map((log) => (
-              <DetailRow
-                key={log.id}
-                label="Watched"
-                value={new Intl.DateTimeFormat("en", {
-                  dateStyle: "medium",
-                }).format(new Date(log.watched_at))}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+      {watchHistory}
     </main>
   );
 }

@@ -369,3 +369,35 @@ export async function updateMovieRating(movieId: string, payload: unknown): Prom
 
   return data;
 }
+
+export async function deleteWatchLog(logId: string): Promise<void> {
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const id = validateUuid(logId, "logId");
+
+  const { error } = await supabase
+    .from("watch_logs")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) {
+    throwDatabaseError("Failed to delete watch log.", error);
+  }
+}
+
+export async function updateWatchLogDate(logId: string, watchedAt: string): Promise<void> {
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const id = validateUuid(logId, "logId");
+
+  const { error } = await supabase
+    .from("watch_logs")
+    .update({ watched_at: watchedAt })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) {
+    throwDatabaseError("Failed to update watch log.", error);
+  }
+}

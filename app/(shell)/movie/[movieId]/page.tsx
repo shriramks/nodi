@@ -10,6 +10,7 @@ import {
   TagEditor,
   UserStateActions,
   WatchDateForm,
+  WatchHistoryEditor,
 } from "./movie-detail-client";
 
 type MovieDetailPageProps = {
@@ -60,6 +61,11 @@ export default async function MovieDetailPage({
       }
       watchDateForm={
         status === "watched" ? <WatchDateForm movieId={movie.id} /> : null
+      }
+      watchHistory={
+        status === "watched" ? (
+          <WatchHistoryEditor movieId={movie.id} watchLogs={movie.watchLogs ?? []} />
+        ) : null
       }
     />
   );

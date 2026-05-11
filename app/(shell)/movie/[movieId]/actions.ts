@@ -5,10 +5,12 @@ import {
   addToWatchlistAction as addToWatchlist,
   addWatchDateAction as addWatchDate,
   attachTagByIdAction as attachTagById,
+  deleteWatchLogAction as deleteWatchLog,
   markWatchedAction as markWatched,
   removeFromLibraryAction as removeFromLibrary,
   removeTagAction as removeTag,
   updateRatingAction as updateRating,
+  updateWatchLogDateAction as updateWatchLogDate,
 } from "../actions";
 
 export async function markWatchedAction(movieId: string): Promise<void> {
@@ -50,4 +52,16 @@ export async function removeTagAction(
   tagId: string,
 ): Promise<void> {
   return removeTag(movieId, tagId);
+}
+
+export async function deleteWatchLogAction(movieId: string, logId: string): Promise<void> {
+  return deleteWatchLog(movieId, logId);
+}
+
+export async function updateWatchLogDateAction(
+  movieId: string,
+  logId: string,
+  watchedDate: string,
+): Promise<void> {
+  return updateWatchLogDate(movieId, logId, watchedDate);
 }

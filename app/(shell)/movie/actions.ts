@@ -6,11 +6,13 @@ import {
   addMovieWatchDate,
   attachTagToMovie,
   createAndAttachTag,
+  deleteWatchLog,
   detachTagFromMovie,
   ingestTmdbMovie,
   removeUserMovie,
   setMovieWatchStatus,
   updateMovieRating,
+  updateWatchLogDate,
 } from "@/lib/db/mutations";
 import { AppError } from "@/lib/errors";
 import {
@@ -132,6 +134,23 @@ export async function removeTagAction(
   tagId: string,
 ): Promise<void> {
   await detachTagFromMovie(movieId, tagId);
+  revalidateMovieState(movieId);
+}
+
+export async function deleteWatchLogAction(
+  movieId: string,
+  logId: string,
+): Promise<void> {
+  await deleteWatchLog(logId);
+  revalidateMovieState(movieId);
+}
+
+export async function updateWatchLogDateAction(
+  movieId: string,
+  logId: string,
+  watchedDate: string,
+): Promise<void> {
+  await updateWatchLogDate(logId, watchDateToTimestamp(watchedDate));
   revalidateMovieState(movieId);
 }
 
