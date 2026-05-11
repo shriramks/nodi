@@ -141,7 +141,7 @@ export async function deleteWatchLogAction(
   movieId: string,
   logId: string,
 ): Promise<void> {
-  await deleteWatchLog(logId);
+  await deleteWatchLog(movieId, logId);
   revalidateMovieState(movieId);
 }
 
@@ -150,7 +150,7 @@ export async function updateWatchLogDateAction(
   logId: string,
   watchedDate: string,
 ): Promise<void> {
-  await updateWatchLogDate(logId, watchDateToTimestamp(watchedDate));
+  await updateWatchLogDate(movieId, logId, watchDateToTimestamp(watchedDate));
   revalidateMovieState(movieId);
 }
 
