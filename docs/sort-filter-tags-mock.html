@@ -198,8 +198,8 @@
     display: flex;
     align-items: center;
     gap: 5px;
-    height: 30px;
-    padding: 0 12px;
+    height: 44px;
+    padding: 0 14px;
     border-radius: 999px;
     border: 1px solid var(--border);
     background: var(--bg-secondary);
@@ -227,6 +227,18 @@
     font-size: 9px;
     opacity: 0.5;
     margin-left: 1px;
+  }
+  .reset-filter-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
   }
 
   /* ── Poster grid ── */
@@ -697,6 +709,11 @@
               <div class="filter-dot"></div>
               <span class="pill-arrow">▾</span>
             </div>
+            <button class="reset-filter-btn" aria-label="Reset filters">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
           </div>
 
           <div class="poster-grid">
@@ -910,6 +927,11 @@
           <div class="toolbar" style="opacity:0.4;">
             <div class="tool-pill">Sort <span class="pill-arrow">▾</span></div>
             <div class="tool-pill active">Filter <div class="filter-dot"></div> <span class="pill-arrow">▾</span></div>
+            <button class="reset-filter-btn" aria-label="Reset filters">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
           </div>
           <div class="poster-grid" style="opacity:0.15;">
             <div class="poster-placeholder"></div><div class="poster-placeholder"></div><div class="poster-placeholder"></div><div class="poster-placeholder"></div>

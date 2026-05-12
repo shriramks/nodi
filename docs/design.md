@@ -172,6 +172,7 @@ A button that looks small can still have a 44px tap target:
 - Button (secondary/ghost): 44px height
 - List row: 48px height minimum
 - Bottom nav pill: 44px height minimum
+- Sort/filter toolbar pill: 44px height minimum
 - Icon button: 44x44px touch area (icon itself can be 24px)
 - Filter chip: 36px height acceptable (small, but chips are supplementary UI)
 - Poster card: whole card is tappable
@@ -241,6 +242,25 @@ Inactive chip: `border border-border bg-surface text-text-2`.
 Use for:
 - browsing watched movies by tag
 - browsing watched movies by language when filter mode is active
+
+### MovieLibraryToolbar
+```text
+[sort icon  Sort  chevron] [filter icon  Filter  dot  chevron] [x]
+
+Pill height: 44px
+Pill radius: rounded-full
+Pill padding: px-3.5
+Icon size: 14px inside pills
+Reset filter button: 44x44px icon button
+```
+
+Active sort/filter pill: `border-accent/30 bg-accent/10 font-semibold text-accent`.
+Inactive pill: `border-border bg-surface text-text-2`.
+
+Rules:
+- Sort and Filter controls use lucide icons plus text labels; do not use standalone text-only pills here.
+- The reset filter affordance is a separate 44x44 icon button, not a narrow text glyph.
+- Active filters may show a small accent dot inside the Filter pill; the tap target still comes from the pill.
 
 ### ListRow
 ```text

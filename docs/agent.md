@@ -101,6 +101,7 @@ files, then inspect only direct imports, direct callers, or the relevant route b
   - Sorts to-watch by added date or title.
   - Watched filters are URL-backed and applied by the server query.
   - Filter sheet exposes genre, language, watched year/month, tags, and rating.
+  - Sort/Filter toolbar uses 44px icon+label pills; the active-filter reset action is a separate 44x44 icon button.
   - Watched date filters intentionally stop at year/month granularity.
   - Groups by month/year label when sorting by watched or added date.
 - Poster card navigation/selection: `components/movie/poster-card.tsx`

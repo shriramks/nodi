@@ -496,6 +496,7 @@ Reason:
 - sort by "title" renders a flat grid
 - filter options: tags (multi-select, OR within tags) + rating (operator ≥ > = < ≤ + value stepper); tag + rating combined with AND; watched page only
 - active sort (non-default) and active filter each show an indicator on the toolbar pill
+- sort/filter toolbar controls are 44px-high icon+label pills; active filters expose a separate 44x44 reset icon button
 - default presentation: poster-only watched grid
 - grid density adapts to screen width via auto-fill minmax(96px, 1fr)
 - tap card -> detail
@@ -512,7 +513,7 @@ Reason:
 ### To Watch
 - same card pattern as Movies
 - sort options: recently added, title — each asc/desc; no filter (no ratings, no tags to filter by)
-- sort toolbar shows only Sort pill (no Filter pill)
+- sort toolbar shows only the 44px-high icon+label Sort pill (no Filter pill)
 - if marked watched, auto-remove from To Watch
 - multi-select: same Select flow; bulk bar offers Tag, Rate, and Mark Watched
 
