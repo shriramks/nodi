@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ArrowUpDown, ChevronDown, ListFilter, X } from "lucide-react";
 import { PosterCard } from "@/components/movie/poster-card";
 import { BulkActionsBar } from "@/components/movie/bulk-actions-bar";
 import type { LibraryStatsTimeBucket, Tag, UserMovieWithMovie } from "@/lib/db/types";
@@ -324,14 +325,15 @@ export function MovieLibraryGrid({
                 type="button"
                 onClick={() => setSortSheetOpen(true)}
                 className={[
-                  "inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-[13px]",
+                  "inline-flex h-11 items-center gap-1.5 rounded-full border px-3.5 text-[13px]",
                   sortPillActive
                     ? "border-accent/30 bg-accent/10 font-semibold text-accent"
                     : "border-border bg-surface text-text-2",
                 ].join(" ")}
               >
+                <ArrowUpDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
                 {sortPillLabel}
-                <span className="text-[9px] opacity-40">▾</span>
+                <ChevronDown aria-hidden="true" className="h-3 w-3 shrink-0 opacity-45" strokeWidth={2.4} />
               </button>
 
               {isWatched && (
@@ -339,17 +341,18 @@ export function MovieLibraryGrid({
                   type="button"
                   onClick={openFilterSheet}
                   className={[
-                    "inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-[13px]",
+                    "inline-flex h-11 items-center gap-1.5 rounded-full border px-3.5 text-[13px]",
                     hasActiveFilter
                       ? "border-accent/30 bg-accent/10 font-semibold text-accent"
                       : "border-border bg-surface text-text-2",
                   ].join(" ")}
                 >
+                  <ListFilter aria-hidden="true" className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
                   {filterPillLabel}
                   {hasActiveFilter && (
                     <span className="size-1.5 rounded-full bg-accent" />
                   )}
-                  <span className="text-[9px] opacity-40">▾</span>
+                  <ChevronDown aria-hidden="true" className="h-3 w-3 shrink-0 opacity-45" strokeWidth={2.4} />
                 </button>
               )}
 
@@ -357,10 +360,10 @@ export function MovieLibraryGrid({
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="inline-flex h-11 items-center gap-1 px-1 text-[13px] text-text-2 active:text-foreground"
+                  className="inline-flex size-11 items-center justify-center rounded-full text-text-2 active:bg-tap-active active:text-foreground"
                   aria-label="Reset filters"
                 >
-                  ✕
+                  <X aria-hidden="true" className="h-4 w-4" strokeWidth={2.2} />
                 </button>
               )}
             </div>
