@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpDown, ChevronDown, ListFilter, X } from "lucide-react";
 import { PosterCard } from "@/components/movie/poster-card";
 import { BulkActionsBar } from "@/components/movie/bulk-actions-bar";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import type { LibraryStatsTimeBucket, Tag, UserMovieWithMovie } from "@/lib/db/types";
 
 // ─── Sort / filter types ──────────────────────────────────────────────────────
@@ -441,317 +442,305 @@ export function MovieLibraryGrid({
 
       {/* Sort sheet */}
       {sortSheetOpen && (
-        <div className="fixed inset-0 z-[60]" onClick={() => setSortSheetOpen(false)}>
-          <div className="absolute inset-0 bg-black/50" />
-          <div
-            className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-surface"
-            style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-center py-2.5">
-              <div className="h-1 w-9 rounded-full bg-surface-muted" />
-            </div>
-            <p className="px-5 pb-3 text-[17px] font-semibold">Sort</p>
+        <BottomSheet
+          ariaLabel="Sort Movies"
+          contentClassName="pt-3"
+          onClose={() => setSortSheetOpen(false)}
+        >
+          <p className="px-5 pb-3 text-[17px] font-semibold">Sort</p>
 
-            {sortOptions.map((opt, i) => {
-              const isSelected = sortKey === opt.key;
-              return (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => handleSortSelect(opt.key)}
-                  className="flex w-full items-center gap-3 px-5 py-3.5 text-left active:bg-tap-active"
-                  style={{ borderTop: i === 0 ? "none" : "1px solid var(--divider)" }}
+          {sortOptions.map((opt, i) => {
+            const isSelected = sortKey === opt.key;
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => handleSortSelect(opt.key)}
+                className="flex w-full items-center gap-3 px-5 py-3.5 text-left active:bg-tap-active"
+                style={{ borderTop: i === 0 ? "none" : "1px solid var(--divider)" }}
+              >
+                <span
+                  className={[
+                    "flex size-5 shrink-0 items-center justify-center rounded-full border-2",
+                    isSelected ? "border-accent bg-accent" : "border-border",
+                  ].join(" ")}
                 >
-                  <span
-                    className={[
-                      "flex size-5 shrink-0 items-center justify-center rounded-full border-2",
-                      isSelected ? "border-accent bg-accent" : "border-border",
-                    ].join(" ")}
-                  >
-                    {isSelected && <span className="size-2 rounded-full bg-black" />}
-                  </span>
+                  {isSelected && <span className="size-2 rounded-full bg-black" />}
+                </span>
 
-                  <span
-                    className={[
-                      "flex-1 text-[15px]",
-                      isSelected ? "font-medium text-foreground" : "text-text-2",
-                    ].join(" ")}
-                  >
-                    {opt.label}
-                  </span>
+                <span
+                  className={[
+                    "flex-1 text-[15px]",
+                    isSelected ? "font-medium text-foreground" : "text-text-2",
+                  ].join(" ")}
+                >
+                  {opt.label}
+                </span>
 
-                  {isSelected && (
-                    <span className="rounded-md bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
-                      {opt.dirLabel(sortDir)}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-            <div className="h-2" />
-          </div>
-        </div>
+                {isSelected && (
+                  <span className="rounded-md bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
+                    {opt.dirLabel(sortDir)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+          <div className="h-2" />
+        </BottomSheet>
       )}
 
       {/* Filter sheet — watched page only */}
       {isWatched && filterSheetOpen && (
-        <div className="fixed inset-0 z-[60]" onClick={() => setFilterSheetOpen(false)}>
-          <div className="absolute inset-0 bg-black/50" />
-          <div
-            className="absolute bottom-0 left-0 right-0 max-h-[calc(100dvh-5rem)] overflow-y-auto rounded-t-3xl bg-surface"
-            style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-center py-2.5">
-              <div className="h-1 w-9 rounded-full bg-surface-muted" />
-            </div>
-            <div className="flex items-center justify-between px-5 pb-3">
-              <p className="text-[17px] font-semibold">Filter</p>
-              {hasActiveFilter && (
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="min-h-11 text-[13px] font-semibold text-accent"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-
-            {filterOptions.genres.length > 0 && (
-              <>
-                <FilterLabel label="Genre" />
-                <div className="flex flex-wrap gap-2 px-5 pb-4">
-                  {filterOptions.genres.slice(0, 12).map((genre) => (
-                    <FilterChip
-                      key={genre.key}
-                      active={draftGenre === genre.label}
-                      label={genre.label}
-                      count={genre.count}
-                      onClick={() => setDraftGenre((current) => current === genre.label ? undefined : genre.label)}
-                    />
-                  ))}
-                </div>
-                <div className="mx-5 h-px bg-divider" />
-              </>
+        <BottomSheet
+          ariaLabel="Filter Movies"
+          contentClassName="pt-3"
+          onClose={() => setFilterSheetOpen(false)}
+        >
+          <div className="flex items-center justify-between px-5 pb-3">
+            <p className="text-[17px] font-semibold">Filter</p>
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="min-h-11 text-[13px] font-semibold text-accent"
+              >
+                Clear all
+              </button>
             )}
+          </div>
 
-            {filterOptions.languages.length > 0 && (
-              <>
-                <FilterLabel label="Language" top />
-                <div className="flex flex-wrap gap-2 px-5 pb-4">
-                  {filterOptions.languages.slice(0, 12).map((language) => (
-                    <FilterChip
-                      key={language.key}
-                      active={draftLanguage === language.key}
-                      label={language.label}
-                      count={language.count}
-                      onClick={() => setDraftLanguage((current) => current === language.key ? undefined : language.key)}
-                    />
-                  ))}
-                </div>
-                <div className="mx-5 h-px bg-divider" />
-              </>
-            )}
-
-            <FilterLabel label="Watched date" top />
-            <div className="px-5 pb-3">
-              <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-muted p-1">
-                {(["year", "month"] as TimeMode[]).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setDraftTimeMode(mode)}
-                    className={[
-                      "min-h-10 rounded-lg text-[13px] font-semibold",
-                      draftTimeMode === mode ? "bg-accent/10 text-accent" : "text-text-2",
-                    ].join(" ")}
-                  >
-                    {mode === "year" ? "Year" : "Month"}
-                  </button>
+          {filterOptions.genres.length > 0 && (
+            <>
+              <FilterLabel label="Genre" />
+              <div className="flex flex-wrap gap-2 px-5 pb-4">
+                {filterOptions.genres.slice(0, 12).map((genre) => (
+                  <FilterChip
+                    key={genre.key}
+                    active={draftGenre === genre.label}
+                    label={genre.label}
+                    count={genre.count}
+                    onClick={() => setDraftGenre((current) => current === genre.label ? undefined : genre.label)}
+                  />
                 ))}
               </div>
-            </div>
+              <div className="mx-5 h-px bg-divider" />
+            </>
+          )}
 
-            {filterOptions.years.length > 0 && (
-              <div className="px-5 pb-4">
-                {draftTimeMode === "year" ? (
-                  <div className="grid gap-2">
+          {filterOptions.languages.length > 0 && (
+            <>
+              <FilterLabel label="Language" top />
+              <div className="flex flex-wrap gap-2 px-5 pb-4">
+                {filterOptions.languages.slice(0, 12).map((language) => (
+                  <FilterChip
+                    key={language.key}
+                    active={draftLanguage === language.key}
+                    label={language.label}
+                    count={language.count}
+                    onClick={() => setDraftLanguage((current) => current === language.key ? undefined : language.key)}
+                  />
+                ))}
+              </div>
+              <div className="mx-5 h-px bg-divider" />
+            </>
+          )}
+
+          <FilterLabel label="Watched date" top />
+          <div className="px-5 pb-3">
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-muted p-1">
+              {(["year", "month"] as TimeMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setDraftTimeMode(mode)}
+                  className={[
+                    "min-h-10 rounded-lg text-[13px] font-semibold",
+                    draftTimeMode === mode ? "bg-accent/10 text-accent" : "text-text-2",
+                  ].join(" ")}
+                >
+                  {mode === "year" ? "Year" : "Month"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filterOptions.years.length > 0 && (
+            <div className="px-5 pb-4">
+              {draftTimeMode === "year" ? (
+                <div className="grid gap-2">
+                  {filterOptions.years.map((year) => (
+                    <button
+                      key={year.key}
+                      type="button"
+                      onClick={() => {
+                        setDraftYear((current) => current === year.key ? undefined : year.key);
+                        setDraftMonth(undefined);
+                      }}
+                      className={[
+                        "flex min-h-11 items-center justify-between rounded-xl border px-3 text-left",
+                        draftYear === year.key
+                          ? "border-accent/30 bg-accent/15 text-accent"
+                          : "border-border text-text-2",
+                      ].join(" ")}
+                    >
+                      <span className="text-[15px] font-semibold">{year.label}</span>
+                      <span className="tabnum text-[13px] opacity-70">{year.count}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none" }}>
                     {filterOptions.years.map((year) => (
                       <button
                         key={year.key}
                         type="button"
                         onClick={() => {
-                          setDraftYear((current) => current === year.key ? undefined : year.key);
+                          setDraftYear(year.key);
                           setDraftMonth(undefined);
                         }}
                         className={[
-                          "flex min-h-11 items-center justify-between rounded-xl border px-3 text-left",
-                          draftYear === year.key
-                            ? "border-accent/30 bg-accent/15 text-accent"
-                            : "border-border text-text-2",
-                        ].join(" ")}
-                      >
-                        <span className="text-[15px] font-semibold">{year.label}</span>
-                        <span className="tabnum text-[13px] opacity-70">{year.count}</span>
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none" }}>
-                      {filterOptions.years.map((year) => (
-                        <button
-                          key={year.key}
-                          type="button"
-                          onClick={() => {
-                            setDraftYear(year.key);
-                            setDraftMonth(undefined);
-                          }}
-                          className={[
-                            "min-h-9 shrink-0 rounded-full border px-3 text-[13px]",
-                            selectedYearForMonths === year.key
-                              ? "border-accent/30 bg-accent/15 font-semibold text-accent"
-                              : "border-border text-text-2",
-                          ].join(" ")}
-                        >
-                          {year.label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {visibleMonths.map((month) => (
-                        <button
-                          key={month.key}
-                          type="button"
-                          onClick={() => {
-                            setDraftMonth((current) => current === month.key ? undefined : month.key);
-                            setDraftYear(yearFromMonth(month.key));
-                          }}
-                          className={[
-                            "flex min-h-12 flex-col items-center justify-center rounded-xl border text-[13px]",
-                            draftMonth === month.key
-                              ? "border-accent/30 bg-accent/15 font-semibold text-accent"
-                              : "border-border text-text-2",
-                          ].join(" ")}
-                        >
-                          <span>{shortMonthLabel(month.key)}</span>
-                          <span className="tabnum text-[11px] opacity-60">{month.count}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="mx-5 h-px bg-divider" />
-
-            {allTags.length > 0 && (
-              <>
-                <FilterLabel label="Tags" top />
-                <div className="flex flex-wrap gap-2 px-5 pb-4">
-                  {allTags.map((tag) => {
-                    const active = draftTags.has(tag.name);
-                    return (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        onClick={() => toggleDraftTag(tag.name)}
-                        className={[
-                          "min-h-9 rounded-full border px-3 text-[13px]",
-                          active
+                          "min-h-9 shrink-0 rounded-full border px-3 text-[13px]",
+                          selectedYearForMonths === year.key
                             ? "border-accent/30 bg-accent/15 font-semibold text-accent"
                             : "border-border text-text-2",
                         ].join(" ")}
                       >
-                        {tag.name}
+                        {year.label}
                       </button>
-                    );
-                  })}
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {visibleMonths.map((month) => (
+                      <button
+                        key={month.key}
+                        type="button"
+                        onClick={() => {
+                          setDraftMonth((current) => current === month.key ? undefined : month.key);
+                          setDraftYear(yearFromMonth(month.key));
+                        }}
+                        className={[
+                          "flex min-h-12 flex-col items-center justify-center rounded-xl border text-[13px]",
+                          draftMonth === month.key
+                            ? "border-accent/30 bg-accent/15 font-semibold text-accent"
+                            : "border-border text-text-2",
+                        ].join(" ")}
+                      >
+                        <span>{shortMonthLabel(month.key)}</span>
+                        <span className="tabnum text-[11px] opacity-60">{month.count}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="mx-5 h-px bg-divider" />
-              </>
-            )}
-
-            <FilterLabel label="Rating" top />
-
-            <div className="flex gap-1.5 px-5 pb-3">
-              {RATING_OPS.map((op) => (
-                <button
-                  key={op}
-                  type="button"
-                  onClick={() => setDraftRatingOp(op)}
-                  className={[
-                    "flex min-h-9 w-9 items-center justify-center rounded-xl border text-[14px]",
-                    draftRatingOp === op
-                      ? "border-accent/30 bg-accent/15 font-semibold text-accent"
-                      : "border-border text-text-2",
-                  ].join(" ")}
-                >
-                  {OP_SYMBOL[op]}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-3 px-5 pb-1">
-              <div className="flex items-center gap-4 rounded-xl bg-surface-muted px-4 py-2">
-                <button
-                  type="button"
-                  className="text-[20px] font-light text-text-2 active:text-foreground"
-                  onClick={() =>
-                    setDraftRatingVal((v) => (v === null || v <= 1 ? null : v - 1))
-                  }
-                >
-                  −
-                </button>
-                <span className="tabnum min-w-[20px] text-center text-[20px] font-semibold text-accent">
-                  {draftRatingVal ?? "—"}
-                </span>
-                <button
-                  type="button"
-                  className="text-[20px] font-light text-text-2 active:text-foreground"
-                  onClick={() =>
-                    setDraftRatingVal((v) => (v === null ? 7 : Math.min(v + 1, 10)))
-                  }
-                >
-                  +
-                </button>
-              </div>
-              {draftRatingVal !== null ? (
-                <span className="text-[12px] text-text-faint">
-                  rated {OP_SYMBOL[draftRatingOp]} {draftRatingVal}
-                </span>
-              ) : (
-                <span className="text-[12px] text-text-faint">tap + to set a rating filter</span>
               )}
             </div>
+          )}
 
-            <div
-              className="mx-5 mt-4 flex gap-3 pt-4"
-              style={{ borderTop: "1px solid var(--divider)" }}
-            >
+          <div className="mx-5 h-px bg-divider" />
+
+          {allTags.length > 0 && (
+            <>
+              <FilterLabel label="Tags" top />
+              <div className="flex flex-wrap gap-2 px-5 pb-4">
+                {allTags.map((tag) => {
+                  const active = draftTags.has(tag.name);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleDraftTag(tag.name)}
+                      className={[
+                        "min-h-9 rounded-full border px-3 text-[13px]",
+                        active
+                          ? "border-accent/30 bg-accent/15 font-semibold text-accent"
+                          : "border-border text-text-2",
+                      ].join(" ")}
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mx-5 h-px bg-divider" />
+            </>
+          )}
+
+          <FilterLabel label="Rating" top />
+
+          <div className="flex gap-1.5 px-5 pb-3">
+            {RATING_OPS.map((op) => (
               <button
+                key={op}
                 type="button"
-                onClick={() => {
-                  router.push(pathname);
-                  setFilterSheetOpen(false);
-                }}
-                className="flex h-11 flex-1 items-center justify-center rounded-xl border border-border text-[15px] font-medium text-text-2"
+                onClick={() => setDraftRatingOp(op)}
+                className={[
+                  "flex min-h-9 w-9 items-center justify-center rounded-xl border text-[14px]",
+                  draftRatingOp === op
+                    ? "border-accent/30 bg-accent/15 font-semibold text-accent"
+                    : "border-border text-text-2",
+                ].join(" ")}
               >
-                Clear
+                {OP_SYMBOL[op]}
               </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-3 px-5 pb-1">
+            <div className="flex items-center gap-4 rounded-xl bg-surface-muted px-4 py-2">
               <button
                 type="button"
-                onClick={applyFilters}
-                className="flex h-11 flex-[1.6] items-center justify-center rounded-xl bg-accent text-[15px] font-semibold text-black"
+                className="text-[20px] font-light text-text-2 active:text-foreground"
+                onClick={() =>
+                  setDraftRatingVal((v) => (v === null || v <= 1 ? null : v - 1))
+                }
               >
-                Show movies
+                −
+              </button>
+              <span className="tabnum min-w-[20px] text-center text-[20px] font-semibold text-accent">
+                {draftRatingVal ?? "—"}
+              </span>
+              <button
+                type="button"
+                className="text-[20px] font-light text-text-2 active:text-foreground"
+                onClick={() =>
+                  setDraftRatingVal((v) => (v === null ? 7 : Math.min(v + 1, 10)))
+                }
+              >
+                +
               </button>
             </div>
+            {draftRatingVal !== null ? (
+              <span className="text-[12px] text-text-faint">
+                rated {OP_SYMBOL[draftRatingOp]} {draftRatingVal}
+              </span>
+            ) : (
+              <span className="text-[12px] text-text-faint">tap + to set a rating filter</span>
+            )}
           </div>
-        </div>
+
+          <div
+            className="mx-5 mt-4 flex gap-3 pt-4"
+            style={{ borderTop: "1px solid var(--divider)" }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                router.push(pathname);
+                setFilterSheetOpen(false);
+              }}
+              className="flex h-11 flex-1 items-center justify-center rounded-xl border border-border text-[15px] font-medium text-text-2"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={applyFilters}
+              className="flex h-11 flex-[1.6] items-center justify-center rounded-xl bg-accent text-[15px] font-semibold text-black"
+            >
+              Show movies
+            </button>
+          </div>
+        </BottomSheet>
       )}
     </>
   );
