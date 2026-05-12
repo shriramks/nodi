@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { isAppError, serializeError } from "@/lib/errors";
+import { isAppError } from "@/lib/errors";
 import {
   disconnectCurrentUserTrakt,
   saveCurrentUserTraktAppCredentials,
@@ -90,7 +90,6 @@ function settingsActionErrorPath(path: string, action: string, error: unknown) {
   const params = new URLSearchParams({
     error: `Could not ${action}`,
     errorAction: action,
-    errorDetail: JSON.stringify(serializeError(error)),
   });
 
   return `${path}?${params}`;

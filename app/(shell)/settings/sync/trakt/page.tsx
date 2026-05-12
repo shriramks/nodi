@@ -20,7 +20,6 @@ type TraktSyncPageProps = {
     connected?: string;
     error?: string;
     errorAction?: string;
-    errorDetail?: string;
     errorLogKey?: string;
   }>;
 };
@@ -55,7 +54,6 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
       {params.error ? (
         <SettingsErrorModal
           action={params.errorAction ?? "update Trakt settings"}
-          detail={params.errorDetail ?? params.error}
           logKey={params.errorLogKey}
         />
       ) : null}

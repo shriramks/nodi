@@ -14,7 +14,6 @@ type TmdbSettingsPageProps = {
   searchParams: Promise<{
     error?: string;
     errorAction?: string;
-    errorDetail?: string;
     errorLogKey?: string;
   }>;
 };
@@ -39,7 +38,6 @@ export default async function TmdbSettingsPage({ searchParams }: TmdbSettingsPag
       {params.error ? (
         <SettingsErrorModal
           action={params.errorAction ?? "update TMDB settings"}
-          detail={params.errorDetail ?? params.error}
           logKey={params.errorLogKey}
         />
       ) : null}

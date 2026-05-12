@@ -5,6 +5,11 @@ import { getCurrentUser } from "@/lib/auth/server";
 import { createSyncEvent } from "@/lib/db/mutations";
 import { getErrorMessage, isAppError } from "@/lib/errors";
 import { isTraktSyncControlError, pullTraktSync } from "@/lib/providers/trakt/sync";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  requestRateLimitKey,
+} from "@/lib/rate-limit";
 
 export const maxDuration = 300;
 
@@ -22,6 +27,16 @@ export async function POST(request: NextRequest) {
     }
 
     authenticated = true;
+    const retryAfter = checkRateLimit({
+      key: requestRateLimitKey(request, "trakt-pull", user.id),
+      limit: 6,
+      windowMs: 10 * 60 * 1000,
+    });
+
+    if (retryAfter) {
+      return rateLimitResponse(retryAfter);
+    }
+
     const result = await pullTraktSync(request.nextUrl.origin);
 
     revalidatePath("/movies");

@@ -4,6 +4,11 @@ import { getCurrentUser } from "@/lib/auth/server";
 import { throwDatabaseError } from "@/lib/db/errors";
 import type { MovieStatus } from "@/lib/db/types";
 import { isAppError } from "@/lib/errors";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  requestRateLimitKey,
+} from "@/lib/rate-limit";
 import { searchTmdbMovies } from "@/lib/providers/tmdb/client";
 import {
   type LocalMovieSearchState,
@@ -41,6 +46,15 @@ export async function GET(request: NextRequest) {
     const query = normalizeQuery(request.nextUrl.searchParams.get("q"));
     const page = normalizePage(request.nextUrl.searchParams.get("page"));
     const language = normalizeLanguage(request.nextUrl.searchParams.get("language"));
+    const retryAfter = checkRateLimit({
+      key: requestRateLimitKey(request, "tmdb-search", user.id),
+      limit: 60,
+      windowMs: 60 * 1000,
+    });
+
+    if (retryAfter) {
+      return rateLimitResponse(retryAfter);
+    }
 
     if (query.length < minimumQueryLength) {
       return NextResponse.json(

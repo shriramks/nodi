@@ -4,6 +4,11 @@ import { getCurrentUser } from "@/lib/auth/server";
 import { createSyncEvent } from "@/lib/db/mutations";
 import { getErrorMessage, isAppError } from "@/lib/errors";
 import { isTraktSyncControlError, pushTraktSync } from "@/lib/providers/trakt/sync";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  requestRateLimitKey,
+} from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   let authenticated = false;
@@ -19,6 +24,16 @@ export async function POST(request: NextRequest) {
     }
 
     authenticated = true;
+    const retryAfter = checkRateLimit({
+      key: requestRateLimitKey(request, "trakt-push", user.id),
+      limit: 30,
+      windowMs: 10 * 60 * 1000,
+    });
+
+    if (retryAfter) {
+      return rateLimitResponse(retryAfter);
+    }
+
     const result = await pushTraktSync(request.nextUrl.origin);
 
     return NextResponse.json(result);

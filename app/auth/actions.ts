@@ -1,11 +1,13 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import {
   AUTH_ROUTE,
   normalizeNextPath,
 } from "@/lib/auth/paths";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type SignInState = {
@@ -41,6 +43,14 @@ export async function signInWithPassword(
 
   const next = normalizeNextPath(formData.get("next"));
   const intent = formData.get("intent") === "sign-up" ? "sign-up" : "sign-in";
+  const retryAfter = await checkAuthRateLimit(email);
+
+  if (retryAfter) {
+    return {
+      status: "error",
+      message: "Too many sign-in attempts. Try again shortly.",
+    };
+  }
 
   const supabase = await createSupabaseServerClient();
 
@@ -87,4 +97,17 @@ export async function signOut() {
 
   await supabase.auth.signOut();
   redirect(AUTH_ROUTE);
+}
+
+async function checkAuthRateLimit(email: string) {
+  const headerStore = await headers();
+  const forwardedFor = headerStore.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const realIp = headerStore.get("x-real-ip")?.trim();
+  const ip = forwardedFor || realIp || "unknown";
+
+  return checkRateLimit({
+    key: `auth:${ip}:${email}`,
+    limit: 8,
+    windowMs: 15 * 60 * 1000,
+  });
 }

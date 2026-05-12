@@ -4,6 +4,11 @@ import { getCurrentUser } from "@/lib/auth/server";
 import { isAppError } from "@/lib/errors";
 import { backfillCurrentUserTmdbMetadata } from "@/lib/providers/tmdb/enrichment";
 import { normalizeTmdbBackfillLimit } from "@/lib/providers/tmdb/enrichment-state";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  requestRateLimitKey,
+} from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +19,16 @@ export async function POST(request: NextRequest) {
         { error: "Authentication is required to backfill TMDB metadata." },
         { status: 401 },
       );
+    }
+
+    const retryAfter = checkRateLimit({
+      key: requestRateLimitKey(request, "tmdb-backfill", user.id),
+      limit: 20,
+      windowMs: 60 * 1000,
+    });
+
+    if (retryAfter) {
+      return rateLimitResponse(retryAfter);
     }
 
     const limit = normalizeTmdbBackfillLimit(

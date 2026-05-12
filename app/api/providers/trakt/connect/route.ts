@@ -8,6 +8,11 @@ import {
   getTraktRedirectUri,
   loadTraktAppCredentials,
 } from "@/lib/providers/trakt/credentials";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  requestRateLimitKey,
+} from "@/lib/rate-limit";
 
 const stateCookieName = "nodi_trakt_oauth_state";
 
@@ -19,6 +24,16 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const retryAfter = checkRateLimit({
+      key: requestRateLimitKey(request, "trakt-connect", user.id),
+      limit: 10,
+      windowMs: 10 * 60 * 1000,
+    });
+
+    if (retryAfter) {
+      return rateLimitResponse(retryAfter);
+    }
+
     const { clientId } = await loadTraktAppCredentials(user.id);
     const state = crypto.randomUUID();
     const authorizeUrl = getTraktAuthorizeUrl({

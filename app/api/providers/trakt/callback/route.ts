@@ -12,6 +12,11 @@ import {
   loadTraktAppCredentials,
   saveTraktOAuthTokens,
 } from "@/lib/providers/trakt/credentials";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  requestRateLimitKey,
+} from "@/lib/rate-limit";
 
 const stateCookieName = "nodi_trakt_oauth_state";
 
@@ -21,6 +26,16 @@ export async function GET(request: NextRequest) {
 
   if (!user) {
     return NextResponse.redirect(new URL(AUTH_ROUTE, request.url));
+  }
+
+  const retryAfter = checkRateLimit({
+    key: requestRateLimitKey(request, "trakt-callback", user.id),
+    limit: 20,
+    windowMs: 10 * 60 * 1000,
+  });
+
+  if (retryAfter) {
+    return rateLimitResponse(retryAfter);
   }
 
   const error = request.nextUrl.searchParams.get("error");
