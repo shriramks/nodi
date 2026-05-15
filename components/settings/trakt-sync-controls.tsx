@@ -22,6 +22,7 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
   const hasActiveProgress = Boolean(progress);
   const progressUpdatedAt = progress?.updatedAt ?? null;
   const progressPercent = progress?.percent ?? (runningAction ? 0 : null);
+  const progressCount = progress ? formatProgressCount(progress) : "0/0";
 
   useEffect(() => {
     let cancelled = false;
@@ -138,9 +139,7 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
         </div>
 
         <div className="mt-2 flex items-center justify-between text-[12px] text-text-muted">
-          <span className="tabnum">
-            {progress ? `${progress.current}/${progress.total}` : "0/0"}
-          </span>
+          <span className="tabnum">{progressCount}</span>
           <span>{formatTimestamp(progress?.updatedAt ?? null)}</span>
         </div>
       </div>
@@ -257,6 +256,18 @@ function lastStatusClass(sync: ProviderSyncSettings) {
   }
 
   return "text-foreground";
+}
+
+function formatProgressCount(progress: NonNullable<ProviderSyncSettings["activeProgress"]>) {
+  if (progress.itemCurrent !== null) {
+    const count = progress.itemTotal !== null
+      ? `${progress.itemCurrent}/${progress.itemTotal}`
+      : `${progress.itemCurrent}`;
+
+    return progress.itemLabel ? `${count} ${progress.itemLabel}` : count;
+  }
+
+  return `${progress.current}/${progress.total}`;
 }
 
 function formatTimestamp(value: string | null) {

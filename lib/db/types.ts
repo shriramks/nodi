@@ -540,6 +540,9 @@ export type Database = {
           phase: string;
           label: string;
           current: number;
+          item_current: number | null;
+          item_total: number | null;
+          item_label: string | null;
           total: number;
           summary: Json;
           error_message: string | null;
@@ -557,6 +560,9 @@ export type Database = {
           phase?: string;
           label?: string;
           current?: number;
+          item_current?: number | null;
+          item_total?: number | null;
+          item_label?: string | null;
           total?: number;
           summary?: Json;
           error_message?: string | null;
@@ -574,6 +580,9 @@ export type Database = {
           phase?: string;
           label?: string;
           current?: number;
+          item_current?: number | null;
+          item_total?: number | null;
+          item_label?: string | null;
           total?: number;
           summary?: Json;
           error_message?: string | null;

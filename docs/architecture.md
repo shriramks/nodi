@@ -120,7 +120,7 @@ User taps search result
 User marks watched / changes rating / adds to watchlist
   -> write to Supabase immediately
   -> append sync_events row
-  -> background push to Trakt
+  -> background push to Trakt, batching adjacent compatible events into one provider request
   -> update sync status
 ```
 
@@ -164,6 +164,9 @@ Recoverable item-level pull failures are stored in `sync_item_failures` before p
 list snapshots, or pull cursors advance. Pull summaries keep only capped `failureSamples` for UI
 readability, while the retry rows keep the phase, item key, error, run id, and attempt count needed
 to inspect or retry affected items later.
+
+Active Trakt sync rows also keep item-level counters in addition to coarse run progress so the UI
+can show provider-facing counts such as `41/143 history items` while a pull is still running.
 
 ## 4. Search Architecture
 

@@ -237,7 +237,7 @@ export async function getProviderSyncSettings(
       .maybeSingle(),
     supabase
       .from("sync_runs")
-      .select("id, direction, status, phase, label, current, total, updated_at")
+      .select("id, direction, status, phase, label, current, item_current, item_total, item_label, total, updated_at")
       .eq("user_id", user.id)
       .eq("provider", provider)
       .eq("status", "running")
@@ -304,6 +304,9 @@ export async function getProviderSyncSettings(
         current: activeProgressResult.data.current,
         direction: activeProgressResult.data.direction,
         id: activeProgressResult.data.id,
+        itemCurrent: activeProgressResult.data.item_current,
+        itemLabel: activeProgressResult.data.item_label,
+        itemTotal: activeProgressResult.data.item_total,
         label: activeProgressResult.data.label,
         phase: activeProgressResult.data.phase,
         status: activeProgressResult.data.status,

@@ -6,6 +6,9 @@ export type SyncRunProgressInput = {
   current: number;
   direction: SyncDirection;
   id: string;
+  itemCurrent?: number | null;
+  itemLabel?: string | null;
+  itemTotal?: number | null;
   label: string;
   phase: string;
   status: SyncRunStatus;
@@ -16,6 +19,9 @@ export type SyncRunProgressInput = {
 export type SyncRunProgress = {
   current: number;
   direction: SyncDirection;
+  itemCurrent: number | null;
+  itemLabel: string | null;
+  itemTotal: number | null;
   label: string;
   percent: number;
   phase: string;
@@ -48,10 +54,15 @@ export function isSyncRunStale(
 export function toSyncRunProgress(run: SyncRunProgressInput): SyncRunProgress {
   const current = nonNegativeInteger(run.current);
   const total = nonNegativeInteger(run.total);
+  const itemCurrent = nullableNonNegativeInteger(run.itemCurrent);
+  const itemTotal = nullableNonNegativeInteger(run.itemTotal);
 
   return {
     current,
     direction: run.direction,
+    itemCurrent,
+    itemLabel: normalizeOptionalLabel(run.itemLabel),
+    itemTotal,
     label: run.label.trim() || "Syncing",
     percent: syncProgressPercent(current, total, run.phase),
     phase: run.phase.trim() || "sync",
@@ -74,4 +85,14 @@ export function syncProgressPercent(current: number, total: number, phase: strin
 
 function nonNegativeInteger(value: number) {
   return Number.isFinite(value) ? Math.max(Math.floor(value), 0) : 0;
+}
+
+function nullableNonNegativeInteger(value: number | null | undefined) {
+  return value === null || value === undefined ? null : nonNegativeInteger(value);
+}
+
+function normalizeOptionalLabel(value: string | null | undefined) {
+  const normalized = value?.trim();
+
+  return normalized ? normalized : null;
 }

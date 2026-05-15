@@ -138,6 +138,10 @@ durable item-level retry context. Recoverable Trakt pull/list failures are writt
 phase checkpoints and list snapshots advance, while `sync_runs.summary` and `sync_events.payload`
 keep compact capped samples for UI display.
 
+`supabase/migrations/20260515120000_add_sync_run_item_progress.sql` adds item-level progress
+fields to `sync_runs` so provider sync UIs can show counts such as `41/143 history items` while
+retaining the existing coarse phase progress for the overall run.
+
 ## 8. Operational Notes
 
 Keep these server-side only:

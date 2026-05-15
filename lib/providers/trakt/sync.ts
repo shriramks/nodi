@@ -53,6 +53,7 @@ import {
   type TraktListMovie,
   type TraktPagination,
   type TraktRatedMovie,
+  type TraktSyncMovie,
   type TraktSyncResponse,
   type TraktUserList,
   type TraktWatchlistMovie,
@@ -102,6 +103,9 @@ type PullResult = {
 
 type SyncProgressPayload = {
   current: number;
+  itemCurrent?: number | null;
+  itemLabel?: string | null;
+  itemTotal?: number | null;
   label: string;
   phase: string;
   total: number;
@@ -128,11 +132,13 @@ type TraktListFetchProgress = {
   itemCount: number;
   listCount: number;
   skippedListCount: number;
+  totalItemCount: number | null;
 };
 type TraktListFetchResult = {
   imports: TraktListImport[];
   itemCount: number;
   skippedListCount: number;
+  totalItemCount: number | null;
 };
 type RemoteTraktListState = {
   changed: boolean;
@@ -173,6 +179,18 @@ type UserMovieDraft = {
   status: "to_watch" | "watched";
   watchlistedAt: string | null;
 };
+type PushOperation =
+  | "history.add"
+  | "history.remove"
+  | "ratings.remove"
+  | "ratings.set"
+  | "watchlist.add"
+  | "watchlist.remove";
+type PreparedPushEvent = {
+  event: SyncEvent;
+  movie: TraktSyncMovie;
+  operation: PushOperation;
+};
 
 const provider = "trakt" as const;
 const pageLimit = 100;
@@ -204,6 +222,9 @@ export async function pushTraktSync(origin: string, limit = 50): Promise<PushRes
     progressTotal = events.length;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: 0,
+      itemCurrent: 0,
+      itemLabel: "events",
+      itemTotal: progressTotal,
       label: events.length > 0 ? `Pushing ${events.length} change(s)` : "No changes to push",
       phase: "push",
       total: progressTotal,
@@ -216,24 +237,40 @@ export async function pushTraktSync(origin: string, limit = 50): Promise<PushRes
       succeeded: 0,
     };
 
-    for (const event of events) {
+    for (let index = 0; index < events.length;) {
       await assertTraktSyncRunActive(user.id, run.id);
 
-      try {
-        const pushResponse = await pushSyncEvent(connection, event);
-        const skipped = Boolean(readRecord(pushResponse).skipped);
+      const event = events[index];
+      const skipReason = getPushSkipReason(event);
 
+      if (skipReason) {
         await updateSyncEventStatus(event.id, {
-          payload: withSyncResult(event.payload, pushResponse),
+          payload: withSyncResult(event.payload, {
+            reason: skipReason,
+            skipped: true,
+          }),
           processedAt: new Date().toISOString(),
           status: "success",
         });
+        result.skipped += 1;
+        progressCurrent += 1;
+        await updateTraktSyncRunProgress(user.id, run.id, {
+          current: progressCurrent,
+          itemCurrent: progressCurrent,
+          itemLabel: "events",
+          itemTotal: progressTotal,
+          label: `Processed ${progressCurrent} of ${progressTotal}`,
+          phase: "push",
+          total: progressTotal,
+        });
+        index += 1;
+        continue;
+      }
 
-        if (skipped) {
-          result.skipped += 1;
-        } else {
-          result.succeeded += 1;
-        }
+      let operation: PushOperation;
+
+      try {
+        operation = getPushOperation(event);
       } catch (error) {
         result.failed += 1;
         await updateSyncEventStatus(event.id, {
@@ -242,15 +279,77 @@ export async function pushTraktSync(origin: string, limit = 50): Promise<PushRes
           processedAt: new Date().toISOString(),
           status: "error",
         });
+        progressCurrent += 1;
+        await updateTraktSyncRunProgress(user.id, run.id, {
+          current: progressCurrent,
+          itemCurrent: progressCurrent,
+          itemLabel: "events",
+          itemTotal: progressTotal,
+          label: `Processed ${progressCurrent} of ${progressTotal}`,
+          phase: "push",
+          total: progressTotal,
+        });
+        index += 1;
+        continue;
       }
 
-      progressCurrent += 1;
+      const batchEvents = takeAdjacentPushEvents(events, index, operation);
+      const batch: PreparedPushEvent[] = [];
+
+      for (const batchEvent of batchEvents) {
+        try {
+          batch.push(await preparePushEvent(batchEvent, operation));
+        } catch (error) {
+          result.failed += 1;
+          await updateSyncEventStatus(batchEvent.id, {
+            errorMessage: getErrorMessage(error),
+            payload: batchEvent.payload,
+            processedAt: new Date().toISOString(),
+            status: "error",
+          });
+        }
+      }
+
+      if (batch.length > 0) {
+        try {
+          const pushResponse = await pushPreparedBatch(connection, batch);
+          const processedAt = new Date().toISOString();
+
+          for (const prepared of batch) {
+            await updateSyncEventStatus(prepared.event.id, {
+              payload: withSyncResult(prepared.event.payload, pushResponse),
+              processedAt,
+              status: "success",
+            });
+          }
+          result.succeeded += batch.length;
+        } catch (error) {
+          const processedAt = new Date().toISOString();
+
+          for (const prepared of batch) {
+            result.failed += 1;
+            await updateSyncEventStatus(prepared.event.id, {
+              errorMessage: getErrorMessage(error),
+              payload: prepared.event.payload,
+              processedAt,
+              status: "error",
+            });
+          }
+        }
+      }
+
+      progressCurrent += batchEvents.length;
       await updateTraktSyncRunProgress(user.id, run.id, {
         current: progressCurrent,
+        itemCurrent: progressCurrent,
+        itemLabel: "events",
+        itemTotal: progressTotal,
         label: `Processed ${progressCurrent} of ${progressTotal}`,
         phase: "push",
         total: progressTotal,
       });
+
+      index += batchEvents.length;
     }
 
     const processedAt = new Date().toISOString();
@@ -270,6 +369,9 @@ export async function pushTraktSync(origin: string, limit = 50): Promise<PushRes
       result.failed > 0 ? "error" : "success",
       {
         current: progressTotal,
+        itemCurrent: progressTotal,
+        itemLabel: "events",
+        itemTotal: progressTotal,
         label: result.failed > 0 ? "Push completed with failures" : "Push complete",
         phase: "complete",
         total: progressTotal,
@@ -287,6 +389,9 @@ export async function pushTraktSync(origin: string, limit = 50): Promise<PushRes
       cancelled ? "cancelled" : "error",
       {
         current: progressCurrent,
+        itemCurrent: progressCurrent,
+        itemLabel: "events",
+        itemTotal: progressTotal,
         label: cancelled ? "Push stopped" : "Push failed",
         phase: cancelled ? "cancelled" : "error",
         total: progressTotal,
@@ -329,9 +434,12 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       connection,
       historyCursor,
       runContext,
-      async (count) => {
+      async (count, total) => {
         await updateTraktSyncRunProgress(user.id, run.id, {
           current: 0,
+          itemCurrent: count,
+          itemLabel: "history items",
+          itemTotal: total,
           label: `Loaded ${count} history item(s)`,
           phase: "fetch",
           total: 5,
@@ -340,14 +448,20 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     );
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: 1,
+      itemCurrent: historyItems.length,
+      itemLabel: "history items",
+      itemTotal: historyItems.length,
       label: `Loaded ${historyItems.length} history item(s)`,
       phase: "fetch",
       total: 5,
     });
 
-    const watchlistItems = await listAllWatchlist(connection, runContext, async (count) => {
+    const watchlistItems = await listAllWatchlist(connection, runContext, async (count, total) => {
       await updateTraktSyncRunProgress(user.id, run.id, {
         current: 1,
+        itemCurrent: count,
+        itemLabel: "watchlist items",
+        itemTotal: total,
         label: `Loaded ${count} watchlist item(s)`,
         phase: "fetch",
         total: 5,
@@ -355,14 +469,20 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     });
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: 2,
+      itemCurrent: watchlistItems.length,
+      itemLabel: "watchlist items",
+      itemTotal: watchlistItems.length,
       label: `Loaded ${watchlistItems.length} watchlist item(s)`,
       phase: "fetch",
       total: 5,
     });
 
-    const ratingItems = await listAllRatings(connection, runContext, async (count) => {
+    const ratingItems = await listAllRatings(connection, runContext, async (count, total) => {
       await updateTraktSyncRunProgress(user.id, run.id, {
         current: 2,
+        itemCurrent: count,
+        itemLabel: "ratings",
+        itemTotal: total,
         label: `Loaded ${count} rating(s)`,
         phase: "fetch",
         total: 5,
@@ -370,6 +490,9 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     });
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: 3,
+      itemCurrent: ratingItems.length,
+      itemLabel: "ratings",
+      itemTotal: ratingItems.length,
       label: `Loaded ${ratingItems.length} rating(s)`,
       phase: "fetch",
       total: 5,
@@ -383,6 +506,9 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       async (counts) => {
         await updateTraktSyncRunProgress(user.id, run.id, {
           current: 3,
+          itemCurrent: counts.itemCount,
+          itemLabel: "list items",
+          itemTotal: counts.totalItemCount,
           label: formatListFetchProgressLabel(counts),
           phase: "fetch",
           total: 5,
@@ -393,10 +519,14 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     result.listItemFetchesSkipped = listFetch.skippedListCount;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: 4,
+      itemCurrent: listFetch.itemCount,
+      itemLabel: "list items",
+      itemTotal: listFetch.totalItemCount ?? listFetch.itemCount,
       label: formatListFetchProgressLabel({
         itemCount: listFetch.itemCount,
         listCount: listImports.length,
         skippedListCount: listFetch.skippedListCount,
+        totalItemCount: listFetch.totalItemCount,
       }),
       phase: "fetch",
       total: 5,
@@ -451,6 +581,9 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     progressCurrent = 0;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: progressCurrent,
+      itemCurrent: 0,
+      itemLabel: "items",
+      itemTotal: activeReconcileItemCount,
       label: "Resolving Trakt movies",
       phase: "reconcile",
       total: progressTotal,
@@ -470,6 +603,9 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     progressCurrent += 1;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: progressCurrent,
+      itemCurrent: 0,
+      itemLabel: "items",
+      itemTotal: activeReconcileItemCount,
       label: `Resolved ${movieResolution.movieIdByRemoteKey.size} movie key(s)`,
       phase: "reconcile",
       total: progressTotal,
@@ -479,6 +615,9 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     progressCurrent += 1;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: progressCurrent,
+      itemCurrent: 0,
+      itemLabel: "items",
+      itemTotal: activeReconcileItemCount,
       label: "Prepared provider mappings",
       phase: "reconcile",
       total: progressTotal,
@@ -493,6 +632,9 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     progressCurrent += 1;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: progressCurrent,
+      itemCurrent: 0,
+      itemLabel: "items",
+      itemTotal: activeReconcileItemCount,
       label: "Loaded local library state",
       phase: "reconcile",
       total: progressTotal,
@@ -523,6 +665,9 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     progressCurrent += 1;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: progressCurrent,
+      itemCurrent: historyStates.length,
+      itemLabel: "items",
+      itemTotal: activeReconcileItemCount,
       label: `History checkpoint saved (${historyStates.length} item(s))`,
       phase: "reconcile",
       total: progressTotal,
@@ -552,6 +697,11 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     progressCurrent += 1;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: progressCurrent,
+      itemCurrent: historyStates.length +
+        activeWatchlistStates.length +
+        activeRemovedWatchlistKeys.length,
+      itemLabel: "items",
+      itemTotal: activeReconcileItemCount,
       label: watchlistChanged ? "Watchlist checkpoint saved" : "Watchlist unchanged",
       phase: "reconcile",
       total: progressTotal,
@@ -580,6 +730,13 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     progressCurrent += 1;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: progressCurrent,
+      itemCurrent: historyStates.length +
+        activeWatchlistStates.length +
+        activeRemovedWatchlistKeys.length +
+        activeRatingStates.length +
+        activeRemovedRatingKeys.length,
+      itemLabel: "items",
+      itemTotal: activeReconcileItemCount,
       label: ratingsChanged ? "Ratings checkpoint saved" : "Ratings unchanged",
       phase: "reconcile",
       total: progressTotal,
@@ -609,6 +766,9 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     progressCurrent += 1;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: progressCurrent,
+      itemCurrent: activeReconcileItemCount,
+      itemLabel: "items",
+      itemTotal: activeReconcileItemCount,
       label: listProgressLabel,
       phase: "reconcile",
       total: progressTotal,
@@ -618,6 +778,9 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     progressCurrent = Math.min(progressCurrent + reconcileBatchCount, progressTotal - 1);
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: progressCurrent,
+      itemCurrent: activeReconcileItemCount,
+      itemLabel: "items",
+      itemTotal: activeReconcileItemCount,
       label: "Finalizing pull",
       phase: "reconcile",
       total: progressTotal,
@@ -855,9 +1018,18 @@ async function markStaleTraktRuns(userId: string) {
 function toSyncRunFields(payload: SyncProgressPayload) {
   const current = Math.max(Math.floor(payload.current), 0);
   const total = Math.max(Math.floor(payload.total), 0);
+  const itemCurrent = payload.itemCurrent === null || payload.itemCurrent === undefined
+    ? null
+    : Math.max(Math.floor(payload.itemCurrent), 0);
+  const itemTotal = payload.itemTotal === null || payload.itemTotal === undefined
+    ? null
+    : Math.max(Math.floor(payload.itemTotal), 0);
 
   return {
     current,
+    item_current: itemCurrent,
+    item_label: payload.itemLabel?.trim() || null,
+    item_total: itemTotal,
     label: payload.label,
     phase: payload.phase,
     total,
@@ -873,66 +1045,141 @@ function isUniqueConstraintError(error: unknown) {
   );
 }
 
-async function pushSyncEvent(auth: TraktAuth, event: SyncEvent) {
+function assertNever(value: never): never {
+  throw new AppError(`Unsupported Trakt push operation: ${String(value)}`, {
+    code: "UNSUPPORTED_SYNC_OPERATION",
+    status: 400,
+  });
+}
+
+function getPushSkipReason(event: SyncEvent) {
+  return event.event_type === "movie.tag.add" || event.event_type === "movie.tag.remove"
+    ? "Trakt does not expose app tag sync for movies."
+    : null;
+}
+
+function getPushOperation(event: SyncEvent): PushOperation {
   const payload = readRecord(event.payload);
-
-  if (event.event_type === "movie.tag.add" || event.event_type === "movie.tag.remove") {
-    return {
-      skipped: true,
-      reason: "Trakt does not expose app tag sync for movies.",
-    };
-  }
-
-  const movieId = readString(payload.movieId, "movieId");
-  const { mappings, movie } = await loadMovieForPush(movieId);
 
   switch (event.event_type) {
     case "movie.mark_watched":
-    case "movie.add_watch_date": {
-      const watchedAt = readString(payload.watchedAt, "watchedAt");
-      return addTraktHistory(auth, {
-        movies: [toTraktHistoryMovie(movie, watchedAt, mappings)],
-      });
-    }
+    case "movie.add_watch_date":
+      return "history.add";
     case "movie.add_to_watchlist":
-      return addTraktWatchlist(auth, {
-        movies: [toTraktSyncMovie(movie, mappings)],
-      });
+      return "watchlist.add";
     case "movie.remove_from_watchlist":
-      return removeTraktWatchlist(auth, {
-        movies: [toTraktSyncMovie(movie, mappings)],
-      });
+      return "watchlist.remove";
     case "movie.remove_from_library":
-      return removeTraktHistory(auth, {
-        movies: [toTraktSyncMovie(movie, mappings)],
-      });
+      return "history.remove";
     case "movie.rating.set": {
       const personalRating = readNumber(payload.personalRating, "personalRating");
 
       if (personalRating < 1) {
-        return removeTraktRatings(auth, {
-          movies: [toTraktSyncMovie(movie, mappings)],
-        });
+        return "ratings.remove";
       }
 
-      return setTraktRatings(auth, {
-        movies: [
-          toTraktRatedMovie(
-            movie,
-            Math.min(Math.max(Math.round(personalRating), 1), 10),
-            event.created_at,
-            mappings,
-          ),
-        ],
-      });
+      return "ratings.set";
     }
     case "movie.rating.clear":
-      return removeTraktRatings(auth, {
-        movies: [toTraktSyncMovie(movie, mappings)],
-      });
+      return "ratings.remove";
     default:
       throw new AppError(`Unsupported Trakt sync event: ${event.event_type}`, {
         code: "UNSUPPORTED_SYNC_EVENT",
+        status: 400,
+      });
+  }
+}
+
+function takeAdjacentPushEvents(
+  events: SyncEvent[],
+  startIndex: number,
+  operation: PushOperation,
+) {
+  const batch: SyncEvent[] = [];
+
+  for (let index = startIndex; index < events.length; index += 1) {
+    const event = events[index];
+
+    if (getPushSkipReason(event)) {
+      break;
+    }
+
+    try {
+      if (getPushOperation(event) !== operation) {
+        break;
+      }
+    } catch {
+      break;
+    }
+
+    batch.push(event);
+  }
+
+  return batch;
+}
+
+async function preparePushEvent(
+  event: SyncEvent,
+  operation: PushOperation,
+): Promise<PreparedPushEvent> {
+  const payload = readRecord(event.payload);
+  const movieId = readString(payload.movieId, "movieId");
+  const { mappings, movie } = await loadMovieForPush(movieId);
+  let traktMovie: TraktSyncMovie;
+
+  switch (operation) {
+    case "history.add":
+      traktMovie = toTraktHistoryMovie(
+        movie,
+        readString(payload.watchedAt, "watchedAt"),
+        mappings,
+      );
+      break;
+    case "ratings.set":
+      traktMovie = toTraktRatedMovie(
+        movie,
+        Math.min(Math.max(Math.round(readNumber(payload.personalRating, "personalRating")), 1), 10),
+        event.created_at,
+        mappings,
+      );
+      break;
+    case "history.remove":
+    case "ratings.remove":
+    case "watchlist.add":
+    case "watchlist.remove":
+      traktMovie = toTraktSyncMovie(movie, mappings);
+      break;
+    default:
+      traktMovie = assertNever(operation);
+  }
+
+  return {
+    event,
+    movie: traktMovie,
+    operation,
+  };
+}
+
+function pushPreparedBatch(auth: TraktAuth, batch: PreparedPushEvent[]) {
+  const operation = batch[0]?.operation;
+  const body = { movies: batch.map((entry) => entry.movie) };
+
+  switch (operation) {
+    case "history.add":
+      return addTraktHistory(auth, body);
+    case "history.remove":
+      return removeTraktHistory(auth, body);
+    case "ratings.remove":
+      return removeTraktRatings(auth, body);
+    case "ratings.set":
+      return setTraktRatings(auth, body);
+    case "watchlist.add":
+      return addTraktWatchlist(auth, body);
+    case "watchlist.remove":
+      return removeTraktWatchlist(auth, body);
+    default:
+      throw new AppError("Cannot push an empty Trakt sync batch.", {
+        code: "INVALID_SYNC_BATCH",
         status: 400,
       });
   }
@@ -961,7 +1208,7 @@ async function listAllHistory(
   auth: TraktAuth,
   startAt: string | null,
   run: SyncRunContext,
-  onPage?: (count: number) => Promise<void>,
+  onPage?: (count: number, total: number | null) => Promise<void>,
 ) {
   const items: TraktHistoryMovie[] = [];
 
@@ -974,7 +1221,7 @@ async function listAllHistory(
     });
 
     items.push(...response.items);
-    await onPage?.(items.length);
+    await onPage?.(items.length, response.pagination.itemCount);
     await assertTraktSyncRunActive(run.userId, run.runId);
 
     if (!hasNextTraktPage(response.pagination, page, response.items.length)) {
@@ -988,7 +1235,7 @@ async function listAllHistory(
 async function listAllWatchlist(
   auth: TraktAuth,
   run: SyncRunContext,
-  onPage?: (count: number) => Promise<void>,
+  onPage?: (count: number, total: number | null) => Promise<void>,
 ) {
   const items: TraktWatchlistMovie[] = [];
 
@@ -1000,7 +1247,7 @@ async function listAllWatchlist(
     });
 
     items.push(...response.items);
-    await onPage?.(items.length);
+    await onPage?.(items.length, response.pagination.itemCount);
     await assertTraktSyncRunActive(run.userId, run.runId);
 
     if (!hasNextTraktPage(response.pagination, page, response.items.length)) {
@@ -1014,7 +1261,7 @@ async function listAllWatchlist(
 async function listAllRatings(
   auth: TraktAuth,
   run: SyncRunContext,
-  onPage?: (count: number) => Promise<void>,
+  onPage?: (count: number, total: number | null) => Promise<void>,
 ) {
   const items: TraktRatedMovie[] = [];
 
@@ -1026,7 +1273,7 @@ async function listAllRatings(
     });
 
     items.push(...response.items);
-    await onPage?.(items.length);
+    await onPage?.(items.length, response.pagination.itemCount);
     await assertTraktSyncRunActive(run.userId, run.runId);
 
     if (!hasNextTraktPage(response.pagination, page, response.items.length)) {
@@ -1045,11 +1292,17 @@ async function listAllListsWithMovieItems(
   onProgress?: (counts: TraktListFetchProgress) => Promise<void>,
 ): Promise<TraktListFetchResult> {
   const lists = await listAllUserLists(auth, run, async (listCount) => {
-    await onProgress?.({ itemCount: 0, listCount, skippedListCount: 0 });
+    await onProgress?.({
+      itemCount: 0,
+      listCount,
+      skippedListCount: 0,
+      totalItemCount: null,
+    });
   });
   const imports: TraktListImport[] = [];
   let itemCount = 0;
   let skippedListCount = 0;
+  const totalItemCount = sumTraktListItemCounts(lists);
 
   for (const list of lists) {
     await assertTraktSyncRunActive(run.userId, run.runId);
@@ -1090,6 +1343,7 @@ async function listAllListsWithMovieItems(
         itemCount,
         listCount: imports.length,
         skippedListCount,
+        totalItemCount,
       });
       continue;
     }
@@ -1102,6 +1356,7 @@ async function listAllListsWithMovieItems(
           itemCount: itemCount + count,
           listCount: imports.length + 1,
           skippedListCount,
+          totalItemCount,
         });
       });
     } catch (error) {
@@ -1110,6 +1365,7 @@ async function listAllListsWithMovieItems(
         itemCount,
         listCount: imports.length,
         skippedListCount,
+        totalItemCount,
       });
       continue;
     }
@@ -1128,10 +1384,11 @@ async function listAllListsWithMovieItems(
       itemCount,
       listCount: imports.length,
       skippedListCount,
+      totalItemCount,
     });
   }
 
-  return { imports, itemCount, skippedListCount };
+  return { imports, itemCount, skippedListCount, totalItemCount };
 }
 
 async function listAllUserLists(
@@ -1194,6 +1451,24 @@ function formatListFetchProgressLabel(counts: TraktListFetchProgress) {
     : "";
 
   return `Loaded ${counts.itemCount} list item(s) across ${counts.listCount} list(s)${skipped}`;
+}
+
+function sumTraktListItemCounts(lists: TraktUserList[]) {
+  let total = 0;
+
+  for (const list of lists) {
+    if (
+      typeof list.item_count !== "number" ||
+      !Number.isInteger(list.item_count) ||
+      list.item_count < 0
+    ) {
+      return null;
+    }
+
+    total += list.item_count;
+  }
+
+  return total;
 }
 
 function hasStableTraktListMetadata(list: TraktUserList) {
