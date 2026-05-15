@@ -1,10 +1,15 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth/server";
 import { getProviderSyncSettings } from "@/lib/db/queries";
 import { isAppError } from "@/lib/errors";
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  requestRateLimitKey,
+} from "@/lib/rate-limit";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser();
 
@@ -13,6 +18,16 @@ export async function GET() {
         { error: "Authentication is required to read Trakt sync status." },
         { status: 401 },
       );
+    }
+
+    const retryAfter = checkRateLimit({
+      key: requestRateLimitKey(request, "trakt-status", user.id),
+      limit: 60,
+      windowMs: 60 * 1000,
+    });
+
+    if (retryAfter) {
+      return rateLimitResponse(retryAfter);
     }
 
     return NextResponse.json(await getProviderSyncSettings("trakt"));
