@@ -504,6 +504,7 @@ export function WatchHistoryEditor({
 }) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editDate, setEditDate] = useState("");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -516,12 +517,14 @@ export function WatchHistoryEditor({
   function closeSheet() {
     setOpen(false);
     setEditingId(null);
+    setDeleteConfirmId(null);
     setEditDate("");
     setError(null);
   }
 
   function startEdit(log: WatchLog) {
     setEditingId(log.id);
+    setDeleteConfirmId(null);
     setEditDate(log.watched_at.slice(0, 10));
     setError(null);
   }
@@ -529,6 +532,18 @@ export function WatchHistoryEditor({
   function cancelEdit() {
     setEditingId(null);
     setEditDate("");
+    setError(null);
+  }
+
+  function requestDelete(logId: string) {
+    setEditingId(null);
+    setDeleteConfirmId(logId);
+    setEditDate("");
+    setError(null);
+  }
+
+  function cancelDelete() {
+    setDeleteConfirmId(null);
     setError(null);
   }
 
@@ -555,6 +570,7 @@ export function WatchHistoryEditor({
       try {
         await deleteWatchLogAction(movieId, logId);
         if (editingId === logId) setEditingId(null);
+        setDeleteConfirmId(null);
       } catch {
         setError("Entry could not be deleted. Try again.");
       } finally {
@@ -589,7 +605,40 @@ export function WatchHistoryEditor({
 
           <div>
             {orderedLogs.map((log) =>
-              editingId === log.id ? (
+              deleteConfirmId === log.id ? (
+                <div
+                  key={log.id}
+                  className="flex min-h-[44px] items-center gap-2 border-b border-divider py-2 last:border-b-0"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="tabnum text-[15px] font-semibold text-foreground">
+                      {formatLogDate(log.watched_at)}
+                    </p>
+                    <p className="text-[12px] text-text-muted">Delete this watch?</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={cancelDelete}
+                    disabled={isPending}
+                    className="text-[15px] font-medium text-text-2 active:opacity-60 disabled:opacity-40"
+                    style={{ minHeight: 44, minWidth: 54 }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(log.id)}
+                    disabled={isPending}
+                    className="flex items-center justify-end gap-1.5 text-[15px] font-semibold text-unsynced active:opacity-60 disabled:opacity-40"
+                    style={{ minHeight: 44, minWidth: 64 }}
+                  >
+                    {pendingLogAction?.kind === "delete" && pendingLogAction.logId === log.id ? (
+                      <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+                    ) : null}
+                    Delete
+                  </button>
+                </div>
+              ) : editingId === log.id ? (
                 <div
                   key={log.id}
                   className="flex min-h-[44px] items-center gap-2 border-b border-divider py-2 last:border-b-0"
@@ -676,7 +725,7 @@ export function WatchHistoryEditor({
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDelete(log.id)}
+                    onClick={() => requestDelete(log.id)}
                     disabled={isPending}
                     aria-label="Delete entry"
                     className="text-unsynced active:opacity-60 disabled:opacity-40"
