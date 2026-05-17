@@ -490,13 +490,16 @@ Reason:
 
 ### Movies
 - default sort: recently watched desc
-- sort options: recently watched, rating, title — each asc/desc; tap the selected option again to toggle direction
+- sort options: recently watched, rating, title — each asc/desc; the sort sheet uses explicit option
+  selection, direction controls, and a Done action
 - sort by "recently watched" groups posters by month (e.g. "May 2026")
 - sort by "rating" groups posters by rating value (9, 8, 7, … Unrated)
 - sort by "title" renders a flat grid
 - filter options: tags (multi-select, OR within tags) + rating (operator ≥ > = < ≤ + value stepper); tag + rating combined with AND; watched page only
 - active sort (non-default) and active filter each show an indicator on the toolbar pill
 - sort/filter toolbar controls are 44px-high icon+label pills; active filters expose a separate 44x44 reset icon button
+- filter-sheet changes are staged locally until `Apply filters`; `Clear filters` resets the staged
+  values before apply
 - default presentation: poster-only watched grid
 - grid density adapts to screen width via auto-fill minmax(96px, 1fr)
 - tap card -> detail

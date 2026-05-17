@@ -115,6 +115,7 @@ export function MovieLibraryGrid({
   const [sortHydrated, setSortHydrated] = useState(false);
 
   const [sortSheetOpen, setSortSheetOpen] = useState(false);
+  const [draftSortState, setDraftSortState] = useState(() => initialSortState(sortOptions));
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [draftGenre, setDraftGenre] = useState<string | undefined>(activeFilters.genre);
   const [draftLanguage, setDraftLanguage] = useState<string | undefined>(activeFilters.language);
@@ -150,13 +151,23 @@ export function MovieLibraryGrid({
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
+  function openSortSheet() {
+    setDraftSortState(sortState);
+    setSortSheetOpen(true);
+  }
+
   function handleSortSelect(key: SortKey) {
-    if (key === sortKey) {
-      setSortState((state) => ({ ...state, dir: state.dir === "asc" ? "desc" : "asc" }));
-    } else {
-      const opt = sortOptions.find((o) => o.key === key)!;
-      setSortState({ key, dir: opt.defaultDir });
+    if (key === draftSortState.key) {
+      return;
     }
+
+    const opt = sortOptions.find((o) => o.key === key)!;
+    setDraftSortState({ key, dir: opt.defaultDir });
+  }
+
+  function applySort() {
+    setSortState(draftSortState);
+    setSortSheetOpen(false);
   }
 
   function toggleDraftTag(tagName: string) {
@@ -170,6 +181,17 @@ export function MovieLibraryGrid({
 
   function clearFilters() {
     router.push(pathname);
+  }
+
+  function clearDraftFilters() {
+    setDraftGenre(undefined);
+    setDraftLanguage(undefined);
+    setDraftTags(new Set());
+    setDraftRatingOp(">=");
+    setDraftRatingVal(null);
+    setDraftTimeMode("year");
+    setDraftYear(undefined);
+    setDraftMonth(undefined);
   }
 
   function openFilterSheet() {
@@ -188,19 +210,19 @@ export function MovieLibraryGrid({
     const params = new URLSearchParams(searchParams.toString());
     clearFilterParams(params);
 
-    if (draftGenre) params.set("genre", draftGenre);
-    if (draftLanguage) params.set("language", draftLanguage);
-    for (const tag of draftTags) {
+    if (draftFilters.genre) params.set("genre", draftFilters.genre);
+    if (draftFilters.language) params.set("language", draftFilters.language);
+    for (const tag of draftFilters.tags) {
       params.append("tag", tag);
     }
-    if (draftRatingVal !== null) {
-      params.set("ratingOp", draftRatingOp);
-      params.set("rating", String(draftRatingVal));
+    if (draftFilters.ratingVal !== null) {
+      params.set("ratingOp", draftFilters.ratingOp);
+      params.set("rating", String(draftFilters.ratingVal));
     }
-    if (draftTimeMode === "month" && draftMonth) {
-      params.set("month", draftMonth);
-    } else if (draftTimeMode === "year" && draftYear) {
-      params.set("year", draftYear);
+    if (draftFilters.month) {
+      params.set("month", draftFilters.month);
+    } else if (draftFilters.year) {
+      params.set("year", draftFilters.year);
     }
 
     const query = params.toString();
@@ -231,11 +253,23 @@ export function MovieLibraryGrid({
 
   const activeFilterCount = countActiveFilters(activeFilters);
   const hasActiveFilter = activeFilterCount > 0;
-  const sortPillActive = sortKey !== sortOptions[0].key;
+  const defaultSortState = initialSortState(sortOptions);
+  const sortPillActive = sortKey !== defaultSortState.key || sortDir !== defaultSortState.dir;
   const sortPillLabel = sortPillActive
     ? sortOptions.find((o) => o.key === sortKey)!.label
     : "Sort";
   const filterPillLabel = hasActiveFilter ? summarizeFilters(activeFilters) : "Filter";
+  const draftFilters: MovieLibraryActiveFilters = {
+    genre: draftGenre,
+    language: draftLanguage,
+    tags: [...draftTags],
+    ratingOp: draftRatingOp,
+    ratingVal: draftRatingVal,
+    year: draftTimeMode === "year" ? draftYear : undefined,
+    month: draftTimeMode === "month" ? draftMonth : undefined,
+  };
+  const hasDraftFilter = countActiveFilters(draftFilters) > 0;
+  const selectedDraftSortOption = sortOptions.find((option) => option.key === draftSortState.key)!;
   const selectedYearForMonths = draftYear ?? yearFromMonth(draftMonth) ?? filterOptions.years[0]?.key;
   const visibleMonths = selectedYearForMonths
     ? filterOptions.months.filter((bucket) => bucket.key.startsWith(`${selectedYearForMonths}-`))
@@ -324,7 +358,7 @@ export function MovieLibraryGrid({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setSortSheetOpen(true)}
+                onClick={openSortSheet}
                 className={[
                   "inline-flex h-11 items-center gap-1.5 rounded-full border px-3.5 text-[13px]",
                   sortPillActive
@@ -447,44 +481,80 @@ export function MovieLibraryGrid({
           contentClassName="pt-3"
           onClose={() => setSortSheetOpen(false)}
         >
-          <p className="px-5 pb-3 text-[17px] font-semibold">Sort</p>
+          <div className="flex items-center justify-between px-5 pb-3">
+            <p className="text-[17px] font-semibold">Sort</p>
+            <button
+              type="button"
+              onClick={applySort}
+              className="min-h-11 text-[15px] font-semibold text-accent"
+            >
+              Done
+            </button>
+          </div>
 
-          {sortOptions.map((opt, i) => {
-            const isSelected = sortKey === opt.key;
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => handleSortSelect(opt.key)}
-                className="flex w-full items-center gap-3 px-5 py-3.5 text-left active:bg-tap-active"
-                style={{ borderTop: i === 0 ? "none" : "1px solid var(--divider)" }}
-              >
-                <span
-                  className={[
-                    "flex size-5 shrink-0 items-center justify-center rounded-full border-2",
-                    isSelected ? "border-accent bg-accent" : "border-border",
-                  ].join(" ")}
+          <div role="radiogroup" aria-label="Sort by">
+            {sortOptions.map((opt, i) => {
+              const isSelected = draftSortState.key === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  onClick={() => handleSortSelect(opt.key)}
+                  className="flex w-full items-center gap-3 px-5 py-3.5 text-left active:bg-tap-active"
+                  style={{ borderTop: i === 0 ? "none" : "1px solid var(--divider)" }}
                 >
-                  {isSelected && <span className="size-2 rounded-full bg-black" />}
-                </span>
-
-                <span
-                  className={[
-                    "flex-1 text-[15px]",
-                    isSelected ? "font-medium text-foreground" : "text-text-2",
-                  ].join(" ")}
-                >
-                  {opt.label}
-                </span>
-
-                {isSelected && (
-                  <span className="rounded-md bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent">
-                    {opt.dirLabel(sortDir)}
+                  <span
+                    className={[
+                      "flex size-5 shrink-0 items-center justify-center rounded-full border-2",
+                      isSelected ? "border-accent bg-accent" : "border-border",
+                    ].join(" ")}
+                  >
+                    {isSelected && <span className="size-2 rounded-full bg-black" />}
                   </span>
-                )}
-              </button>
-            );
-          })}
+
+                  <span
+                    className={[
+                      "flex-1 text-[15px]",
+                      isSelected ? "font-medium text-foreground" : "text-text-2",
+                    ].join(" ")}
+                  >
+                    {opt.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mx-5 mt-3 h-px bg-divider" />
+
+          <div className="px-5 pb-2 pt-4">
+            <p className="pb-2 text-[11px] font-semibold uppercase tracking-wide text-text-faint">
+              Direction
+            </p>
+            <div
+              role="radiogroup"
+              aria-label="Sort direction"
+              className="grid grid-cols-2 gap-1 rounded-xl bg-surface-muted p-1"
+            >
+              {(["asc", "desc"] as SortDir[]).map((dir) => (
+                <button
+                  key={dir}
+                  type="button"
+                  role="radio"
+                  aria-checked={draftSortState.dir === dir}
+                  onClick={() => setDraftSortState((state) => ({ ...state, dir }))}
+                  className={[
+                    "min-h-10 rounded-lg px-2 text-[13px] font-semibold",
+                    draftSortState.dir === dir ? "bg-accent/10 text-accent" : "text-text-2",
+                  ].join(" ")}
+                >
+                  {selectedDraftSortOption.dirLabel(dir)}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="h-2" />
         </BottomSheet>
       )}
@@ -497,17 +567,8 @@ export function MovieLibraryGrid({
           dismissButtonLabel="Close filters"
           onClose={() => setFilterSheetOpen(false)}
         >
-          <div className="flex items-center justify-between px-5 pb-3">
+          <div className="px-5 pb-3">
             <p className="text-[17px] font-semibold">Filter</p>
-            {hasActiveFilter && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="min-h-11 text-[13px] font-semibold text-accent"
-              >
-                Clear all
-              </button>
-            )}
           </div>
 
           {filterOptions.genres.length > 0 && (
@@ -553,6 +614,7 @@ export function MovieLibraryGrid({
                 <button
                   key={mode}
                   type="button"
+                  aria-pressed={draftTimeMode === mode}
                   onClick={() => setDraftTimeMode(mode)}
                   className={[
                     "min-h-10 rounded-lg text-[13px] font-semibold",
@@ -573,6 +635,7 @@ export function MovieLibraryGrid({
                     <button
                       key={year.key}
                       type="button"
+                      aria-pressed={draftYear === year.key}
                       onClick={() => {
                         setDraftYear((current) => current === year.key ? undefined : year.key);
                         setDraftMonth(undefined);
@@ -596,6 +659,7 @@ export function MovieLibraryGrid({
                       <button
                         key={year.key}
                         type="button"
+                        aria-pressed={selectedYearForMonths === year.key}
                         onClick={() => {
                           setDraftYear(year.key);
                           setDraftMonth(undefined);
@@ -616,6 +680,7 @@ export function MovieLibraryGrid({
                       <button
                         key={month.key}
                         type="button"
+                        aria-pressed={draftMonth === month.key}
                         onClick={() => {
                           setDraftMonth((current) => current === month.key ? undefined : month.key);
                           setDraftYear(yearFromMonth(month.key));
@@ -649,6 +714,7 @@ export function MovieLibraryGrid({
                     <button
                       key={tag.id}
                       type="button"
+                      aria-pressed={active}
                       onClick={() => toggleDraftTag(tag.name)}
                       className={[
                         "min-h-9 rounded-full border px-3 text-[13px]",
@@ -673,6 +739,7 @@ export function MovieLibraryGrid({
               <button
                 key={op}
                 type="button"
+                aria-pressed={draftRatingOp === op}
                 onClick={() => setDraftRatingOp(op)}
                 className={[
                   "flex min-h-9 w-9 items-center justify-center rounded-xl border text-[14px]",
@@ -725,20 +792,18 @@ export function MovieLibraryGrid({
           >
             <button
               type="button"
-              onClick={() => {
-                router.push(pathname);
-                setFilterSheetOpen(false);
-              }}
-              className="flex h-11 flex-1 items-center justify-center rounded-xl border border-border text-[15px] font-medium text-text-2"
+              onClick={clearDraftFilters}
+              disabled={!hasDraftFilter}
+              className="flex h-11 flex-1 items-center justify-center rounded-xl border border-border text-[15px] font-medium text-text-2 disabled:opacity-40"
             >
-              Clear
+              Clear filters
             </button>
             <button
               type="button"
               onClick={applyFilters}
               className="flex h-11 flex-[1.6] items-center justify-center rounded-xl bg-accent text-[15px] font-semibold text-black"
             >
-              Show movies
+              Apply filters
             </button>
           </div>
         </BottomSheet>
@@ -809,6 +874,7 @@ function FilterChip({
   return (
     <button
       type="button"
+      aria-pressed={active}
       onClick={onClick}
       className={[
         "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-[13px]",
