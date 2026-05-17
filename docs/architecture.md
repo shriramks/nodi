@@ -229,6 +229,8 @@ This is your own app route, not a direct client-to-TMDB request.
 - debounce input `250-350ms`
 - do not query until 2-3 characters minimum
 - cancel in-flight requests when query changes
+- expose an explicit clear action once the field has text
+- keep search progress local to the field and opening progress local to the selected result
 - prefer server-side pagination
 - show local-state badges in search results
 - tapping a result should open the detail flow first

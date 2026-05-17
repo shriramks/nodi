@@ -1,6 +1,6 @@
 "use client";
 
-import { Film, LoaderCircle, Search } from "lucide-react";
+import { Film, LoaderCircle, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -20,7 +20,6 @@ export function MovieSearch() {
   const [response, setResponse] = useState<MovieSearchResponse | null>(null);
   const [status, setStatus] = useState<SearchStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [selectionErrorMessage, setSelectionErrorMessage] = useState<string | null>(null);
   const [openingTmdbId, setOpeningTmdbId] = useState<number | null>(null);
   const normalizedQuery = useMemo(() => query.replace(/\s+/g, " ").trim(), [query]);
 
@@ -33,7 +32,6 @@ export function MovieSearch() {
     const timeout = window.setTimeout(() => {
       setStatus("loading");
       setErrorMessage(null);
-      setSelectionErrorMessage(null);
 
       fetch(`/api/search/movies?q=${encodeURIComponent(normalizedQuery)}`, {
         signal: abortController.signal,
@@ -79,41 +77,65 @@ export function MovieSearch() {
   const activeStatus = normalizedQuery.length < minimumQueryLength ? "idle" : status;
   const results = activeResponse?.results ?? [];
 
+  function handleQueryChange(nextQuery: string) {
+    setQuery(nextQuery);
+
+    if (nextQuery.replace(/\s+/g, " ").trim().length < minimumQueryLength) {
+      setResponse(null);
+      setStatus("idle");
+      setErrorMessage(null);
+    }
+  }
+
+  function clearSearch() {
+    handleQueryChange("");
+  }
+
   async function openMovie(result: MovieSearchResult) {
     if (openingTmdbId !== null) {
       return;
     }
 
     setOpeningTmdbId(result.tmdbId);
-    setSelectionErrorMessage(null);
 
     router.push(result.localMovieId ? `/movie/${result.localMovieId}` : result.detailUrl);
   }
 
   return (
     <div className="space-y-5">
-      <section className="flex h-[50px] items-center gap-3 rounded-xl border border-border bg-surface-muted px-4">
+      <section className="flex h-[50px] items-center gap-3 rounded-xl border border-border bg-surface-muted pl-4 pr-1">
         <Search aria-hidden="true" className="h-5 w-5 shrink-0 text-text-muted" />
         <input
           aria-label="Search movies"
-          className="w-full bg-transparent text-[17px] text-foreground outline-none placeholder:text-text-muted"
-          onChange={(event) => setQuery(event.target.value)}
+          className="min-w-0 flex-1 appearance-none bg-transparent text-[17px] text-foreground outline-none placeholder:text-text-muted [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
+          onChange={(event) => handleQueryChange(event.target.value)}
           placeholder="Search movies"
           type="search"
           value={query}
         />
+        {activeStatus === "loading" ? (
+          <span
+            aria-label="Searching movies"
+            className="flex h-11 w-11 shrink-0 items-center justify-center text-text-muted"
+            role="status"
+          >
+            <LoaderCircle aria-hidden="true" className="h-5 w-5 animate-spin" strokeWidth={2.2} />
+          </span>
+        ) : null}
+        {query.length > 0 ? (
+          <button
+            aria-label="Clear search"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-tap-active hover:text-foreground"
+            onClick={clearSearch}
+            type="button"
+          >
+            <X aria-hidden="true" className="h-5 w-5" strokeWidth={2.2} />
+          </button>
+        ) : null}
       </section>
-
-      {activeStatus === "loading" ? (
-        <p className="px-1 text-[13px] text-text-2">Searching...</p>
-      ) : null}
 
       {activeStatus === "error" ? (
         <p className="px-1 text-[13px] text-danger">{errorMessage ?? "Search failed."}</p>
-      ) : null}
-
-      {selectionErrorMessage ? (
-        <p className="px-1 text-[13px] text-danger">{selectionErrorMessage}</p>
       ) : null}
 
       {activeStatus === "success" && results.length === 0 ? (
@@ -166,6 +188,7 @@ function SearchResultPoster({
   return (
     <button
       aria-label={isOpening ? `Opening ${result.title}` : ariaLabel}
+      aria-busy={isOpening}
       className="group block min-w-0 text-left disabled:cursor-wait disabled:opacity-70"
       disabled={isDisabled}
       onClick={() => onOpen(result)}

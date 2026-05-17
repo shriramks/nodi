@@ -543,6 +543,8 @@ These all become cleaner if runtime and watch logs are stored explicitly.
 - use TMDB search first
 - display title, year, poster, language
 - if already in local DB, show current status inline
+- expose an explicit clear control while the query has text
+- keep searching feedback inside the search field and opening feedback on the selected result
 - tapping a search result opens detail first
 
 ### Movie detail presentation
