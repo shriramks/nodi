@@ -1,4 +1,5 @@
 import { Film, Check } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 type PosterCardProps = {
@@ -24,20 +25,25 @@ export function PosterCard({
     <div className="relative">
       <div
         className={[
-          "flex aspect-[2/3] items-center justify-center rounded-2xl border bg-surface-muted bg-cover bg-center transition-transform duration-200",
+          "relative flex aspect-[2/3] items-center justify-center overflow-hidden rounded-2xl border bg-surface-muted transition-transform duration-200",
           isSelectable
             ? isSelected
               ? "border-accent ring-2 ring-accent"
               : "border-border"
             : "border-border group-hover:-translate-y-0.5",
         ].join(" ")}
-        style={
-          posterPath
-            ? { backgroundImage: `url(${posterBaseUrl}${posterPath})` }
-            : undefined
-        }
       >
-        {posterPath ? null : (
+        {posterPath ? (
+          <Image
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-cover"
+            height={513}
+            sizes="(max-width: 640px) 25vw, 160px"
+            src={`${posterBaseUrl}${posterPath}`}
+            width={342}
+          />
+        ) : (
           <Film aria-hidden="true" className="h-7 w-7 text-text-faint" strokeWidth={1.8} />
         )}
 

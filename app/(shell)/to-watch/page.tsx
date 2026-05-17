@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
 import { MovieLibraryGrid } from "@/components/movie/movie-library-grid";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
-import { listTags, listUserMovies } from "@/lib/db/queries";
+import { listLibraryMoviesPage, listTags } from "@/lib/db/queries";
 
 export const metadata: Metadata = {
   title: "To Watch",
 };
 
 export default async function ToWatchPage() {
-  const [queue, allTags] = await Promise.all([
-    listUserMovies({ status: "to_watch" }),
+  const [queuePage, allTags] = await Promise.all([
+    listLibraryMoviesPage({ status: "to_watch" }),
     listTags(),
   ]);
 
@@ -20,16 +20,16 @@ export default async function ToWatchPage() {
           <div>
             <h1 className="text-[32px] font-bold leading-[1.1]">To Watch</h1>
             <p className="mt-1 text-[13px] text-text-2">
-              <span className="tabnum">{queue.length}</span> queued
+              <span className="tabnum">{queuePage.totalCount}</span> queued
             </p>
           </div>
           <SettingsSheet />
         </div>
       </section>
 
-      {queue.length > 0 ? (
+      {queuePage.movies.length > 0 ? (
         <MovieLibraryGrid
-          movies={queue}
+          initialPage={queuePage}
           allTags={allTags}
           pageStatus="to_watch"
         />

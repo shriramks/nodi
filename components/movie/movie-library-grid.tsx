@@ -1,12 +1,17 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowUpDown, ChevronDown, ListFilter, X } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ListFilter, LoaderCircle, X } from "lucide-react";
 import { PosterCard } from "@/components/movie/poster-card";
 import { BulkActionsBar } from "@/components/movie/bulk-actions-bar";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import type { LibraryStatsTimeBucket, Tag, UserMovieWithMovie } from "@/lib/db/types";
+import type {
+  LibraryMovie,
+  LibraryStatsTimeBucket,
+  Tag,
+} from "@/lib/db/types";
+import type { LibraryMoviePage } from "@/lib/db/queries";
 
 // ─── Sort / filter types ──────────────────────────────────────────────────────
 
@@ -70,7 +75,7 @@ const OP_SYMBOL: Record<RatingOp, string> = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 type Props = {
-  movies: UserMovieWithMovie[];
+  initialPage: LibraryMoviePage;
   allTags?: Tag[];
   pageStatus?: "watched" | "to_watch";
   activeFilters?: MovieLibraryActiveFilters;
@@ -95,7 +100,7 @@ export type MovieLibraryFilterOptions = {
 };
 
 export function MovieLibraryGrid({
-  movies,
+  initialPage,
   allTags = [],
   pageStatus = "watched",
   activeFilters = emptyActiveFilters,
@@ -125,6 +130,15 @@ export function MovieLibraryGrid({
   const [draftTimeMode, setDraftTimeMode] = useState<TimeMode>(activeFilters.month ? "month" : "year");
   const [draftYear, setDraftYear] = useState<string | undefined>(activeFilters.year ?? yearFromMonth(activeFilters.month));
   const [draftMonth, setDraftMonth] = useState<string | undefined>(activeFilters.month);
+  const [movies, setMovies] = useState(initialPage.movies);
+  const [totalCount, setTotalCount] = useState(initialPage.totalCount);
+  const [nextOffset, setNextOffset] = useState(initialPage.nextOffset);
+  const [hasMore, setHasMore] = useState(initialPage.hasMore);
+  const [isLoadingPage, setIsLoadingPage] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const loadedSortRef = useRef(initialSortState(sortOptions));
+  const loadingRequestRef = useRef<AbortController | null>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -169,6 +183,91 @@ export function MovieLibraryGrid({
     setSortState(draftSortState);
     setSortSheetOpen(false);
   }
+
+  const loadPage = useCallback(async (offset: number, mode: "append" | "replace") => {
+    loadingRequestRef.current?.abort();
+    const abortController = new AbortController();
+    loadingRequestRef.current = abortController;
+    setIsLoadingPage(true);
+    setLoadError(null);
+
+    try {
+      const params = new URLSearchParams({
+        status: pageStatus,
+        offset: String(offset),
+        sortKey,
+        sortDir,
+      });
+      appendFilterParams(params, activeFilters);
+
+      const response = await fetch(`/api/library/movies?${params.toString()}`, {
+        headers: {
+          accept: "application/json",
+        },
+        signal: abortController.signal,
+      });
+      const payload = (await response.json()) as LibraryMoviePage | { error?: string };
+
+      if (!response.ok) {
+        throw new Error("error" in payload ? payload.error ?? "Failed to load movies." : "Failed to load movies.");
+      }
+
+      const page = payload as LibraryMoviePage;
+      loadedSortRef.current = sortState;
+      setMovies((current) => mode === "append" ? [...current, ...page.movies] : page.movies);
+      setTotalCount(page.totalCount);
+      setNextOffset(page.nextOffset);
+      setHasMore(page.hasMore);
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      setLoadError(error instanceof Error ? error.message : "Failed to load movies.");
+    } finally {
+      if (loadingRequestRef.current === abortController) {
+        loadingRequestRef.current = null;
+        setIsLoadingPage(false);
+      }
+    }
+  }, [activeFilters, pageStatus, sortDir, sortKey, sortState]);
+
+  const loadNextPage = useCallback(async () => {
+    if (!hasMore || nextOffset === null || isLoadingPage) {
+      return;
+    }
+
+    await loadPage(nextOffset, "append");
+  }, [hasMore, isLoadingPage, loadPage, nextOffset]);
+
+  useEffect(() => {
+    if (!sortHydrated || sameSort(loadedSortRef.current, sortState)) {
+      return;
+    }
+
+    void loadPage(0, "replace");
+  }, [loadPage, sortHydrated, sortState]);
+
+  useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current;
+
+    if (!sentinel || !hasMore || isLoadingPage) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void loadNextPage();
+        }
+      },
+      { rootMargin: "320px 0px" },
+    );
+
+    observer.observe(sentinel);
+
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingPage, loadNextPage]);
 
   function toggleDraftTag(tagName: string) {
     setDraftTags((prev) => {
@@ -314,12 +413,12 @@ export function MovieLibraryGrid({
 
   // ─── Grouping ─────────────────────────────────────────────────────────────
 
-  type Group = { label: string; items: UserMovieWithMovie[] };
+  type Group = { label: string; items: LibraryMovie[] };
 
   const groups = useMemo((): Group[] | null => {
     if (sortKey === "title") return null;
 
-    const map = new Map<string, UserMovieWithMovie[]>();
+    const map = new Map<string, LibraryMovie[]>();
     for (const um of processed) {
       let label: string;
       if (sortKey === "rating") {
@@ -463,6 +562,28 @@ export function MovieLibraryGrid({
             ))}
           </section>
         )}
+
+        {hasMore || isLoadingPage || loadError ? (
+          <div className="flex flex-col items-center gap-2 py-3">
+            <div ref={loadMoreSentinelRef} className="h-px w-full" aria-hidden="true" />
+            {loadError ? (
+              <p className="text-[13px] text-danger">{loadError}</p>
+            ) : null}
+            {hasMore ? (
+              <button
+                type="button"
+                onClick={() => void loadNextPage()}
+                disabled={isLoadingPage}
+                className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 text-[13px] font-medium text-text-2 disabled:cursor-wait disabled:opacity-70"
+              >
+                {isLoadingPage ? (
+                  <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+                ) : null}
+                {isLoadingPage ? "Loading" : `Load more (${movies.length}/${totalCount})`}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {isSelecting && selectedIds.size > 0 && (
@@ -810,6 +931,7 @@ export function MovieLibraryGrid({
       )}
     </>
   );
+
 }
 
 const emptyActiveFilters: MovieLibraryActiveFilters = {
@@ -936,5 +1058,32 @@ function languageLabel(code: string) {
     return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code.toUpperCase();
   } catch {
     return code.toUpperCase();
+  }
+}
+
+function sameSort(
+  left: { key: SortKey; dir: SortDir },
+  right: { key: SortKey; dir: SortDir },
+) {
+  return left.key === right.key && left.dir === right.dir;
+}
+
+function appendFilterParams(
+  params: URLSearchParams,
+  filters: MovieLibraryActiveFilters,
+) {
+  if (filters.genre) params.set("genre", filters.genre);
+  if (filters.language) params.set("language", filters.language);
+  for (const tag of filters.tags) {
+    params.append("tag", tag);
+  }
+  if (filters.ratingVal !== null) {
+    params.set("ratingOp", filters.ratingOp);
+    params.set("rating", String(filters.ratingVal));
+  }
+  if (filters.month) {
+    params.set("month", filters.month);
+  } else if (filters.year) {
+    params.set("year", filters.year);
   }
 }

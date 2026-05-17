@@ -639,6 +639,10 @@ export type UserMovieWithMovie = UserMovie & {
   tags: Tag[];
 };
 
+export type LibraryMovie = UserMovie & {
+  movie: Pick<Movie, "id" | "poster_path" | "title">;
+};
+
 export type MovieDetail = Movie & {
   cast: MovieCastMember[];
   userMovie: UserMovie | null;

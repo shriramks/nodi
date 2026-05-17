@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { MovieLibraryGrid } from "@/components/movie/movie-library-grid";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
-import { getWatchedLibrarySummary, listTags, listUserMovies } from "@/lib/db/queries";
+import { getWatchedLibrarySummary, listLibraryMoviesPage, listTags } from "@/lib/db/queries";
 import type { LibraryStatsBreakdownItem } from "@/lib/db/types";
 
 export const metadata: Metadata = {
@@ -20,8 +20,8 @@ export default async function MoviesPage({
 }) {
   const params = await searchParams;
   const filters = parseMovieFilters(params);
-  const [watchedMovies, summary, allTags] = await Promise.all([
-    listUserMovies({
+  const [watchedPage, summary, allTags] = await Promise.all([
+    listLibraryMoviesPage({
       status: "watched",
       filters: {
         genre: filters.genre,
@@ -58,7 +58,7 @@ export default async function MoviesPage({
             <h1 className="text-[32px] font-bold leading-[1.1]">Movies</h1>
             <p className="mt-1 text-[13px] text-text-2">
               <span className="tabnum">
-                {activeLabels.length > 0 ? watchedMovies.length : summary.watchedCount}
+                {activeLabels.length > 0 ? watchedPage.totalCount : summary.watchedCount}
               </span>{" "}
               watched
               {activeLabels.length > 0 && <> · {activeLabels.join(" · ")}</>}
@@ -68,9 +68,10 @@ export default async function MoviesPage({
         </div>
       </section>
 
-      {watchedMovies.length > 0 || activeLabels.length > 0 ? (
+      {watchedPage.movies.length > 0 || activeLabels.length > 0 ? (
         <MovieLibraryGrid
-          movies={watchedMovies}
+          key={libraryGridKey(filters)}
+          initialPage={watchedPage}
           allTags={allTags}
           pageStatus="watched"
           activeFilters={filters}
@@ -172,6 +173,10 @@ function filterLabels(filters: ReturnType<typeof parseMovieFilters>, tags: { nam
   if (filters.ratingVal !== null) labels.push(`Rating ${filters.ratingOp} ${filters.ratingVal}`);
 
   return labels;
+}
+
+function libraryGridKey(filters: ReturnType<typeof parseMovieFilters>) {
+  return JSON.stringify(filters);
 }
 
 function languageLabel(code: string) {
