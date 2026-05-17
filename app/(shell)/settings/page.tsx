@@ -45,7 +45,7 @@ export default async function SettingsPage() {
           <span className="min-w-0 flex-1">
             <span className="block text-[15px] font-semibold text-foreground">Sync</span>
             <span className="mt-0.5 block text-[13px] text-text-muted">
-              Trakt and TMDB credentials
+              TMDB required. Trakt sync optional.
             </span>
           </span>
           <ChevronRight aria-hidden="true" className="h-5 w-5 shrink-0 text-text-muted" />

@@ -31,7 +31,7 @@ export default async function TmdbSettingsPage({ searchParams }: TmdbSettingsPag
         <BackButton />
         <h1 className="mt-2 text-[32px] font-bold leading-[1.1]">TMDB</h1>
         <p className="mt-1 text-[13px] text-text-2">
-          Store your TMDB API Read Access Token for search and movie metadata.
+          Required for search, posters, cast, and movie metadata.
         </p>
       </section>
 

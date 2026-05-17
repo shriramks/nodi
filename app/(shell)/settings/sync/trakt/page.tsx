@@ -41,7 +41,7 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
         <BackButton />
         <h1 className="mt-2 text-[32px] font-bold leading-[1.1]">Trakt Sync</h1>
         <p className="mt-1 text-[13px] text-text-2">
-          Uses your own Trakt API app and your own Trakt authorization.
+          Optional syncing for watched history, ratings, and watchlist.
         </p>
       </section>
 
