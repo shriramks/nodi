@@ -56,7 +56,7 @@ type MovieDetailViewProps = {
   actions: ReactNode;
   ratingPicker?: ReactNode;
   tagEditor?: ReactNode;
-  watchDateForm?: ReactNode;
+  watchedSummary?: ReactNode;
   watchHistory?: ReactNode;
 };
 
@@ -66,7 +66,7 @@ export function MovieDetailView({
   ratingPicker,
   status,
   tagEditor,
-  watchDateForm,
+  watchedSummary,
   watchHistory,
 }: MovieDetailViewProps) {
   const statusLabel =
@@ -134,11 +134,12 @@ export function MovieDetailView({
               <p className="text-[13px] leading-[1.4] text-text-2">{metaLine}</p>
             )}
 
-            {statusLabel && statusColour && (
-              <p className={`text-[15px] font-semibold ${statusColour}`}>
-                {statusLabel}
-              </p>
-            )}
+            {watchedSummary ??
+              (statusLabel && statusColour ? (
+                <p className={`text-[15px] font-semibold ${statusColour}`}>
+                  {statusLabel}
+                </p>
+              ) : null)}
 
             <div className="flex items-center gap-2.5">
               {ratingPicker}
@@ -173,7 +174,7 @@ export function MovieDetailView({
 
       {actions}
 
-      {status === "watched" ? watchDateForm : null}
+      {watchHistory}
 
       <section className="space-y-2">
         <p className="text-[11px] uppercase tracking-wide text-text-muted">Plot</p>
@@ -241,7 +242,6 @@ export function MovieDetailView({
         )}
       </section>
 
-      {watchHistory}
     </main>
   );
 }

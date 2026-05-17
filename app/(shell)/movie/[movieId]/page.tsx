@@ -9,7 +9,7 @@ import {
   RatingSheet,
   TagEditor,
   UserStateActions,
-  WatchDateForm,
+  WatchedSummary,
   WatchHistoryEditor,
 } from "./movie-detail-client";
 
@@ -59,8 +59,8 @@ export default async function MovieDetailPage({
       tagEditor={
         status ? <TagEditor movieId={movie.id} tags={movie.tags} allTags={allTags} /> : null
       }
-      watchDateForm={
-        status === "watched" ? <WatchDateForm movieId={movie.id} /> : null
+      watchedSummary={
+        status === "watched" ? <WatchedSummary watchLogs={movie.watchLogs ?? []} /> : null
       }
       watchHistory={
         status === "watched" ? (

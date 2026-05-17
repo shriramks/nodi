@@ -159,6 +159,9 @@ files, then inspect only direct imports, direct callers, or the relevant route b
 - Movie detail pages:
   - Local detail route: `app/(shell)/movie/[movieId]/page.tsx`
   - Local detail client: `app/(shell)/movie/[movieId]/movie-detail-client.tsx`
+    - Renders the watched hero summary (`Watched · <date>` or `Watched xN · Last watched <date>`).
+    - Owns the compact watch-history disclosure row, history bottom sheet, edit/delete controls,
+      and explicit `Log rewatch` action.
   - Remote TMDB detail route: `app/(shell)/movie/tmdb/[tmdbId]/page.tsx`
 
 ### Database fields relevant to stats filters

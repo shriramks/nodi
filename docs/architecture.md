@@ -297,8 +297,9 @@ The protected app shell has route-level fallbacks:
 - `app/(shell)/not-found.tsx` for missing movies or unknown shell routes.
 
 Primary list and analytics routes render explicit empty states when there is no watched library,
-watchlist, search result, or watch history. Movie detail also handles sparse provider metadata by
-rendering empty cast/details copy instead of blank panels.
+watchlist, search result, or watch history. Movie detail keeps watched state compact in the hero,
+surfaces full event history through a disclosure row plus sheet, and handles sparse provider metadata
+by rendering empty cast/details copy instead of blank panels.
 
 ## 7. Database Boundaries
 

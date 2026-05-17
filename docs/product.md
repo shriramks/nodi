@@ -500,7 +500,10 @@ Reason:
 - default presentation: poster-only watched grid
 - grid density adapts to screen width via auto-fill minmax(96px, 1fr)
 - tap card -> detail
-- watched date is explicit and editable
+- watched state is explicit: one watch shows `Watched · <date>` in the movie-detail hero; rewatches
+  show `Watched xN · Last watched <date>`
+- watch history stays behind a compact disclosure row on movie detail and opens a sheet for
+  full dates, edit/delete, and explicit rewatch logging
 - filters are URL-backed on `/movies` so direct navigation, clear, and stats drill-downs share the
   same behavior
 - filter dimensions: genre, language, watched year, watched month, tag, and personal rating
@@ -541,6 +544,9 @@ These all become cleaner if runtime and watch logs are stored explicitly.
 
 ### Movie detail presentation
 - keep poster and compact metadata together in the hero area
+- summarize watched state inline in the hero instead of showing the full event list by default
+- expose full watch history through a compact disclosure row and bottom sheet; use explicit
+  `Log rewatch` copy for additional viewings
 - place plot below the hero block
 - clamp long overviews with expand/collapse
 - show cast as an image carousel, not a plain text-only list
@@ -651,17 +657,17 @@ route contracts, and service boundaries.
 Resolved:
 1. explicit watched dates are required
 2. marking watched auto-removes from `To Watch`
-3. tags should support suggestions and autofill
-4. tapping a search result opens detail first
-5. sync UI should show connection state, sync status, and last sync time
-6. stats should include monthly and yearly summaries
-7. no offline support is required for v1
-8. multi-user support is required, but without admin complexity
+3. rewatches are supported as explicit watch-history events
+4. tags should support suggestions and autofill
+5. tapping a search result opens detail first
+6. sync UI should show connection state, sync status, and last sync time
+7. stats should include monthly and yearly summaries
+8. no offline support is required for v1
+9. multi-user support is required, but without admin complexity
 
 Still worth locking:
-1. Do you want to support **rewatches** in v1, or is one watched event per movie enough initially?
-2. Is rating optional, or should every watched movie encourage a rating?
-3. Is scope intentionally **movies only**, with TV left out for now?
+1. Is rating optional, or should every watched movie encourage a rating?
+2. Is scope intentionally **movies only**, with TV left out for now?
 
 ## 12. Build Plan
 

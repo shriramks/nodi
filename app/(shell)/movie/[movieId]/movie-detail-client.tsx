@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useState, useTransition } from "react";
-import { Check, ChevronDown, Heart, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Heart, Pencil, Plus, Trash2, X } from "lucide-react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 
 function parseLocalDate(dateStr: string): Date {
@@ -244,9 +244,10 @@ export function WatchDateForm({ movieId }: { movieId: string }) {
     : "Pick a date";
 
   return (
-    <section>
-      <div className="flex items-center border-b border-divider px-4" style={{ minHeight: 44 }}>
-        <span className="text-[13px] text-text-faint mr-3 shrink-0">Watched on</span>
+    <section className="mt-4 space-y-2">
+      <p className="text-[11px] uppercase tracking-wide text-text-muted">Log rewatch</p>
+      <div className="flex items-center border-b border-divider" style={{ minHeight: 44 }}>
+        <span className="mr-3 shrink-0 text-[13px] text-text-faint">Watched on</span>
         <label className="relative flex flex-1 cursor-pointer items-center gap-2 min-w-0 justify-end">
           <span className="text-[15px] text-foreground">{displayDate}</span>
           <ChevronDown
@@ -269,11 +270,50 @@ export function WatchDateForm({ movieId }: { movieId: string }) {
           className="ml-3 shrink-0 text-[15px] font-semibold text-accent disabled:opacity-40 active:opacity-60"
           style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "flex-end" }}
         >
-          {isPending ? "…" : "Add"}
+          {isPending ? "…" : "Log"}
         </button>
       </div>
-      {error ? <p className="px-4 pt-1 text-[13px] text-unsynced">{error}</p> : null}
+      {error ? <p className="pt-1 text-[13px] text-unsynced">{error}</p> : null}
     </section>
+  );
+}
+
+type WatchLog = { id: string; watched_at: string };
+
+function sortedWatchLogs(watchLogs: WatchLog[]) {
+  return [...watchLogs].sort(
+    (left, right) => Date.parse(right.watched_at) - Date.parse(left.watched_at),
+  );
+}
+
+function formatLogDate(isoString: string): string {
+  const d = new Date(isoString);
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(d);
+}
+
+export function WatchedSummary({ watchLogs }: { watchLogs: WatchLog[] }) {
+  const latestWatch = sortedWatchLogs(watchLogs)[0] ?? null;
+
+  if (!latestWatch) {
+    return <p className="text-[15px] font-semibold text-watched">Watched</p>;
+  }
+
+  return (
+    <div className="flex flex-wrap items-baseline gap-1.5 leading-[1.35]">
+      <p className="text-[15px] font-semibold text-watched">
+        {watchLogs.length > 1 ? `Watched x${watchLogs.length}` : "Watched"}
+      </p>
+      <p className="text-[13px] text-text-2">
+        ·{" "}
+        {watchLogs.length > 1
+          ? `Last watched ${formatLogDate(latestWatch.watched_at)}`
+          : formatLogDate(latestWatch.watched_at)}
+      </p>
+    </div>
   );
 }
 
@@ -403,17 +443,6 @@ export function TagEditor({
   );
 }
 
-type WatchLog = { id: string; watched_at: string };
-
-function formatLogDate(isoString: string): string {
-  const d = new Date(isoString);
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(d);
-}
-
 export function WatchHistoryEditor({
   movieId,
   watchLogs,
@@ -421,11 +450,20 @@ export function WatchHistoryEditor({
   movieId: string;
   watchLogs: WatchLog[];
 }) {
+  const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDate, setEditDate] = useState("");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const today = todayDateValue();
+  const orderedLogs = sortedWatchLogs(watchLogs);
+
+  function closeSheet() {
+    setOpen(false);
+    setEditingId(null);
+    setEditDate("");
+    setError(null);
+  }
 
   function startEdit(log: WatchLog) {
     setEditingId(log.id);
@@ -467,88 +505,135 @@ export function WatchHistoryEditor({
   if (watchLogs.length === 0) return null;
 
   return (
-    <section className="space-y-2">
-      <p className="text-[11px] uppercase tracking-wide text-text-muted">
-        Watch history{watchLogs.length > 1 ? ` · ${watchLogs.length}×` : ""}
-      </p>
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="flex min-h-[44px] w-full items-center justify-between border-t border-divider text-left active:opacity-70"
+      >
+        <span className="text-[15px] text-foreground">Watch history</span>
+        <span className="flex items-center gap-1 text-[13px] text-text-muted">
+          {watchLogs.length} {watchLogs.length === 1 ? "watch" : "watches"}
+          <ChevronRight aria-hidden="true" className="h-4 w-4 text-text-faint" strokeWidth={2} />
+        </span>
+      </button>
 
-      <div>
-        {watchLogs.map((log) =>
-          editingId === log.id ? (
-            <div
-              key={log.id}
-              className="flex min-h-[44px] items-center gap-2 border-b border-divider px-4 py-2 last:border-b-0"
-            >
-              <label className="relative flex flex-1 cursor-pointer items-center gap-1.5 min-w-0">
-                <span className="text-[15px] text-foreground">
-                  {editDate
-                    ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(editDate + "T12:00:00"))
-                    : "Pick a date"}
-                </span>
-                <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-text-muted" strokeWidth={2} />
-                <input
-                  aria-label="Edit watch date"
-                  className="absolute inset-0 cursor-pointer opacity-0"
-                  max={today}
-                  onChange={(e) => setEditDate(e.target.value)}
-                  type="date"
-                  value={editDate}
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => handleSave(log.id)}
-                disabled={isPending || !editDate}
-                className="text-[15px] font-semibold text-accent disabled:opacity-40 active:opacity-60"
-                style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "flex-end" }}
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={cancelEdit}
-                disabled={isPending}
-                className="text-text-2 active:opacity-60 disabled:opacity-40"
-                style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
-              >
-                <X aria-label="Cancel" className="h-4 w-4" strokeWidth={2} />
-              </button>
-            </div>
-          ) : (
-            <div
-              key={log.id}
-              className="flex min-h-[44px] items-center gap-2 border-b border-divider px-4 py-2 last:border-b-0"
-            >
-              <span className="flex-1 text-[15px] text-text-2">Watched</span>
-              <span className="tabnum text-[15px] font-semibold text-foreground">
-                {formatLogDate(log.watched_at)}
-              </span>
-              <button
-                type="button"
-                onClick={() => startEdit(log)}
-                disabled={isPending}
-                aria-label="Edit date"
-                className="text-text-muted active:opacity-60 disabled:opacity-40"
-                style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
-              >
-                <Pencil aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDelete(log.id)}
-                disabled={isPending}
-                aria-label="Delete entry"
-                className="text-unsynced active:opacity-60 disabled:opacity-40"
-                style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
-              >
-                <Trash2 aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
-              </button>
-            </div>
-          )
-        )}
-      </div>
+      {open ? (
+        <BottomSheet ariaLabel="Watch history" onClose={closeSheet}>
+          <p className="mb-2 text-[17px] font-semibold text-foreground">Watch history</p>
 
-      {error && <p className="px-4 text-[13px] text-unsynced">{error}</p>}
-    </section>
+          <div>
+            {orderedLogs.map((log) =>
+              editingId === log.id ? (
+                <div
+                  key={log.id}
+                  className="flex min-h-[44px] items-center gap-2 border-b border-divider py-2 last:border-b-0"
+                >
+                  <label className="relative flex min-w-0 flex-1 cursor-pointer items-center gap-1.5">
+                    <span className="text-[15px] text-foreground">
+                      {editDate
+                        ? new Intl.DateTimeFormat("en-GB", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          }).format(new Date(`${editDate}T12:00:00`))
+                        : "Pick a date"}
+                    </span>
+                    <ChevronDown
+                      aria-hidden="true"
+                      className="h-3.5 w-3.5 shrink-0 text-text-muted"
+                      strokeWidth={2}
+                    />
+                    <input
+                      aria-label="Edit watch date"
+                      className="absolute inset-0 cursor-pointer opacity-0"
+                      max={today}
+                      onChange={(e) => setEditDate(e.target.value)}
+                      type="date"
+                      value={editDate}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleSave(log.id)}
+                    disabled={isPending || !editDate}
+                    className="text-[15px] font-semibold text-accent disabled:opacity-40 active:opacity-60"
+                    style={{
+                      minHeight: 44,
+                      minWidth: 44,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                    }}
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    disabled={isPending}
+                    className="text-text-2 active:opacity-60 disabled:opacity-40"
+                    style={{
+                      minHeight: 44,
+                      minWidth: 44,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <X aria-label="Cancel" className="h-4 w-4" strokeWidth={2} />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  key={log.id}
+                  className="flex min-h-[44px] items-center gap-2 border-b border-divider py-2 last:border-b-0"
+                >
+                  <span className="tabnum flex-1 text-[15px] font-semibold text-foreground">
+                    {formatLogDate(log.watched_at)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => startEdit(log)}
+                    disabled={isPending}
+                    aria-label="Edit date"
+                    className="text-text-muted active:opacity-60 disabled:opacity-40"
+                    style={{
+                      minHeight: 44,
+                      minWidth: 44,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Pencil aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(log.id)}
+                    disabled={isPending}
+                    aria-label="Delete entry"
+                    className="text-unsynced active:opacity-60 disabled:opacity-40"
+                    style={{
+                      minHeight: 44,
+                      minWidth: 44,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Trash2 aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
+                  </button>
+                </div>
+              ),
+            )}
+          </div>
+
+          <WatchDateForm movieId={movieId} />
+
+          {error && <p className="mt-2 text-[13px] text-unsynced">{error}</p>}
+        </BottomSheet>
+      ) : null}
+    </>
   );
 }
