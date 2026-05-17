@@ -91,11 +91,13 @@ files, then inspect only direct imports, direct callers, or the relevant route b
 ### Movies library
 
 - Watched movies route: `app/(shell)/movies/page.tsx`
-  - Loads watched user movies with `listUserMovies({ status: "watched" })`.
-  - Loads overall stats with `getLibraryStats()` for the header watched count.
+  - Loads watched user movies with `listLibraryMoviesPage({ status: "watched" })`.
+  - Loads the lightweight watched summary with `getWatchedLibrarySummary()` for header and filter options.
+  - Loads `listTags()` because the watched filter sheet renders tag options immediately.
   - Renders `MovieLibraryGrid`.
 - To Watch route: `app/(shell)/to-watch/page.tsx`
-  - Loads queued movies with `listUserMovies({ status: "to_watch" })`.
+  - Loads queued movies with `listLibraryMoviesPage({ status: "to_watch" })`.
+  - Defers `listTags()` until the user opens the bulk tag sheet.
   - Reuses `MovieLibraryGrid` with `pageStatus="to_watch"`.
 - Grid UI, sorting, local filter sheet, grouping, selection: `components/movie/movie-library-grid.tsx`
   - Client component.
@@ -113,15 +115,16 @@ files, then inspect only direct imports, direct callers, or the relevant route b
 ### Movie read data
 
 - Library query owner: `lib/db/queries/movies.ts`
-  - `listUserMovies()` joins `user_movies` to `movies`.
+  - `listLibraryMoviesPage()` joins `user_movies` to a minimal `movies` projection for grids.
+  - `listUserMovies()` joins `user_movies` to full `movies` rows without hydrating tags.
   - It accepts status, limit, offset, and watched-library filters.
   - Genre/language/rating filters apply directly to `user_movies`/`movies`.
   - Tag and watched year/month filters first resolve matching movie ids, then intersect.
   - Month filter keys are `YYYY-MM`; year filter keys are `YYYY`; month takes precedence.
-  - It separately loads tags through `user_movie_tags`.
+  - `getMovieDetail()` hydrates per-movie tags through `user_movie_tags` for tag-aware detail screens.
   - If a route-level library filter is needed, this is the server query to extend.
 - Shared movie/user/tag types: `lib/db/types.ts`
-  - `UserMovieWithMovie` is the shape passed to `MovieLibraryGrid`.
+  - `LibraryMovie` is the shape passed to `MovieLibraryGrid`.
   - `Movie` includes `primary_genre_name`, `original_language`, `release_year`, and poster metadata.
 - Tags query owner: `lib/db/queries/tags.ts`
 

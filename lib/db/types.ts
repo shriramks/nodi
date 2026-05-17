@@ -654,7 +654,6 @@ export type Theme = NonNullable<UserPreferences["theme"]> | "auto";
 
 export type UserMovieWithMovie = UserMovie & {
   movie: Movie;
-  tags: Tag[];
 };
 
 export type LibraryMovie = UserMovie & {

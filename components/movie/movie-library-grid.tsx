@@ -101,7 +101,7 @@ export type MovieLibraryFilterOptions = {
 
 export function MovieLibraryGrid({
   initialPage,
-  allTags = [],
+  allTags,
   pageStatus = "watched",
   activeFilters = emptyActiveFilters,
   filterOptions = emptyFilterOptions,
@@ -110,6 +110,7 @@ export function MovieLibraryGrid({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const isWatched = pageStatus === "watched";
+  const availableTags = allTags ?? [];
   const sortOptions = isWatched ? WATCHED_SORT_OPTIONS : TO_WATCH_SORT_OPTIONS;
 
   const sortStorageKey = `nodi:lib:sort:${pageStatus}`;
@@ -589,7 +590,7 @@ export function MovieLibraryGrid({
       {isSelecting && selectedIds.size > 0 && (
         <BulkActionsBar
           selectedIds={[...selectedIds]}
-          allTags={allTags}
+          initialTags={allTags}
           pageStatus={pageStatus}
           onDone={exitSelectMode}
         />
@@ -825,11 +826,11 @@ export function MovieLibraryGrid({
 
           <div className="mx-5 h-px bg-divider" />
 
-          {allTags.length > 0 && (
+          {availableTags.length > 0 && (
             <>
               <FilterLabel label="Tags" top />
               <div className="flex flex-wrap gap-2 px-5 pb-4">
-                {allTags.map((tag) => {
+                {availableTags.map((tag) => {
                   const active = draftTags.has(tag.name);
                   return (
                     <button

@@ -9,6 +9,8 @@ import {
   bulkSetWatchStatus,
   bulkUpdateRating,
 } from "@/lib/db/mutations";
+import { listTags } from "@/lib/db/queries";
+import type { Tag } from "@/lib/db/types";
 
 function revalidateLibrary() {
   revalidatePath("/movies");
@@ -47,4 +49,8 @@ export async function bulkAttachTagByIdAction(movieIds: string[], tagId: string)
 export async function bulkDetachTagAction(movieIds: string[], tagId: string): Promise<void> {
   await bulkDetachTagFromMovies(movieIds, tagId);
   revalidateLibrary();
+}
+
+export async function listBulkActionTagsAction(): Promise<Tag[]> {
+  return listTags();
 }

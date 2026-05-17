@@ -3,7 +3,11 @@
 import { useState, useTransition } from "react";
 import { Eye, EyeOff, LoaderCircle, Star, Tag } from "lucide-react";
 
-import { bulkMarkWatchedAction, bulkAddToWatchlistAction } from "@/app/(shell)/movie/bulk-actions";
+import {
+  bulkAddToWatchlistAction,
+  bulkMarkWatchedAction,
+  listBulkActionTagsAction,
+} from "@/app/(shell)/movie/bulk-actions";
 import { BulkTagSheet } from "./bulk-tag-sheet";
 import { BulkRatingSheet } from "./bulk-rating-sheet";
 
@@ -11,15 +15,17 @@ type TagItem = { id: string; name: string };
 
 type Props = {
   selectedIds: string[];
-  allTags: TagItem[];
+  initialTags?: TagItem[];
   pageStatus: "watched" | "to_watch";
   onDone: () => void;
 };
 
-export function BulkActionsBar({ selectedIds, allTags, pageStatus, onDone }: Props) {
+export function BulkActionsBar({ selectedIds, initialTags, pageStatus, onDone }: Props) {
   const [activeSheet, setActiveSheet] = useState<"tag" | "rate" | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [tags, setTags] = useState<TagItem[] | null>(initialTags ?? null);
+  const [isLoadingTags, setIsLoadingTags] = useState(false);
 
   const count = selectedIds.length;
 
@@ -39,6 +45,24 @@ export function BulkActionsBar({ selectedIds, allTags, pageStatus, onDone }: Pro
     });
   }
 
+  async function openTagSheet() {
+    if (tags !== null) {
+      setActiveSheet("tag");
+      return;
+    }
+
+    setError(null);
+    setIsLoadingTags(true);
+    try {
+      setTags(await listBulkActionTagsAction());
+      setActiveSheet("tag");
+    } catch {
+      setError("Tags could not be loaded. Try again.");
+    } finally {
+      setIsLoadingTags(false);
+    }
+  }
+
   return (
     <>
       <div
@@ -56,11 +80,15 @@ export function BulkActionsBar({ selectedIds, allTags, pageStatus, onDone }: Pro
         <div className="flex flex-1 items-center justify-end gap-2">
           <button
             type="button"
-            onClick={() => setActiveSheet("tag")}
-            disabled={isPending}
+            onClick={() => void openTagSheet()}
+            disabled={isPending || isLoadingTags}
             className="flex h-9 items-center gap-1.5 rounded-full border border-border bg-surface px-3 text-[13px] font-medium text-foreground active:opacity-70 disabled:opacity-40"
           >
-            <Tag aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+            {isLoadingTags ? (
+              <LoaderCircle aria-hidden="true" className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+            ) : (
+              <Tag aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+            )}
             Tag
           </button>
 
@@ -108,7 +136,7 @@ export function BulkActionsBar({ selectedIds, allTags, pageStatus, onDone }: Pro
       {activeSheet === "tag" && (
         <BulkTagSheet
           movieIds={selectedIds}
-          allTags={allTags}
+          allTags={tags ?? []}
           onClose={() => setActiveSheet(null)}
           onDone={() => { setActiveSheet(null); onDone(); }}
         />

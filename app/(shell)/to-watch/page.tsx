@@ -1,17 +1,14 @@
 import type { Metadata } from "next";
 import { MovieLibraryGrid } from "@/components/movie/movie-library-grid";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
-import { listLibraryMoviesPage, listTags } from "@/lib/db/queries";
+import { listLibraryMoviesPage } from "@/lib/db/queries";
 
 export const metadata: Metadata = {
   title: "To Watch",
 };
 
 export default async function ToWatchPage() {
-  const [queuePage, allTags] = await Promise.all([
-    listLibraryMoviesPage({ status: "to_watch" }),
-    listTags(),
-  ]);
+  const queuePage = await listLibraryMoviesPage({ status: "to_watch" });
 
   return (
     <main className="space-y-6">
@@ -30,7 +27,6 @@ export default async function ToWatchPage() {
       {queuePage.movies.length > 0 ? (
         <MovieLibraryGrid
           initialPage={queuePage}
-          allTags={allTags}
           pageStatus="to_watch"
         />
       ) : (
