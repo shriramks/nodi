@@ -613,6 +613,35 @@ export type Database = {
           watch_log: Json | null;
         }[];
       };
+      list_library_movies_page: {
+        Args: {
+          p_genre?: string | null;
+          p_language?: string | null;
+          p_limit?: number;
+          p_offset?: number;
+          p_rating_op?: ">=" | ">" | "=" | "<" | "<=" | null;
+          p_rating_value?: number | null;
+          p_sort_direction?: "asc" | "desc" | null;
+          p_sort_key?: "watched_date" | "added_date" | "rating" | "title" | null;
+          p_status: MovieStatus;
+          p_tag_names?: string[] | null;
+          p_watched_end?: string | null;
+          p_watched_start?: string | null;
+        };
+        Returns: {
+          added_at: string;
+          id: string;
+          last_watched_at: string | null;
+          movie: Json;
+          movie_id: string;
+          personal_rating: number | null;
+          status: MovieStatus;
+          total_count: number;
+          updated_at: string;
+          user_id: string;
+          watchlisted_at: string | null;
+        }[];
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

@@ -116,10 +116,13 @@ files, then inspect only direct imports, direct callers, or the relevant route b
 
 - Library query owner: `lib/db/queries/movies.ts`
   - `listLibraryMoviesPage()` joins `user_movies` to a minimal `movies` projection for grids.
+  - Paged library grid reads execute through the `list_library_movies_page(...)` RPC so watched-date
+    and tag filters stay in Postgres instead of intersecting movie-id sets in application memory.
   - `listUserMovies()` joins `user_movies` to full `movies` rows without hydrating tags.
-  - It accepts status, limit, offset, and watched-library filters.
+  - Both read helpers accept status, limit, offset, and watched-library filters.
   - Genre/language/rating filters apply directly to `user_movies`/`movies`.
-  - Tag and watched year/month filters first resolve matching movie ids, then intersect.
+  - The full-row `listUserMovies()` helper still resolves tag and watched year/month filters through
+    movie-id prefilters; the paged grid path does not.
   - Month filter keys are `YYYY-MM`; year filter keys are `YYYY`; month takes precedence.
   - `getMovieDetail()` hydrates per-movie tags through `user_movie_tags` for tag-aware detail screens.
   - If a route-level library filter is needed, this is the server query to extend.

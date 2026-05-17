@@ -13,7 +13,7 @@ vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: mocks.createSupabaseServerClient,
 }));
 
-import { listUserMovies } from "@/lib/db/queries/movies";
+import { listLibraryMoviesPage, listUserMovies } from "@/lib/db/queries/movies";
 
 const userId = "10000000-0000-4000-8000-000000000000";
 
@@ -71,5 +71,66 @@ describe("movie queries", () => {
 
     expect(from).toHaveBeenCalledTimes(1);
     expect(from).toHaveBeenCalledWith("user_movies");
+  });
+
+  it("loads paged library rows through the database filter RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        {
+          added_at: "2026-05-01T00:00:00.000Z",
+          id: "20000000-0000-4000-8000-000000000000",
+          last_watched_at: "2026-05-02T00:00:00.000Z",
+          movie: {
+            id: "30000000-0000-4000-8000-000000000000",
+            poster_path: "/poster.jpg",
+            title: "Nodi",
+          },
+          movie_id: "30000000-0000-4000-8000-000000000000",
+          personal_rating: 8,
+          status: "watched",
+          total_count: 2,
+          updated_at: "2026-05-02T00:00:00.000Z",
+          user_id: userId,
+          watchlisted_at: null,
+        },
+      ],
+      error: null,
+    });
+    mocks.createSupabaseServerClient.mockResolvedValue({ rpc });
+
+    await expect(
+      listLibraryMoviesPage({
+        status: "watched",
+        filters: {
+          tagNames: [" Noir ", "noir"],
+          watchedMonth: "2026-05",
+          watchedYear: "2025",
+        },
+      }),
+    ).resolves.toEqual({
+      movies: [
+        expect.objectContaining({
+          movie: expect.objectContaining({ title: "Nodi" }),
+        }),
+      ],
+      totalCount: 2,
+      hasMore: true,
+      nextOffset: 1,
+    });
+
+    expect(rpc).toHaveBeenCalledWith("list_library_movies_page", {
+      p_status: "watched",
+      p_limit: 48,
+      p_offset: 0,
+      p_sort_key: "watched_date",
+      p_sort_direction: "desc",
+      p_genre: null,
+      p_language: null,
+      p_tag_names: ["Noir", "noir"],
+      p_rating_op: null,
+      p_rating_value: null,
+      p_watched_start: "2026-05-01T00:00:00.000Z",
+      p_watched_end: "2026-06-01T00:00:00.000Z",
+    });
   });
 });

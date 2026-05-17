@@ -20,8 +20,9 @@ type UserMovieJoinRow = UserMovie & {
   movies: Movie | null;
 };
 
-type LibraryMovieJoinRow = UserMovie & {
-  movies: Pick<Movie, "id" | "poster_path" | "title"> | null;
+type LibraryMoviePageRow = UserMovie & {
+  movie: Pick<Movie, "id" | "poster_path" | "title">;
+  total_count: number;
 };
 
 type WatchLogJoinRow = WatchLog & {
@@ -132,70 +133,45 @@ export async function listUserMovies(options: UserMovieListOptions = {}) {
 export async function listLibraryMoviesPage(
   options: LibraryMoviePageOptions,
 ): Promise<LibraryMoviePage> {
-  const user = await requireUser();
+  await requireUser();
   const supabase = await createSupabaseServerClient();
   const limit = Math.min(Math.max(options.limit ?? 48, 1), 100);
   const offset = Math.max(options.offset ?? 0, 0);
-  const movieIdFilter = await buildMovieIdFilter(user.id, options.filters);
-
-  if (movieIdFilter && movieIdFilter.size === 0) {
-    return {
-      movies: [],
-      totalCount: 0,
-      hasMore: false,
-      nextOffset: null,
-    };
-  }
-
-  let query = supabase
-    .from("user_movies")
-    .select(
-      "id, user_id, movie_id, status, personal_rating, added_at, watchlisted_at, last_watched_at, updated_at, movies!inner(id, title, poster_path)",
-      { count: "exact" },
-    )
-    .eq("user_id", user.id)
-    .eq("status", options.status)
-    .range(offset, offset + limit - 1);
-
-  if (options.filters?.genre) {
-    query = query.ilike("movies.primary_genre_name", options.filters.genre);
-  }
-
-  if (options.filters?.language) {
-    query = query.eq("movies.original_language", options.filters.language.toLowerCase());
-  }
-
-  if (options.filters?.rating) {
-    const { op, value } = options.filters.rating;
-    if (op === ">=") query = query.gte("personal_rating", value);
-    if (op === ">") query = query.gt("personal_rating", value);
-    if (op === "=") query = query.eq("personal_rating", value);
-    if (op === "<") query = query.lt("personal_rating", value);
-    if (op === "<=") query = query.lte("personal_rating", value);
-  }
-
-  if (movieIdFilter) {
-    query = query.in("movie_id", [...movieIdFilter]);
-  }
-
   const sort = normalizeLibrarySort(options.status, options.sort);
-  query = applyLibrarySort(query, sort);
-
-  const { data, error, count } = await query;
+  const watchedRange = watchedFilterRange(options.filters);
+  const { data, error } = await supabase.rpc("list_library_movies_page", {
+    p_status: options.status,
+    p_limit: limit,
+    p_offset: offset,
+    p_sort_key: sort.key,
+    p_sort_direction: sort.direction,
+    p_genre: options.filters?.genre ?? null,
+    p_language: options.filters?.language?.toLowerCase() ?? null,
+    p_tag_names: normalizeTagNames(options.filters?.tagNames),
+    p_rating_op: options.filters?.rating?.op ?? null,
+    p_rating_value: options.filters?.rating?.value ?? null,
+    p_watched_start: watchedRange?.start ?? null,
+    p_watched_end: watchedRange?.end ?? null,
+  });
 
   if (error) {
     throwDatabaseError("Failed to load library movies.", error);
   }
 
-  const movies = ((data ?? []) as unknown as LibraryMovieJoinRow[]).flatMap((row) => {
-    if (!row.movies) {
-      return [];
-    }
-
-    const { movies: movie, ...userMovie } = row;
-    return [{ ...userMovie, movie } satisfies LibraryMovie];
-  });
-  const totalCount = count ?? movies.length;
+  const rows = (data ?? []) as unknown as LibraryMoviePageRow[];
+  const movies = rows.map((row) => ({
+    id: row.id,
+    user_id: row.user_id,
+    movie_id: row.movie_id,
+    status: row.status,
+    personal_rating: row.personal_rating,
+    added_at: row.added_at,
+    watchlisted_at: row.watchlisted_at,
+    last_watched_at: row.last_watched_at,
+    updated_at: row.updated_at,
+    movie: row.movie,
+  } satisfies LibraryMovie));
+  const totalCount = rows[0]?.total_count ?? 0;
   const nextOffset = offset + movies.length;
   const hasMore = nextOffset < totalCount;
 
@@ -205,6 +181,18 @@ export async function listLibraryMoviesPage(
     hasMore,
     nextOffset: hasMore ? nextOffset : null,
   };
+}
+
+function watchedFilterRange(filters: UserMovieListOptions["filters"]) {
+  if (filters?.watchedMonth) {
+    return monthRange(filters.watchedMonth);
+  }
+
+  if (filters?.watchedYear) {
+    return yearRange(filters.watchedYear);
+  }
+
+  return null;
 }
 
 async function buildMovieIdFilter(
@@ -307,39 +295,6 @@ function normalizeLibrarySort(
   return status === "to_watch"
     ? { key: "added_date" as const, direction: "desc" as const }
     : { key: "watched_date" as const, direction: "desc" as const };
-}
-
-function applyLibrarySort<T extends {
-  order: (
-    column: string,
-    options?: {
-      ascending?: boolean;
-      nullsFirst?: boolean;
-      referencedTable?: string;
-    },
-  ) => T;
-}>(
-  query: T,
-  sort: ReturnType<typeof normalizeLibrarySort>,
-) {
-  const ascending = sort.direction === "asc";
-
-  if (sort.key === "title") {
-    return query
-      .order("title", { ascending, referencedTable: "movies" })
-      .order("movie_id", { ascending: true });
-  }
-
-  const column =
-    sort.key === "rating"
-      ? "personal_rating"
-      : sort.key === "added_date"
-        ? "watchlisted_at"
-        : "last_watched_at";
-
-  return query
-    .order(column, { ascending, nullsFirst: false })
-    .order("movie_id", { ascending: true });
 }
 
 function yearRange(value: string) {

@@ -142,6 +142,11 @@ keep compact capped samples for UI display.
 fields to `sync_runs` so provider sync UIs can show counts such as `41/143 history items` while
 retaining the existing coarse phase progress for the overall run.
 
+`supabase/migrations/20260517230000_align_library_query_path.sql` adds the missing to-watch sort
+index on `user_movies (user_id, status, watchlisted_at desc nulls last)` and moves paged library
+reads into `list_library_movies_page(...)` so watched-date and tag filters execute in Postgres
+instead of materializing intermediate movie-id sets in the app process.
+
 ## 8. Operational Notes
 
 Keep these server-side only:
