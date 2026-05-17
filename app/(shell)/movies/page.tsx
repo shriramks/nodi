@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { MovieLibraryGrid } from "@/components/movie/movie-library-grid";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
-import { getLibraryStats, listTags, listUserMovies } from "@/lib/db/queries";
+import { getWatchedLibrarySummary, listTags, listUserMovies } from "@/lib/db/queries";
 import type { LibraryStatsBreakdownItem } from "@/lib/db/types";
 
 export const metadata: Metadata = {
@@ -20,7 +20,7 @@ export default async function MoviesPage({
 }) {
   const params = await searchParams;
   const filters = parseMovieFilters(params);
-  const [watchedMovies, stats, allTags] = await Promise.all([
+  const [watchedMovies, summary, allTags] = await Promise.all([
     listUserMovies({
       status: "watched",
       filters: {
@@ -35,7 +35,7 @@ export default async function MoviesPage({
         watchedMonth: filters.month,
       },
     }),
-    getLibraryStats(),
+    getWatchedLibrarySummary(),
     listTags(),
   ]);
   const activeLabels = filterLabels(filters, allTags);
@@ -58,7 +58,7 @@ export default async function MoviesPage({
             <h1 className="text-[32px] font-bold leading-[1.1]">Movies</h1>
             <p className="mt-1 text-[13px] text-text-2">
               <span className="tabnum">
-                {activeLabels.length > 0 ? watchedMovies.length : stats.watchedCount}
+                {activeLabels.length > 0 ? watchedMovies.length : summary.watchedCount}
               </span>{" "}
               watched
               {activeLabels.length > 0 && <> · {activeLabels.join(" · ")}</>}
@@ -75,10 +75,10 @@ export default async function MoviesPage({
           pageStatus="watched"
           activeFilters={filters}
           filterOptions={{
-            genres: breakdownOptions(stats.genreBreakdown),
-            languages: breakdownOptions(stats.languageBreakdown.filter((item) => item.key !== "unknown")),
-            years: [...stats.yearBuckets].filter((bucket) => bucket.count > 0).reverse(),
-            months: stats.monthBuckets,
+            genres: breakdownOptions(summary.genreBreakdown),
+            languages: breakdownOptions(summary.languageBreakdown.filter((item) => item.key !== "unknown")),
+            years: [...summary.yearBuckets].filter((bucket) => bucket.count > 0).reverse(),
+            months: summary.monthBuckets,
           }}
         />
       ) : (

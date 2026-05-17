@@ -5,9 +5,11 @@ import { throwDatabaseError } from "@/lib/db/errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   buildLibraryStats,
+  buildWatchedLibrarySummary,
   type RatingAnalyticsRow,
   type TagAnalyticsRow,
   type WatchLogAnalyticsRow,
+  type WatchedLibrarySummaryRow,
 } from "./stats-transforms";
 
 const analyticsPageSize = 1000;
@@ -22,6 +24,13 @@ export async function getLibraryStats(tagFilter?: string) {
   ]);
 
   return buildLibraryStats(watchRows, tagRows, ratingRows, tagFilter);
+}
+
+export async function getWatchedLibrarySummary() {
+  const user = await requireUser();
+  const watchRows = await listWatchedLibrarySummaryRows(user.id);
+
+  return buildWatchedLibrarySummary(watchRows);
 }
 
 async function listWatchLogAnalyticsRows(userId: string) {
@@ -41,6 +50,31 @@ async function listWatchLogAnalyticsRows(userId: string) {
     }
 
     const page = (data ?? []) as unknown as WatchLogAnalyticsRow[];
+    rows.push(...page);
+
+    if (page.length < analyticsPageSize) {
+      return rows;
+    }
+  }
+}
+
+async function listWatchedLibrarySummaryRows(userId: string) {
+  const supabase = await createSupabaseServerClient();
+  const rows: WatchedLibrarySummaryRow[] = [];
+
+  for (let offset = 0; ; offset += analyticsPageSize) {
+    const { data, error } = await supabase
+      .from("watch_logs")
+      .select("movie_id, watched_at, movies(original_language, primary_genre_name)")
+      .eq("user_id", userId)
+      .order("watched_at", { ascending: true })
+      .range(offset, offset + analyticsPageSize - 1);
+
+    if (error) {
+      throwDatabaseError("Failed to load watched-library summary rows.", error);
+    }
+
+    const page = (data ?? []) as unknown as WatchedLibrarySummaryRow[];
     rows.push(...page);
 
     if (page.length < analyticsPageSize) {

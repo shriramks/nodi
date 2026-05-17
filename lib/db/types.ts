@@ -681,3 +681,11 @@ export type LibraryStats = {
   tagBreakdown: LibraryStatsBreakdownItem[];
   ratingBreakdown: LibraryStatsRatingBucket[];
 };
+
+export type WatchedLibrarySummary = {
+  watchedCount: number;
+  monthBuckets: LibraryStatsTimeBucket[];
+  yearBuckets: LibraryStatsTimeBucket[];
+  genreBreakdown: LibraryStatsBreakdownItem[];
+  languageBreakdown: LibraryStatsBreakdownItem[];
+};

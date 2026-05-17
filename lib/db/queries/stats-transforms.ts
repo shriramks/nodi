@@ -6,6 +6,7 @@ import type {
   Movie,
   Tag,
   UserMovieTag,
+  WatchedLibrarySummary,
   WatchLog,
 } from "@/lib/db/types";
 
@@ -23,6 +24,15 @@ export type WatchLogAnalyticsRow = Pick<WatchLog, "id" | "movie_id" | "watched_a
   movies: WatchLogAnalyticsMovie | null;
 };
 
+export type WatchedLibrarySummaryMovie = Pick<
+  Movie,
+  "original_language" | "primary_genre_name"
+>;
+
+export type WatchedLibrarySummaryRow = Pick<WatchLog, "movie_id" | "watched_at"> & {
+  movies: WatchedLibrarySummaryMovie | null;
+};
+
 export type TagAnalyticsRow = Pick<UserMovieTag, "movie_id"> & {
   tags: Pick<Tag, "id" | "name"> | null;
 };
@@ -37,6 +47,20 @@ type WatchedMovieSummary = {
   originalLanguage: string | null;
   primaryGenreName: string | null;
   releaseYear: number | null;
+};
+
+type WatchedMovieSourceRow = Pick<WatchLog, "movie_id"> & {
+  movies:
+    | (Pick<Movie, "original_language" | "primary_genre_name"> &
+        Partial<Pick<Movie, "release_year">>)
+    | null;
+};
+
+type TimeBucketSourceRow = Pick<WatchLog, "watched_at"> & {
+  movies:
+    | Partial<Pick<Movie, "runtime_minutes">>
+    | WatchedLibrarySummaryMovie
+    | null;
 };
 
 export function buildLibraryStats(
@@ -100,7 +124,33 @@ export function buildLibraryStats(
   };
 }
 
-function buildWatchedMovies(rows: WatchLogAnalyticsRow[]): WatchedMovieSummary[] {
+export function buildWatchedLibrarySummary(
+  watchRows: WatchedLibrarySummaryRow[],
+): WatchedLibrarySummary {
+  const watchedMovies = buildWatchedMovies(watchRows);
+
+  return {
+    watchedCount: watchedMovies.length,
+    monthBuckets: buildMonthBuckets(watchRows),
+    yearBuckets: buildYearBuckets(watchRows),
+    genreBreakdown: buildMovieBreakdown(watchedMovies, (movie) => {
+      const genre = movie.primaryGenreName?.trim();
+      return {
+        key: genre ? genre.toLowerCase() : unknownKey,
+        label: genre || unknownLabel,
+      };
+    }),
+    languageBreakdown: buildMovieBreakdown(watchedMovies, (movie) => {
+      const language = movie.originalLanguage?.trim();
+      return {
+        key: language ? language.toLowerCase() : unknownKey,
+        label: formatLanguageLabel(language),
+      };
+    }),
+  };
+}
+
+function buildWatchedMovies(rows: WatchedMovieSourceRow[]): WatchedMovieSummary[] {
   const movies = new Map<string, WatchedMovieSummary>();
 
   for (const row of rows) {
@@ -138,7 +188,7 @@ function buildFavDecade(movies: WatchedMovieSummary[]): string | null {
   return `${best[0]}s`;
 }
 
-function buildMonthBuckets(rows: WatchLogAnalyticsRow[]): LibraryStatsTimeBucket[] {
+function buildMonthBuckets(rows: TimeBucketSourceRow[]): LibraryStatsTimeBucket[] {
   if (rows.length === 0) return [];
 
   let earliest = Infinity;
@@ -175,14 +225,18 @@ function buildMonthBuckets(rows: WatchLogAnalyticsRow[]): LibraryStatsTimeBucket
     const bucket = buckets.get(key);
     if (bucket) {
       bucket.count += 1;
-      bucket.runtimeMinutes += row.movies?.runtime_minutes ?? 0;
+      bucket.runtimeMinutes += runtimeMinutes(row.movies);
     }
   }
 
   return Array.from(buckets.values());
 }
 
-function buildYearBuckets(rows: WatchLogAnalyticsRow[]): LibraryStatsTimeBucket[] {
+function runtimeMinutes(movie: TimeBucketSourceRow["movies"]) {
+  return movie && "runtime_minutes" in movie ? movie.runtime_minutes ?? 0 : 0;
+}
+
+function buildYearBuckets(rows: TimeBucketSourceRow[]): LibraryStatsTimeBucket[] {
   if (rows.length === 0) return [];
 
   let earliestYear = Infinity;
@@ -212,7 +266,7 @@ function buildYearBuckets(rows: WatchLogAnalyticsRow[]): LibraryStatsTimeBucket[
       const bucket = buckets.get(key);
       if (bucket) {
         bucket.count += 1;
-        bucket.runtimeMinutes += row.movies?.runtime_minutes ?? 0;
+        bucket.runtimeMinutes += runtimeMinutes(row.movies);
       }
     }
   }

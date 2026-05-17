@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildLibraryStats,
+  buildWatchedLibrarySummary,
   type RatingAnalyticsRow,
   type TagAnalyticsRow,
   type WatchLogAnalyticsRow,
+  type WatchedLibrarySummaryRow,
 } from "@/lib/db/queries/stats-transforms";
 
 describe("stats transforms", () => {
@@ -97,6 +99,67 @@ describe("stats transforms", () => {
       watchEventCount: 0,
       watchedCount: 0,
       yearBuckets: [],
+    });
+  });
+
+  it("builds a lightweight watched-library summary without double-counting rewatches", () => {
+    const watchRows: WatchedLibrarySummaryRow[] = [
+      {
+        movie_id: "movie-a",
+        watched_at: "2025-12-20T12:00:00.000Z",
+        movies: {
+          original_language: "ja",
+          primary_genre_name: "Animation",
+        },
+      },
+      {
+        movie_id: "movie-a",
+        watched_at: "2026-01-10T12:00:00.000Z",
+        movies: {
+          original_language: "ja",
+          primary_genre_name: "Animation",
+        },
+      },
+      {
+        movie_id: "movie-b",
+        watched_at: "2026-03-10T12:00:00.000Z",
+        movies: {
+          original_language: null,
+          primary_genre_name: null,
+        },
+      },
+    ];
+
+    const summary = buildWatchedLibrarySummary(watchRows);
+
+    expect(summary.watchedCount).toBe(2);
+    expect(summary.genreBreakdown).toEqual([
+      { count: 1, key: "animation", label: "Animation", percentage: 50 },
+      { count: 1, key: "unknown", label: "Unknown", percentage: 50 },
+    ]);
+    expect(summary.languageBreakdown).toEqual([
+      { count: 1, key: "ja", label: "Japanese", percentage: 50 },
+      { count: 1, key: "unknown", label: "Unknown", percentage: 50 },
+    ]);
+    expect(summary.monthBuckets.map((bucket) => [bucket.key, bucket.count])).toEqual([
+      ["2025-12", 1],
+      ["2026-01", 1],
+      ["2026-02", 0],
+      ["2026-03", 1],
+    ]);
+    expect(summary.yearBuckets.map((bucket) => [bucket.key, bucket.count])).toEqual([
+      ["2025", 1],
+      ["2026", 2],
+    ]);
+  });
+
+  it("returns empty lightweight summary collections with no watch events", () => {
+    expect(buildWatchedLibrarySummary([])).toEqual({
+      watchedCount: 0,
+      monthBuckets: [],
+      yearBuckets: [],
+      genreBreakdown: [],
+      languageBreakdown: [],
     });
   });
 });
