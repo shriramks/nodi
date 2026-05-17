@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 
 import { MovieDetailView } from "@/components/movie/movie-detail-view";
 import { isAppError } from "@/lib/errors";
@@ -21,7 +22,7 @@ export async function generateMetadata({
   params,
 }: MovieDetailPageProps): Promise<Metadata> {
   const { movieId } = await params;
-  const movie = await loadMovieOrNotFound(movieId);
+  const movie = await loadInitialMovieOrNotFound(movieId);
   return { title: movie.title };
 }
 
@@ -30,7 +31,7 @@ export default async function MovieDetailPage({
 }: MovieDetailPageProps) {
   const { movieId } = await params;
   const [movieRaw, allTags] = await Promise.all([
-    loadMovieOrNotFound(movieId),
+    loadInitialMovieOrNotFound(movieId),
     listTags(),
   ]);
   let movie = movieRaw;
@@ -84,3 +85,5 @@ async function loadMovieOrNotFound(movieId: string) {
     throw error;
   }
 }
+
+const loadInitialMovieOrNotFound = cache(loadMovieOrNotFound);

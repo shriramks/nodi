@@ -47,6 +47,11 @@ export type MovieCastPayload = {
   cast_order: number | null;
 };
 
+export type TmdbMovieIngestPayload = {
+  movie: MoviePayload;
+  cast: MovieCastPayload[];
+};
+
 function releaseYear(releaseDate: string | null | undefined) {
   if (!releaseDate) {
     return null;
@@ -158,4 +163,14 @@ export function toMovieCastPayloads(credits: TmdbMovieCredits, limit = 12): Movi
       profile_path: member.profile_path ?? null,
       cast_order: member.order ?? null,
     }));
+}
+
+export function toTmdbMovieIngestPayload(
+  detail: TmdbMovieDetails,
+  credits: TmdbMovieCredits,
+): TmdbMovieIngestPayload {
+  return {
+    movie: toMoviePayload(detail),
+    cast: toMovieCastPayloads(credits),
+  };
 }

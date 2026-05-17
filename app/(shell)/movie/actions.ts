@@ -8,17 +8,14 @@ import {
   createAndAttachTag,
   deleteWatchLog,
   detachTagFromMovie,
-  ingestTmdbMovie,
+  ingestPreparedTmdbMovie,
   removeUserMovie,
   setMovieWatchStatus,
   updateMovieRating,
   updateWatchLogDate,
 } from "@/lib/db/mutations";
 import { AppError } from "@/lib/errors";
-import {
-  getTmdbMovieCredits,
-  getTmdbMovieDetails,
-} from "@/lib/providers/tmdb/client";
+import type { TmdbMovieIngestPayload } from "@/lib/providers/tmdb/adapters";
 
 function normalizeTmdbId(value: number) {
   if (!Number.isInteger(value) || value < 1) {
@@ -81,15 +78,19 @@ export async function addToWatchlistAction(movieId: string): Promise<void> {
   revalidateMovieState(movieId);
 }
 
-export async function markTmdbWatchedAction(tmdbId: number): Promise<string> {
-  const movie = await saveTmdbMovie(tmdbId, "watched");
+export async function markTmdbWatchedAction(
+  payload: TmdbMovieIngestPayload,
+): Promise<string> {
+  const movie = await saveTmdbMovie(payload, "watched");
   revalidatePath("/movies");
   revalidatePath("/search");
   return `/movie/${movie.id}`;
 }
 
-export async function addTmdbToWatchlistAction(tmdbId: number): Promise<string> {
-  const movie = await saveTmdbMovie(tmdbId, "to_watch");
+export async function addTmdbToWatchlistAction(
+  payload: TmdbMovieIngestPayload,
+): Promise<string> {
+  const movie = await saveTmdbMovie(payload, "to_watch");
   revalidatePath("/to-watch");
   revalidatePath("/search");
   return `/movie/${movie.id}`;
@@ -154,13 +155,12 @@ export async function updateWatchLogDateAction(
   revalidateMovieState(movieId);
 }
 
-async function saveTmdbMovie(tmdbIdValue: number, status: "watched" | "to_watch") {
-  const tmdbId = normalizeTmdbId(tmdbIdValue);
-  const [detail, credits] = await Promise.all([
-    getTmdbMovieDetails(tmdbId),
-    getTmdbMovieCredits(tmdbId),
-  ]);
-  const movie = await ingestTmdbMovie(detail, credits);
+async function saveTmdbMovie(
+  payload: TmdbMovieIngestPayload,
+  status: "watched" | "to_watch",
+) {
+  const tmdbId = normalizeTmdbId(payload.movie.tmdbId);
+  const movie = await ingestPreparedTmdbMovie(payload);
 
   await setMovieWatchStatus({
     movieId: movie.id,

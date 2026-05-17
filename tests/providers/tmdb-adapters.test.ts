@@ -5,6 +5,7 @@ import {
   toMoviePayload,
   toMovieSearchResponse,
   toMovieSearchResult,
+  toTmdbMovieIngestPayload,
 } from "@/lib/providers/tmdb/adapters";
 import type {
   TmdbMovieCredits,
@@ -131,5 +132,47 @@ describe("TMDB adapters", () => {
         tmdb_person_id: 1,
       },
     ]);
+  });
+
+  it("builds a normalized ingest payload from remote detail data", () => {
+    const detail: TmdbMovieDetails = {
+      id: 42,
+      imdb_id: " tt123 ",
+      title: " Example ",
+      release_date: "2026-05-17",
+      genres: [{ id: 18, name: " Drama " }],
+    };
+    const credits: TmdbMovieCredits = {
+      id: 42,
+      cast: [
+        { id: 2, name: "Second", order: 2 },
+        { id: 1, name: " First ", order: 1 },
+      ],
+    };
+
+    expect(toTmdbMovieIngestPayload(detail, credits)).toEqual({
+      movie: expect.objectContaining({
+        imdbId: "tt123",
+        primaryGenreName: "Drama",
+        title: "Example",
+        tmdbId: 42,
+      }),
+      cast: [
+        {
+          cast_order: 1,
+          character_name: null,
+          name: "First",
+          profile_path: null,
+          tmdb_person_id: 1,
+        },
+        {
+          cast_order: 2,
+          character_name: null,
+          name: "Second",
+          profile_path: null,
+          tmdb_person_id: 2,
+        },
+      ],
+    });
   });
 });

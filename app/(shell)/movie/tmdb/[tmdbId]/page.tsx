@@ -5,7 +5,10 @@ import { MovieDetailView } from "@/components/movie/movie-detail-view";
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError } from "@/lib/db/errors";
 import { isAppError, AppError } from "@/lib/errors";
-import { toMovieCastPayloads } from "@/lib/providers/tmdb/adapters";
+import {
+  toMovieCastPayloads,
+  toTmdbMovieIngestPayload,
+} from "@/lib/providers/tmdb/adapters";
 import {
   getTmdbMovieCredits,
   getTmdbMovieDetails,
@@ -14,6 +17,10 @@ import {
 } from "@/lib/providers/tmdb/client";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { TmdbUserStateActions } from "./tmdb-movie-detail-client";
+import {
+  addTmdbToWatchlistAction,
+  markTmdbWatchedAction,
+} from "../../actions";
 
 type TmdbMovieDetailPageProps = {
   params: Promise<{ tmdbId: string }>;
@@ -39,10 +46,16 @@ export default async function TmdbMovieDetailPage({
   const tmdbId = normalizeTmdbId(rawTmdbId);
   await redirectIfSaved(tmdbId);
   const [detail, credits] = await loadTmdbMovieOrNotFound(tmdbId);
+  const ingestPayload = toTmdbMovieIngestPayload(detail, credits);
 
   return (
     <MovieDetailView
-      actions={<TmdbUserStateActions tmdbId={tmdbId} />}
+      actions={
+        <TmdbUserStateActions
+          addToWatchlist={addTmdbToWatchlistAction.bind(null, ingestPayload)}
+          markWatched={markTmdbWatchedAction.bind(null, ingestPayload)}
+        />
+      }
       movie={toDetailMovie(detail, credits)}
       status={null}
     />

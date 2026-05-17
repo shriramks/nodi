@@ -22,7 +22,10 @@ import {
   validateUuid,
   validateWatchActionPayload,
 } from "@/lib/db/validation";
-import { toMovieCastPayloads, toMoviePayload } from "@/lib/providers/tmdb/adapters";
+import {
+  toTmdbMovieIngestPayload,
+  type TmdbMovieIngestPayload,
+} from "@/lib/providers/tmdb/adapters";
 import type { TmdbMovieCredits, TmdbMovieDetails } from "@/lib/providers/tmdb/client";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSyncEvent } from "./sync";
@@ -66,10 +69,16 @@ export async function ingestTmdbMovie(
   detail: TmdbMovieDetails,
   credits: TmdbMovieCredits,
 ): Promise<Movie> {
+  return ingestPreparedTmdbMovie(toTmdbMovieIngestPayload(detail, credits));
+}
+
+export async function ingestPreparedTmdbMovie(
+  payload: TmdbMovieIngestPayload,
+): Promise<Movie> {
   const supabase = createSupabaseAdminClient();
   const metadataTimestamp = new Date().toISOString();
   const movie = {
-    ...toMovieInsert(toMoviePayload(detail)),
+    ...toMovieInsert(validateMoviePayload(payload.movie)),
     metadata_updated_at: metadataTimestamp,
     tmdb_enriched_at: metadataTimestamp,
   };
@@ -93,7 +102,7 @@ export async function ingestTmdbMovie(
     throwDatabaseError("Failed to replace TMDB movie cast.", deleteCastError);
   }
 
-  const castRows: MovieCastMemberInsert[] = toMovieCastPayloads(credits).map((member) => ({
+  const castRows: MovieCastMemberInsert[] = payload.cast.map((member) => ({
     movie_id: data.id,
     ...member,
   }));
@@ -110,15 +119,15 @@ export async function ingestTmdbMovie(
     {
       movie_id: data.id,
       provider: "tmdb",
-      provider_movie_id: String(detail.id),
+      provider_movie_id: String(payload.movie.tmdbId),
     },
   ];
 
-  if (detail.imdb_id) {
+  if (payload.movie.imdbId) {
     mappingRows.push({
       movie_id: data.id,
       provider: "imdb",
-      provider_movie_id: detail.imdb_id,
+      provider_movie_id: payload.movie.imdbId,
     });
   }
 

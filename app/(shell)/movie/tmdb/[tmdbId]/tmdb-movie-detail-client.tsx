@@ -4,12 +4,13 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { LoaderCircle } from "lucide-react";
 
-import {
-  addTmdbToWatchlistAction,
-  markTmdbWatchedAction,
-} from "../../actions";
-
-export function TmdbUserStateActions({ tmdbId }: { tmdbId: number }) {
+export function TmdbUserStateActions({
+  addToWatchlist,
+  markWatched,
+}: {
+  addToWatchlist: () => Promise<string>;
+  markWatched: () => Promise<string>;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +26,6 @@ export function TmdbUserStateActions({ tmdbId }: { tmdbId: number }) {
       try {
         const detailUrl = await action();
         router.push(detailUrl);
-        router.refresh();
       } catch {
         setError("Something went wrong. Try again.");
       } finally {
@@ -40,7 +40,7 @@ export function TmdbUserStateActions({ tmdbId }: { tmdbId: number }) {
         <button
           className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-xl bg-accent/15 px-4 text-[15px] font-semibold text-accent active:opacity-70 disabled:opacity-50"
           disabled={isPending}
-          onClick={() => run("watch", () => markTmdbWatchedAction(tmdbId))}
+          onClick={() => run("watch", markWatched)}
           type="button"
         >
           {pendingAction === "watch" ? (
@@ -52,7 +52,7 @@ export function TmdbUserStateActions({ tmdbId }: { tmdbId: number }) {
         <button
           className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-xl border border-border px-4 text-[15px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
           disabled={isPending}
-          onClick={() => run("watchlist", () => addTmdbToWatchlistAction(tmdbId))}
+          onClick={() => run("watchlist", addToWatchlist)}
           type="button"
         >
           {pendingAction === "watchlist" ? (
