@@ -595,7 +595,25 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      apply_movie_watch_state: {
+        Args: {
+          p_has_personal_rating?: boolean;
+          p_movie_id: string;
+          p_notes?: string | null;
+          p_operation?: "set_status" | "add_watch_date";
+          p_personal_rating?: number | null;
+          p_provider_event_id?: string | null;
+          p_source?: WatchLogSource | null;
+          p_status: MovieStatus;
+          p_watched_at?: string | null;
+        };
+        Returns: {
+          user_movie: Json;
+          watch_log: Json | null;
+        }[];
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

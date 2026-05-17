@@ -118,8 +118,9 @@ User taps search result
 
 ```text
 User marks watched / changes rating / adds to watchlist
-  -> write to Supabase immediately
-  -> append sync_events row
+  -> watched/watchlist writes call the transactional apply_movie_watch_state RPC
+  -> RPC updates user_movies, appends watch_logs when needed, and queues sync_events atomically
+  -> rating-only writes still update Supabase directly and append sync_events
   -> background push to Trakt, batching adjacent compatible events into one provider request
   -> update sync status
 ```

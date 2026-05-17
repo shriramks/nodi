@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildMovieWatchStateMutationArgs,
   buildUserMovieStatusPayload,
   latestTimestamp,
   shouldQueueOutboundSync,
@@ -68,5 +69,66 @@ describe("movie mutation state helpers", () => {
     expect(latestTimestamp(null, "2026-05-01T00:00:00.000Z")).toBe(
       "2026-05-01T00:00:00.000Z",
     );
+  });
+
+  it("builds watched-state mutation args for a watched write", () => {
+    expect(
+      buildMovieWatchStateMutationArgs({
+        action: {
+          movieId,
+          source: "manual",
+          status: "watched",
+          watchedAt: "2026-05-01T12:00:00.000Z",
+        },
+        operation: "set_status",
+      }),
+    ).toEqual({
+      p_has_personal_rating: false,
+      p_movie_id: movieId,
+      p_notes: null,
+      p_operation: "set_status",
+      p_personal_rating: null,
+      p_provider_event_id: null,
+      p_source: "manual",
+      p_status: "watched",
+      p_watched_at: "2026-05-01T12:00:00.000Z",
+    });
+  });
+
+  it("preserves explicit rating clears on watchlist writes", () => {
+    expect(
+      buildMovieWatchStateMutationArgs({
+        action: {
+          movieId,
+          personalRating: null,
+          status: "to_watch",
+        },
+        operation: "set_status",
+      }),
+    ).toMatchObject({
+      p_has_personal_rating: true,
+      p_personal_rating: null,
+      p_status: "to_watch",
+      p_watched_at: null,
+    });
+  });
+
+  it("builds repeat-watch mutation args separately from first watched writes", () => {
+    expect(
+      buildMovieWatchStateMutationArgs({
+        action: {
+          movieId,
+          providerEventId: "trakt-1",
+          source: "trakt_sync",
+          status: "watched",
+          watchedAt: "2026-05-02T12:00:00.000Z",
+        },
+        operation: "add_watch_date",
+      }),
+    ).toMatchObject({
+      p_operation: "add_watch_date",
+      p_provider_event_id: "trakt-1",
+      p_source: "trakt_sync",
+    });
   });
 });

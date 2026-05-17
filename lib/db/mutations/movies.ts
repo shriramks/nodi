@@ -11,9 +11,7 @@ import type {
   WatchLog,
 } from "@/lib/db/types";
 import {
-  buildUserMovieStatusPayload,
-  latestTimestamp,
-  shouldQueueOutboundSync,
+  buildMovieWatchStateMutationArgs,
 } from "@/lib/db/mutations/movie-state";
 import {
   toMovieInsert,
@@ -47,6 +45,11 @@ function objectPayload(payload: unknown): Record<string, unknown> {
     ? (payload as Record<string, unknown>)
     : {};
 }
+
+type MovieWatchStateMutationRow = {
+  user_movie: UserMovie;
+  watch_log: WatchLog | null;
+};
 
 export async function upsertMovieMetadata(payload: unknown): Promise<Movie> {
   const supabase = createSupabaseAdminClient();
@@ -156,74 +159,26 @@ export async function setMovieWatchStatus(payload: unknown): Promise<{
   userMovie: UserMovie;
   watchLog: WatchLog | null;
 }> {
-  const user = await requireUser();
+  await requireUser();
   const supabase = await createSupabaseServerClient();
   const action = validateWatchActionPayload(payload);
-  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .rpc(
+      "apply_movie_watch_state",
+      buildMovieWatchStateMutationArgs({
+        action,
+        operation: "set_status",
+      }),
+    )
+    .single<MovieWatchStateMutationRow>();
 
-  const userMoviePayload = buildUserMovieStatusPayload({
-    action,
-    now,
-    userId: user.id,
-  });
-
-  const { data: userMovie, error: userMovieError } = await supabase
-    .from("user_movies")
-    .upsert(userMoviePayload, { onConflict: "user_id,movie_id" })
-    .select("*")
-    .single();
-
-  if (userMovieError) {
-    throwDatabaseError("Failed to update movie watch status.", userMovieError);
-  }
-
-  if (action.status !== "watched" || !action.watchedAt) {
-    if (shouldQueueOutboundSync(action.source)) {
-      await queueTraktSyncEvent("movie.add_to_watchlist", {
-        movieId: action.movieId,
-        userMovieId: userMovie.id,
-        watchlistedAt: userMovie.watchlisted_at ?? now,
-      });
-    }
-
-    return {
-      userMovie,
-      watchLog: null,
-    };
-  }
-
-  const { data: watchLog, error: watchLogError } = await supabase
-    .from("watch_logs")
-    .insert({
-      user_id: user.id,
-      movie_id: action.movieId,
-      watched_at: action.watchedAt,
-      source: action.source ?? "manual",
-      provider_event_id: action.providerEventId ?? null,
-      notes: action.notes ?? null,
-    })
-    .select("*")
-    .single();
-
-  if (watchLogError) {
-    throwDatabaseError("Failed to append watch log.", watchLogError);
-  }
-
-  if (shouldQueueOutboundSync(action.source)) {
-    await queueTraktSyncEvent("movie.mark_watched", {
-      movieId: action.movieId,
-      userMovieId: userMovie.id,
-      watchLogId: watchLog.id,
-      watchedAt: action.watchedAt,
-      personalRating: Object.hasOwn(action, "personalRating")
-        ? (action.personalRating ?? null)
-        : null,
-    });
+  if (error) {
+    throwDatabaseError("Failed to update movie watch status.", error);
   }
 
   return {
-    userMovie,
-    watchLog,
+    userMovie: data.user_movie,
+    watchLog: data.watch_log,
   };
 }
 
@@ -234,7 +189,7 @@ export async function addMovieWatchDate(
   userMovie: UserMovie;
   watchLog: WatchLog;
 }> {
-  const user = await requireUser();
+  await requireUser();
   const supabase = await createSupabaseServerClient();
   const id = validateUuid(movieId, "movieId");
   const action = validateWatchActionPayload({
@@ -242,67 +197,29 @@ export async function addMovieWatchDate(
     movieId: id,
     status: "watched",
   });
-  const watchedAt = action.watchedAt as string;
-
-  const { data: existingUserMovie, error: existingUserMovieError } = await supabase
-    .from("user_movies")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("movie_id", id)
-    .maybeSingle();
-
-  if (existingUserMovieError) {
-    throwDatabaseError("Failed to load existing movie watch state.", existingUserMovieError);
-  }
-
-  const { data: userMovie, error: userMovieError } = await supabase
-    .from("user_movies")
-    .upsert(
-      {
-        user_id: user.id,
-        movie_id: id,
-        status: "watched",
-        watchlisted_at: null,
-        last_watched_at: latestTimestamp(existingUserMovie?.last_watched_at, watchedAt),
-      },
-      { onConflict: "user_id,movie_id" },
+  const { data, error } = await supabase
+    .rpc(
+      "apply_movie_watch_state",
+      buildMovieWatchStateMutationArgs({
+        action,
+        operation: "add_watch_date",
+      }),
     )
-    .select("*")
-    .single();
+    .single<MovieWatchStateMutationRow>();
 
-  if (userMovieError) {
-    throwDatabaseError("Failed to update movie watch state.", userMovieError);
+  if (error) {
+    throwDatabaseError("Failed to append watch date.", error);
   }
 
-  const { data: watchLog, error: watchLogError } = await supabase
-    .from("watch_logs")
-    .insert({
-      user_id: user.id,
-      movie_id: id,
-      watched_at: watchedAt,
-      source: action.source ?? "manual",
-      provider_event_id: action.providerEventId ?? null,
-      notes: action.notes ?? null,
-    })
-    .select("*")
-    .single();
-
-  if (watchLogError) {
-    throwDatabaseError("Failed to append watch date.", watchLogError);
-  }
-
-  if (shouldQueueOutboundSync(action.source)) {
-    await queueTraktSyncEvent("movie.add_watch_date", {
-      movieId: id,
-      userMovieId: userMovie.id,
-      watchLogId: watchLog.id,
-      watchedAt,
+  if (!data.watch_log) {
+    throwDatabaseError("Failed to append watch date.", {
+      message: "Movie watch-state mutation did not return a watch log.",
     });
   }
 
   return {
-    userMovie,
-    watchLog,
+    userMovie: data.user_movie,
+    watchLog: data.watch_log,
   };
 }
 

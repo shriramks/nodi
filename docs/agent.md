@@ -181,6 +181,9 @@ files, then inspect only direct imports, direct callers, or the relevant route b
   - `watch_logs.movie_id`
   - `watch_logs.watched_at`
   - Stats month/year buckets are based on `watch_logs`, not just `user_movies.last_watched_at`.
+- Watched/watchlist writes:
+  - `apply_movie_watch_state(...)` is the transactional RPC for single-movie watched, watchlist,
+    repeat-watch, and outbound Trakt sync-event bookkeeping.
 - User tags:
   - `tags.name`
   - `user_movie_tags.movie_id`
