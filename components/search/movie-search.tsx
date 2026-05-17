@@ -1,6 +1,6 @@
 "use client";
 
-import { Film, Search } from "lucide-react";
+import { Film, LoaderCircle, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
@@ -173,7 +173,7 @@ function SearchResultPoster({
     >
       <div
         aria-hidden="true"
-        className="flex aspect-[2/3] w-full items-center justify-center rounded-2xl border border-border bg-surface-muted bg-cover bg-center transition-transform duration-200 group-hover:-translate-y-0.5"
+        className="relative flex aspect-[2/3] w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-surface-muted bg-cover bg-center transition-transform duration-200 group-hover:-translate-y-0.5"
         style={
           result.posterPath
             ? { backgroundImage: `url(${posterBaseUrl}${result.posterPath})` }
@@ -183,6 +183,11 @@ function SearchResultPoster({
         {result.posterPath ? null : (
           <Film className="h-5 w-5 text-text-faint" strokeWidth={1.8} />
         )}
+        {isOpening ? (
+          <span className="absolute inset-0 flex items-center justify-center bg-surface/72">
+            <LoaderCircle className="h-5 w-5 animate-spin text-foreground" strokeWidth={2.2} />
+          </span>
+        ) : null}
       </div>
       <p className="mt-2 truncate text-[13px] font-semibold leading-tight text-foreground">
         {result.title}

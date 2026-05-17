@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { LoaderCircle } from "lucide-react";
+import { type FormEvent, useActionState, useState } from "react";
 
 import {
   signInWithPassword,
@@ -21,6 +22,7 @@ export function SignInForm({
   next,
   initialMessage,
 }: SignInFormProps) {
+  const [pendingIntent, setPendingIntent] = useState<"sign-in" | "sign-up" | null>(null);
   const [state, formAction, isPending] = useActionState<SignInState, FormData>(
     signInWithPassword,
     initialMessage
@@ -31,8 +33,15 @@ export function SignInForm({
       : emptyState,
   );
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    const submitter = (event.nativeEvent as SubmitEvent).submitter;
+    setPendingIntent(submitter instanceof HTMLButtonElement && submitter.value === "sign-up"
+      ? "sign-up"
+      : "sign-in");
+  }
+
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-4" onSubmit={handleSubmit}>
       <div className="space-y-2">
         <label
           className="text-[15px] leading-[1.4] text-text-2"
@@ -77,9 +86,12 @@ export function SignInForm({
         name="intent"
         value="sign-in"
         disabled={isPending}
-        className="flex h-[50px] w-full items-center justify-center rounded-xl bg-accent px-4 text-[15px] font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex h-[50px] w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 text-[15px] font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isPending ? "Signing in..." : "Sign in"}
+        {isPending && pendingIntent === "sign-in" ? (
+          <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+        ) : null}
+        Sign in
       </button>
 
       <button
@@ -87,8 +99,11 @@ export function SignInForm({
         name="intent"
         value="sign-up"
         disabled={isPending}
-        className="flex h-[50px] w-full items-center justify-center rounded-xl border border-border bg-surface px-4 text-[15px] font-semibold text-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex h-[50px] w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 text-[15px] font-semibold text-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-60"
       >
+        {isPending && pendingIntent === "sign-up" ? (
+          <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+        ) : null}
         Create account
       </button>
 

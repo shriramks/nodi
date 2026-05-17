@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Tag, Star, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle, Star, Tag } from "lucide-react";
 
 import { bulkMarkWatchedAction, bulkAddToWatchlistAction } from "@/app/(shell)/movie/bulk-actions";
 import { BulkTagSheet } from "./bulk-tag-sheet";
@@ -80,16 +80,17 @@ export function BulkActionsBar({ selectedIds, allTags, pageStatus, onDone }: Pro
             disabled={isPending}
             className="flex h-9 items-center gap-1.5 rounded-full bg-accent/15 px-3 text-[13px] font-medium text-accent active:opacity-70 disabled:opacity-40"
           >
-            {pageStatus === "watched" ? (
-              <>
-                <EyeOff aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
-                Unwatch
-              </>
+            {isPending ? (
+              <LoaderCircle aria-hidden="true" className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
+            ) : pageStatus === "watched" ? (
+              <EyeOff aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
             ) : (
-              <>
-                <Eye aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
-                Watched
-              </>
+              <Eye aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+            )}
+            {pageStatus === "watched" ? (
+              "Unwatch"
+            ) : (
+              "Watched"
             )}
           </button>
         </div>

@@ -1,7 +1,17 @@
 "use client";
 
 import { type FormEvent, useState, useTransition } from "react";
-import { Check, ChevronDown, ChevronRight, Heart, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Heart,
+  LoaderCircle,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 
 function parseLocalDate(dateStr: string): Date {
@@ -42,14 +52,21 @@ export function UserStateActions({
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<"watch" | "watchlist" | "remove" | null>(null);
 
-  function run(action: () => Promise<void>) {
+  function run(
+    pendingKey: "watch" | "watchlist" | "remove",
+    action: () => Promise<void>,
+  ) {
     setError(null);
+    setPendingAction(pendingKey);
     startTransition(async () => {
       try {
         await action();
       } catch {
         setError("Something went wrong. Try again.");
+      } finally {
+        setPendingAction(null);
       }
     });
   }
@@ -59,41 +76,53 @@ export function UserStateActions({
       <div className="flex gap-3">
         {status !== "watched" && (
           <button
-            onClick={() => run(() => markWatchedAction(movieId))}
+            onClick={() => run("watch", () => markWatchedAction(movieId))}
             disabled={isPending}
-            className="h-[50px] flex-1 rounded-xl bg-accent/15 px-4 text-[15px] font-semibold text-accent active:opacity-70 disabled:opacity-50"
+            className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-xl bg-accent/15 px-4 text-[15px] font-semibold text-accent active:opacity-70 disabled:opacity-50"
           >
-            {isPending ? "…" : "Mark Watched"}
+            {pendingAction === "watch" ? (
+              <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+            ) : null}
+            Mark Watched
           </button>
         )}
 
         {status === null && (
           <button
-            onClick={() => run(() => addToWatchlistAction(movieId))}
+            onClick={() => run("watchlist", () => addToWatchlistAction(movieId))}
             disabled={isPending}
-            className="h-[50px] flex-1 rounded-xl border border-border px-4 text-[15px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
+            className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-xl border border-border px-4 text-[15px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
           >
+            {pendingAction === "watchlist" ? (
+              <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+            ) : null}
             + Watchlist
           </button>
         )}
 
         {status === "to_watch" && (
           <button
-            onClick={() => run(() => removeFromLibraryAction(movieId))}
+            onClick={() => run("remove", () => removeFromLibraryAction(movieId))}
             disabled={isPending}
-            className="h-[50px] rounded-xl border border-border px-4 text-[15px] font-semibold text-unsynced active:opacity-70 disabled:opacity-50"
+            className="flex h-[50px] items-center justify-center gap-2 rounded-xl border border-border px-4 text-[15px] font-semibold text-unsynced active:opacity-70 disabled:opacity-50"
           >
-            {isPending ? "…" : "Remove"}
+            {pendingAction === "remove" ? (
+              <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+            ) : null}
+            Remove
           </button>
         )}
 
         {status === "watched" && (
           <button
-            onClick={() => run(() => removeFromLibraryAction(movieId))}
+            onClick={() => run("remove", () => removeFromLibraryAction(movieId))}
             disabled={isPending}
-            className="h-[50px] flex-1 rounded-xl border border-border px-4 text-[15px] font-semibold text-unsynced active:opacity-70 disabled:opacity-50"
+            className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-xl border border-border px-4 text-[15px] font-semibold text-unsynced active:opacity-70 disabled:opacity-50"
           >
-            {isPending ? "…" : "Remove from Library"}
+            {pendingAction === "remove" ? (
+              <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+            ) : null}
+            Remove from Library
           </button>
         )}
       </div>
@@ -128,15 +157,19 @@ export function RatingSheet({
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [pendingRating, setPendingRating] = useState<number | "clear" | null>(null);
 
   function handleRate(n: number | null) {
     setError(null);
+    setPendingRating(n ?? "clear");
     startTransition(async () => {
       try {
         await updateRatingAction(movieId, n);
         setOpen(false);
       } catch {
         setError("Rating was not saved. Try again.");
+      } finally {
+        setPendingRating(null);
       }
     });
   }
@@ -194,9 +227,15 @@ export function RatingSheet({
                 >
                   {RATING_LABELS[n]}
                 </span>
-                {currentRating === n && (
+                {pendingRating === n ? (
+                  <LoaderCircle
+                    aria-hidden="true"
+                    className="h-4 w-4 shrink-0 animate-spin text-accent"
+                    strokeWidth={2.2}
+                  />
+                ) : currentRating === n ? (
                   <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-accent" strokeWidth={2.5} />
-                )}
+                ) : null}
               </button>
             ))}
           </div>
@@ -206,8 +245,11 @@ export function RatingSheet({
               type="button"
               onClick={() => handleRate(null)}
               disabled={isPending}
-              className="mt-4 h-11 w-full rounded-xl border border-border text-[15px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
+              className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border text-[15px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
             >
+              {pendingRating === "clear" ? (
+                <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+              ) : null}
               Clear rating
             </button>
           )}
@@ -267,10 +309,13 @@ export function WatchDateForm({ movieId }: { movieId: string }) {
         <button
           onClick={handleAdd}
           disabled={isPending || !watchedDate}
-          className="ml-3 shrink-0 text-[15px] font-semibold text-accent disabled:opacity-40 active:opacity-60"
-          style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "flex-end" }}
+          className="ml-3 flex shrink-0 items-center justify-end gap-1.5 text-[15px] font-semibold text-accent disabled:opacity-40 active:opacity-60"
+          style={{ minHeight: 44, minWidth: 44 }}
         >
-          {isPending ? "…" : "Log"}
+          {isPending ? (
+            <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+          ) : null}
+          Log
         </button>
       </div>
       {error ? <p className="pt-1 text-[13px] text-unsynced">{error}</p> : null}
@@ -329,6 +374,7 @@ export function TagEditor({
   const [newTagName, setNewTagName] = useState("");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [isCreatingTag, setIsCreatingTag] = useState(false);
 
   const movieTagIds = new Set(tags.map((t) => t.id));
 
@@ -365,12 +411,15 @@ export function TagEditor({
     const name = newTagName.replace(/\s+/g, " ").trim();
     if (!name) return;
     setError(null);
+    setIsCreatingTag(true);
     startTransition(async () => {
       try {
         await addTagAction(movieId, name);
         setNewTagName("");
       } catch {
         setError("Tag could not be saved. Try again.");
+      } finally {
+        setIsCreatingTag(false);
       }
     });
   }
@@ -431,10 +480,13 @@ export function TagEditor({
           aria-label="Add tag"
           disabled={isPending || newTagName.trim().length === 0}
           type="submit"
-          className="shrink-0 text-[15px] font-semibold text-accent disabled:opacity-40 active:opacity-60"
-          style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "flex-end" }}
+          className="flex shrink-0 items-center justify-end gap-1.5 text-[15px] font-semibold text-accent disabled:opacity-40 active:opacity-60"
+          style={{ minHeight: 44, minWidth: 44 }}
         >
-          {isPending ? "…" : "Add"}
+          {isCreatingTag ? (
+            <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+          ) : null}
+          Add
         </button>
       </form>
 
@@ -455,6 +507,9 @@ export function WatchHistoryEditor({
   const [editDate, setEditDate] = useState("");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [pendingLogAction, setPendingLogAction] = useState<
+    { kind: "save" | "delete"; logId: string } | null
+  >(null);
   const today = todayDateValue();
   const orderedLogs = sortedWatchLogs(watchLogs);
 
@@ -480,24 +535,30 @@ export function WatchHistoryEditor({
   function handleSave(logId: string) {
     if (!editDate) return;
     setError(null);
+    setPendingLogAction({ kind: "save", logId });
     startTransition(async () => {
       try {
         await updateWatchLogDateAction(movieId, logId, editDate);
         setEditingId(null);
       } catch {
         setError("Date could not be saved. Try again.");
+      } finally {
+        setPendingLogAction(null);
       }
     });
   }
 
   function handleDelete(logId: string) {
     setError(null);
+    setPendingLogAction({ kind: "delete", logId });
     startTransition(async () => {
       try {
         await deleteWatchLogAction(movieId, logId);
         if (editingId === logId) setEditingId(null);
       } catch {
         setError("Entry could not be deleted. Try again.");
+      } finally {
+        setPendingLogAction(null);
       }
     });
   }
@@ -557,15 +618,16 @@ export function WatchHistoryEditor({
                     type="button"
                     onClick={() => handleSave(log.id)}
                     disabled={isPending || !editDate}
-                    className="text-[15px] font-semibold text-accent disabled:opacity-40 active:opacity-60"
+                    className="flex items-center gap-1.5 text-[15px] font-semibold text-accent disabled:opacity-40 active:opacity-60"
                     style={{
                       minHeight: 44,
                       minWidth: 44,
-                      display: "flex",
-                      alignItems: "center",
                       justifyContent: "flex-end",
                     }}
                   >
+                    {pendingLogAction?.kind === "save" && pendingLogAction.logId === log.id ? (
+                      <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+                    ) : null}
                     Save
                   </button>
                   <button
@@ -622,7 +684,11 @@ export function WatchHistoryEditor({
                       justifyContent: "center",
                     }}
                   >
-                    <Trash2 aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
+                    {pendingLogAction?.kind === "delete" && pendingLogAction.logId === log.id ? (
+                      <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+                    ) : (
+                      <Trash2 aria-hidden="true" className="h-4 w-4" strokeWidth={1.8} />
+                    )}
                   </button>
                 </div>
               ),

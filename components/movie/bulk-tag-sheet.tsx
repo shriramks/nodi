@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
-import { X, Plus } from "lucide-react";
+import { LoaderCircle, Plus, X } from "lucide-react";
 
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import {
@@ -24,27 +24,36 @@ export function BulkTagSheet({ movieIds, allTags, onClose, onDone }: Props) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"add" | "remove">("add");
+  const [pendingAction, setPendingAction] = useState<
+    { kind: "attach" | "detach"; tagId: string } | { kind: "create" } | null
+  >(null);
 
   function handleAttach(tagId: string) {
     setError(null);
+    setPendingAction({ kind: "attach", tagId });
     startTransition(async () => {
       try {
         await bulkAttachTagByIdAction(movieIds, tagId);
         onDone();
       } catch {
         setError("Tag could not be added. Try again.");
+      } finally {
+        setPendingAction(null);
       }
     });
   }
 
   function handleDetach(tagId: string) {
     setError(null);
+    setPendingAction({ kind: "detach", tagId });
     startTransition(async () => {
       try {
         await bulkDetachTagAction(movieIds, tagId);
         onDone();
       } catch {
         setError("Tag could not be removed. Try again.");
+      } finally {
+        setPendingAction(null);
       }
     });
   }
@@ -54,6 +63,7 @@ export function BulkTagSheet({ movieIds, allTags, onClose, onDone }: Props) {
     const name = newTagName.replace(/\s+/g, " ").trim();
     if (!name) return;
     setError(null);
+    setPendingAction({ kind: "create" });
     startTransition(async () => {
       try {
         await bulkAddTagAction(movieIds, name);
@@ -61,6 +71,8 @@ export function BulkTagSheet({ movieIds, allTags, onClose, onDone }: Props) {
         onDone();
       } catch {
         setError("Tag could not be saved. Try again.");
+      } finally {
+        setPendingAction(null);
       }
     });
   }
@@ -111,7 +123,15 @@ export function BulkTagSheet({ movieIds, allTags, onClose, onDone }: Props) {
                   disabled={isPending}
                   className="flex w-full items-center gap-3 border-b border-divider py-3 text-left last:border-b-0 active:opacity-70 disabled:opacity-50"
                 >
-                  <Plus aria-hidden="true" className="h-4 w-4 shrink-0 text-accent" strokeWidth={2} />
+                  {pendingAction?.kind === "attach" && pendingAction.tagId === tag.id ? (
+                    <LoaderCircle
+                      aria-hidden="true"
+                      className="h-4 w-4 shrink-0 animate-spin text-accent"
+                      strokeWidth={2.2}
+                    />
+                  ) : (
+                    <Plus aria-hidden="true" className="h-4 w-4 shrink-0 text-accent" strokeWidth={2} />
+                  )}
                   <span className="flex-1 text-[15px] text-foreground">{tag.name}</span>
                 </button>
               ))}
@@ -129,8 +149,11 @@ export function BulkTagSheet({ movieIds, allTags, onClose, onDone }: Props) {
             <button
               type="submit"
               disabled={isPending || !newTagName.trim()}
-              className="h-10 shrink-0 rounded-xl bg-accent px-4 text-[15px] font-semibold text-white disabled:opacity-40 active:opacity-70"
+              className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-4 text-[15px] font-semibold text-white disabled:opacity-40 active:opacity-70"
             >
+              {pendingAction?.kind === "create" ? (
+                <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+              ) : null}
               Create
             </button>
           </form>
@@ -150,7 +173,15 @@ export function BulkTagSheet({ movieIds, allTags, onClose, onDone }: Props) {
                 disabled={isPending}
                 className="flex w-full items-center gap-3 border-b border-divider py-3 text-left last:border-b-0 active:opacity-70 disabled:opacity-50"
               >
-                <X aria-hidden="true" className="h-4 w-4 shrink-0 text-unsynced" strokeWidth={2} />
+                {pendingAction?.kind === "detach" && pendingAction.tagId === tag.id ? (
+                  <LoaderCircle
+                    aria-hidden="true"
+                    className="h-4 w-4 shrink-0 animate-spin text-unsynced"
+                    strokeWidth={2.2}
+                  />
+                ) : (
+                  <X aria-hidden="true" className="h-4 w-4 shrink-0 text-unsynced" strokeWidth={2} />
+                )}
                 <span className="flex-1 text-[15px] text-foreground">{tag.name}</span>
               </button>
             ))
