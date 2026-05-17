@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Sun, Moon, Contrast } from "lucide-react";
 import { updateThemeAction } from "@/app/(shell)/settings/actions";
 import type { Theme } from "@/lib/db/types";
@@ -12,10 +12,13 @@ const OPTIONS: { value: Theme; label: string; Icon: React.ComponentType<{ classN
 ];
 
 export function AppearancePicker({ current }: { current: Theme }) {
+  const [selectedTheme, setSelectedTheme] = useState(current);
   const [, startTransition] = useTransition();
 
   function handleSelect(theme: Theme) {
-    // Instant DOM update — no flash, no round-trip wait
+    setSelectedTheme(theme);
+
+    // Instant DOM update - no flash, no round-trip wait.
     if (theme === "auto") {
       document.documentElement.removeAttribute("data-theme");
     } else {
@@ -27,29 +30,36 @@ export function AppearancePicker({ current }: { current: Theme }) {
   }
 
   return (
-    <div
-      className="flex rounded-xl p-1 gap-0.5"
+    <fieldset
+      className="flex gap-0.5 rounded-xl p-1"
       style={{ backgroundColor: "var(--bg-tertiary)" }}
-      role="group"
-      aria-label="Appearance"
     >
+      <legend className="sr-only">Appearance</legend>
       {OPTIONS.map(({ value, label, Icon }) => (
-        <button
+        <label
           key={value}
-          type="button"
-          aria-pressed={current === value}
-          onClick={() => handleSelect(value)}
-          className={`flex flex-1 flex-col items-center justify-center gap-1 rounded-lg py-2 text-[12px] font-semibold transition-colors ${
-            current === value
-              ? "bg-background text-foreground shadow-sm"
-              : "text-text-muted"
-          }`}
-          style={{ minHeight: 56 }}
+          className="flex flex-1 cursor-pointer"
         >
-          <Icon className="h-5 w-5" />
-          {label}
-        </button>
+          <input
+            checked={selectedTheme === value}
+            className="peer sr-only"
+            name="appearance"
+            onChange={() => handleSelect(value)}
+            type="radio"
+            value={value}
+          />
+          <span
+            className={`flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-lg py-2 text-[12px] font-semibold transition-colors peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent ${
+              selectedTheme === value
+                ? "bg-background text-foreground shadow-sm"
+                : "text-text-muted"
+            }`}
+          >
+            <Icon aria-hidden="true" className="h-5 w-5" />
+            {label}
+          </span>
+        </label>
       ))}
-    </div>
+    </fieldset>
   );
 }

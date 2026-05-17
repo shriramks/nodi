@@ -211,6 +211,9 @@ Icon assignments (lucide-react):
 Active state: `bg-accent/10 text-accent` on the individual pill. Icon and label share the same
 `text-accent` colour — no separate fill behind the icon. Never invert the whole pill.
 
+Keep the floating pill treatment as an intentional branded navigation pattern rather than replacing
+it with a conventional full-width tab bar.
+
 ### PosterCard
 ```text
 [2:3 poster]
