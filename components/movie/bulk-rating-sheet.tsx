@@ -46,7 +46,11 @@ export function BulkRatingSheet({ movieIds, onClose, onDone }: Props) {
   }
 
   return (
-    <BottomSheet ariaLabel="Rate Selected Movies" onClose={onClose}>
+    <BottomSheet
+      ariaLabel="Rate Selected Movies"
+      dismissButtonLabel="Close ratings"
+      onClose={onClose}
+    >
       <p className="mb-1 text-[17px] font-semibold text-foreground">Rate Selected</p>
       <p className="mb-4 text-[13px] text-text-2">
         {movieIds.length} {movieIds.length === 1 ? "movie" : "movies"}

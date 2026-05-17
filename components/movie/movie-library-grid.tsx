@@ -494,6 +494,7 @@ export function MovieLibraryGrid({
         <BottomSheet
           ariaLabel="Filter Movies"
           contentClassName="pt-3"
+          dismissButtonLabel="Close filters"
           onClose={() => setFilterSheetOpen(false)}
         >
           <div className="flex items-center justify-between px-5 pb-3">

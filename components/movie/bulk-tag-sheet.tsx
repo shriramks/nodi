@@ -78,7 +78,7 @@ export function BulkTagSheet({ movieIds, allTags, onClose, onDone }: Props) {
   }
 
   return (
-    <BottomSheet ariaLabel="Manage Tags" onClose={onClose}>
+    <BottomSheet ariaLabel="Manage Tags" dismissButtonLabel="Close tags" onClose={onClose}>
       <p className="mb-1 text-[17px] font-semibold text-foreground">Tags</p>
       <p className="mb-4 text-[13px] text-text-2">
         {movieIds.length} {movieIds.length === 1 ? "movie" : "movies"} selected

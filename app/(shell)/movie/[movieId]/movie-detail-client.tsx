@@ -580,7 +580,11 @@ export function WatchHistoryEditor({
       </button>
 
       {open ? (
-        <BottomSheet ariaLabel="Watch history" onClose={closeSheet}>
+        <BottomSheet
+          ariaLabel="Watch history"
+          dismissButtonLabel="Close watch history"
+          onClose={closeSheet}
+        >
           <p className="mb-2 text-[17px] font-semibold text-foreground">Watch history</p>
 
           <div>
