@@ -7,7 +7,7 @@ type ShellLayoutProps = {
 
 export default function ShellLayout({ children }: ShellLayoutProps) {
   return (
-    <div className="relative min-h-dvh overflow-x-hidden">
+    <div className="relative min-h-dvh">
       <div
         className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4"
         style={{
