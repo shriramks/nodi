@@ -171,15 +171,6 @@ export default async function StatsPage({
               hrefForItem={(item) => moviesFilterHref({ language: item.key, tag: tagFilter, returnTo: statsHref })}
             />
           )}
-
-          <div className="h-px bg-divider" />
-
-          <SectionHeader title="By tag" />
-          {stats.tagBreakdown.length === 0 ? (
-            <p className="pb-4 text-[15px] leading-[1.4] text-text-muted">No tagged watched movies yet.</p>
-          ) : (
-            <BarBreakdown items={stats.tagBreakdown} barColor="rgba(255,159,10,0.45)" />
-          )}
         </>
       ) : (
         <p className="pt-6 text-[15px] leading-[1.4] text-text-2">
@@ -232,53 +223,6 @@ function SectionHeader({ title }: { title: string }) {
 
 function EmptyBreakdown() {
   return <p className="pb-4 text-[15px] leading-[1.4] text-text-muted">No data yet.</p>;
-}
-
-function BarBreakdown({
-  items,
-  barColor,
-}: {
-  items: LibraryStatsBreakdownItem[];
-  barColor: string;
-}) {
-  const maxCount = Math.max(...items.map((i) => i.count), 1);
-  const unknownItems = items.filter((i) => i.key === "unknown");
-  const knownItems = items.filter((i) => i.key !== "unknown");
-  const ordered = [...knownItems, ...unknownItems];
-
-  return (
-    <div className="pb-2">
-      {ordered.map((item) => {
-        const isUnknown = item.key === "unknown";
-        const pct = Math.max((item.count / maxCount) * 100, 2);
-        return (
-          <div
-            key={item.key}
-            className="flex items-center gap-2.5 border-b border-divider py-2 last:border-b-0"
-            style={{ minHeight: 36 }}
-          >
-            <span
-              className={`flex-1 min-w-0 text-[14px] truncate ${isUnknown ? "text-text-muted" : "text-foreground"}`}
-            >
-              {item.label}
-            </span>
-            <div className="relative flex-[2] h-[4px] rounded-full overflow-hidden" style={{ background: "var(--bg-secondary)" }}>
-              <div
-                className="absolute inset-y-0 left-0 rounded-full"
-                style={{
-                  width: `${pct}%`,
-                  background: isUnknown ? "rgba(0,0,0,0.15)" : barColor,
-                }}
-              />
-            </div>
-            <span className={`tabnum w-8 text-right text-[13px] font-medium shrink-0 ${isUnknown ? "text-text-muted" : "text-text-2"}`}>
-              {item.count}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 function GenreTreemap({

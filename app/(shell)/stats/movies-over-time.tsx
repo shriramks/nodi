@@ -49,8 +49,6 @@ export function MoviesOverTime({
     }
   }, [view]);
 
-  const hasOutlier = buckets.some((b) => b.count > scaleMax);
-
   return (
     <section>
       <div className="flex items-center justify-between gap-3 pt-4 pb-3">
@@ -152,11 +150,6 @@ export function MoviesOverTime({
         </div>
       </div>
 
-      {hasOutlier && (
-        <p className="pb-3 text-[11px] text-text-muted" style={{ fontStyle: "italic" }}>
-          ↑ import year — bar capped for scale.
-        </p>
-      )}
     </section>
   );
 }
