@@ -173,7 +173,7 @@ export function MovieDetailView({
           )}
         </div>
 
-        <div className="min-w-0 space-y-1.5 pl-36 pt-[76px]">
+        <div className="min-w-0 space-y-1.5 pl-36">
           <h1 className="text-[22px] font-bold leading-[1.2]">{movie.title}</h1>
 
           {metaLine && (
