@@ -38,6 +38,7 @@ function formatReleaseDate(dateStr: string): string {
 
 type DetailMovie = {
   title: string;
+  tmdb_id?: number | null;
   poster_path: string | null;
   release_date: string | null;
   release_year: number | null;
@@ -236,6 +237,7 @@ export function MovieDetailView({
                 characterName={member.character_name}
                 backdropPath={movie.backdrop_path}
                 movieTitle={movie.title}
+                movieTmdbId={movie.tmdb_id}
                 name={member.name}
                 personId={member.tmdb_person_id}
                 profilePath={member.profile_path}
@@ -301,6 +303,7 @@ function CastMemberLink({
   backdropPath,
   characterName,
   movieTitle,
+  movieTmdbId,
   name,
   personId,
   profilePath,
@@ -308,6 +311,7 @@ function CastMemberLink({
   backdropPath?: string | null;
   characterName: string | null;
   movieTitle: string;
+  movieTmdbId?: number | null;
   name: string;
   personId?: number | null;
   profilePath: string | null;
@@ -345,6 +349,9 @@ function CastMemberLink({
   }
 
   const params = new URLSearchParams({ movie: movieTitle });
+  if (movieTmdbId) {
+    params.set("sourceMovieId", String(movieTmdbId));
+  }
   if (backdropPath) {
     params.set("backdrop", backdropPath);
   }

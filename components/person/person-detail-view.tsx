@@ -138,7 +138,7 @@ export function PersonDetailView({
       </Section>
 
       <Section>
-        <SectionHeader>Known For</SectionHeader>
+        <SectionHeader>Movies</SectionHeader>
         {person.knownFor.length > 0 ? (
           <SectionScrollBleed className="flex gap-3 pb-1">
             {person.knownFor.map((credit) => (
@@ -147,7 +147,7 @@ export function PersonDetailView({
           </SectionScrollBleed>
         ) : (
           <p className="text-[15px] leading-[1.4] text-text-muted">
-            No credits available.
+            No movie credits available.
           </p>
         )}
       </Section>

@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 
 import {
   PersonDetailView,
-  type KnownForCredit,
   type PersonDetail,
 } from "@/components/person/person-detail-view";
 import type { DetailSourceItem } from "@/components/ui/detail";
@@ -12,9 +11,9 @@ import {
   getTmdbPersonCombinedCredits,
   getTmdbPersonDetails,
   type TmdbPersonCombinedCredits,
-  type TmdbPersonCredit,
   type TmdbPersonDetails,
 } from "@/lib/providers/tmdb/client";
+import { toRelevantPersonMovies } from "@/lib/providers/tmdb/person-credits";
 import { getPersonWikipediaTrivia } from "@/lib/providers/wikipedia/trivia";
 
 type PersonDetailPageProps = {
@@ -23,6 +22,7 @@ type PersonDetailPageProps = {
     backdrop?: string;
     character?: string;
     movie?: string;
+    sourceMovieId?: string;
   }>;
 };
 
@@ -58,7 +58,12 @@ export default async function TmdbPersonDetailPage({
       contextBackdropPath={normalizeBackdropPath(query.backdrop)}
       contextCharacter={normalizeQueryText(query.character)}
       contextMovie={normalizeQueryText(query.movie)}
-      person={toPersonDetail(detail, credits, trivia)}
+      person={toPersonDetail(
+        detail,
+        credits,
+        trivia,
+        normalizePositiveInt(query.sourceMovieId),
+      )}
     />
   );
 }
@@ -95,8 +100,9 @@ function toPersonDetail(
   detail: TmdbPersonDetails,
   credits: TmdbPersonCombinedCredits,
   trivia: DetailSourceItem[],
+  sourceMovieId: number | null,
 ): PersonDetail {
-  const knownFor = toKnownForCredits(credits);
+  const knownFor = toRelevantPersonMovies(credits, { sourceMovieId });
 
   return {
     name: normalizeText(detail.name) ?? "Unknown",
@@ -109,75 +115,6 @@ function toPersonDetail(
     knownFor,
     trivia,
   };
-}
-
-function toKnownForCredits(credits: TmdbPersonCombinedCredits): KnownForCredit[] {
-  const merged = [...(credits.cast ?? []), ...(credits.crew ?? [])]
-    .filter((credit) => credit.id > 0 && (credit.media_type === "movie" || credit.media_type === "tv"))
-    .map(toKnownForCredit)
-    .filter((credit): credit is KnownForCreditWithScore => credit !== null);
-  const byCredit = new Map<string, KnownForCreditWithScore>();
-
-  for (const credit of merged) {
-    const key = `${credit.mediaType}-${credit.id}`;
-    const existing = byCredit.get(key);
-
-    if (!existing || credit.score > existing.score) {
-      byCredit.set(key, credit);
-    }
-  }
-
-  return Array.from(byCredit.values())
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 12)
-    .map(({ id, mediaType, title, posterPath, backdropPath, releaseYear, role }) => ({
-      id,
-      mediaType,
-      title,
-      posterPath,
-      backdropPath,
-      releaseYear,
-      role,
-    }));
-}
-
-type KnownForCreditWithScore = KnownForCredit & {
-  score: number;
-};
-
-function toKnownForCredit(credit: TmdbPersonCredit): KnownForCreditWithScore | null {
-  const mediaType = credit.media_type === "tv" ? "tv" : credit.media_type === "movie" ? "movie" : null;
-  if (!mediaType) {
-    return null;
-  }
-
-  const title = normalizeText(mediaType === "movie" ? credit.title : credit.name);
-  if (!title) {
-    return null;
-  }
-
-  const date = mediaType === "movie" ? credit.release_date : credit.first_air_date;
-  const role = normalizeText(credit.character) ?? normalizeText(credit.job);
-
-  return {
-    id: credit.id,
-    mediaType,
-    title,
-    posterPath: credit.poster_path ?? null,
-    backdropPath: credit.backdrop_path ?? null,
-    releaseYear: releaseYear(normalizeDate(date)),
-    role,
-    score: knownForScore(credit),
-  };
-}
-
-function knownForScore(credit: TmdbPersonCredit) {
-  const popularity = typeof credit.popularity === "number" ? credit.popularity : 0;
-  const votes = typeof credit.vote_count === "number" ? Math.min(credit.vote_count, 5000) / 400 : 0;
-  const posterBonus = credit.poster_path ? 8 : 0;
-  const backdropBonus = credit.backdrop_path ? 4 : 0;
-
-  return popularity + votes + posterBonus + backdropBonus;
 }
 
 function normalizeDate(value: string | null | undefined) {
@@ -194,18 +131,14 @@ function normalizeQueryText(value: string | undefined) {
   return normalized ? normalized.slice(0, 140) : null;
 }
 
+function normalizePositiveInt(value: string | undefined) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : null;
+}
+
 function normalizeBackdropPath(value: string | undefined) {
   const normalized = normalizeText(value);
   return normalized && /^\/[A-Za-z0-9_.-]+\.(jpg|png|webp)$/.test(normalized)
     ? normalized
     : null;
-}
-
-function releaseYear(releaseDate: string | null) {
-  if (!releaseDate) {
-    return null;
-  }
-
-  const year = Number(releaseDate.slice(0, 4));
-  return Number.isInteger(year) ? year : null;
 }

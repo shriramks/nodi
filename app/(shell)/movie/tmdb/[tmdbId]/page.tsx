@@ -140,6 +140,7 @@ function toDetailMovie(detail: TmdbMovieDetails, credits: TmdbMovieCredits) {
 
   return {
     title: normalizeText(detail.title) ?? "Untitled movie",
+    tmdb_id: detail.id,
     poster_path: detail.poster_path ?? null,
     release_date: releaseDate,
     release_year: releaseYear(releaseDate),
