@@ -2,17 +2,16 @@ import Link from "next/link";
 import { Film, Search } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
+import { PageHeader } from "@/components/ui/section";
 
 export default function ShellNotFound() {
   return (
     <main className="space-y-6">
-      <section>
-        <BackButton />
-        <h1 className="mt-2 text-[32px] font-bold leading-[1.1]">Not found</h1>
-        <p className="mt-2 text-[15px] leading-[1.4] text-text-2">
-          This movie or page is not available.
-        </p>
-      </section>
+      <PageHeader
+        leading={<BackButton />}
+        title="Not found"
+        subtitle="This movie or page is not available."
+      />
 
       <section className="grid grid-cols-2 gap-3">
         <Link

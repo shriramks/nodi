@@ -3,10 +3,13 @@ import type { Metadata } from "next";
 import { BackButton } from "@/components/navigation/back-button";
 import { SettingsErrorModal } from "@/components/settings/settings-error-modal";
 import { TmdbBackfillControls } from "@/components/settings/tmdb-backfill-controls";
+import { PageHeader } from "@/components/ui/section";
 import {
+  SettingsActionButton,
   SettingsFieldLabel,
   SettingsPanel,
   SettingsStatusBadge,
+  SettingsTextInput,
 } from "@/components/ui/settings";
 import { getProviderSyncSettings } from "@/lib/db/queries";
 import { disconnectTmdbAction, saveTmdbTokenAction } from "../actions";
@@ -32,13 +35,11 @@ export default async function TmdbSettingsPage({ searchParams }: TmdbSettingsPag
 
   return (
     <main className="space-y-6">
-      <section>
-        <BackButton />
-        <h1 className="mt-2 text-[32px] font-bold leading-[1.1]">TMDB</h1>
-        <p className="mt-1 text-[13px] text-text-2">
-          Required for search, posters, cast, and movie metadata.
-        </p>
-      </section>
+      <PageHeader
+        leading={<BackButton />}
+        title="TMDB"
+        subtitle="Required for search, posters, cast, and movie metadata."
+      />
 
       {params.error ? (
         <SettingsErrorModal
@@ -63,31 +64,24 @@ export default async function TmdbSettingsPage({ searchParams }: TmdbSettingsPag
         <form action={saveTmdbTokenAction} className="space-y-3">
           <label className="block">
             <SettingsFieldLabel>API Read Access Token</SettingsFieldLabel>
-            <input
+            <SettingsTextInput
               name="apiToken"
               autoComplete="off"
-              className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-[15px] outline-none focus:border-accent"
               placeholder={sync.credentials.hasApiToken ? "Saved. Enter to replace." : ""}
               required
               type="password"
             />
           </label>
-          <button
-            type="submit"
-            className="h-11 w-full rounded-xl bg-accent/15 px-4 text-[15px] font-semibold text-accent"
-          >
+          <SettingsActionButton type="submit">
             Save TMDB Token
-          </button>
+          </SettingsActionButton>
         </form>
 
         {connected ? (
           <form action={disconnectTmdbAction}>
-            <button
-              type="submit"
-              className="h-11 w-full rounded-xl border border-border bg-surface-muted px-4 text-[15px] font-semibold text-unsynced"
-            >
+            <SettingsActionButton type="submit" tone="danger">
               Remove TMDB Token
-            </button>
+            </SettingsActionButton>
           </form>
         ) : null}
       </SettingsPanel>

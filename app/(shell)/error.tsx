@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Home, RefreshCcw } from "lucide-react";
+import { PageHeader } from "@/components/ui/section";
 
 export default function ShellError({
   error,
@@ -12,12 +13,10 @@ export default function ShellError({
 }) {
   return (
     <main className="space-y-6">
-      <section>
-        <h1 className="text-[32px] font-bold leading-[1.1]">Something went wrong</h1>
-        <p className="mt-2 text-[15px] leading-[1.4] text-text-2">
-          {error.message || "The page could not be loaded."}
-        </p>
-      </section>
+      <PageHeader
+        title="Something went wrong"
+        subtitle={error.message || "The page could not be loaded."}
+      />
 
       <section className="grid grid-cols-2 gap-3">
         <button

@@ -18,6 +18,14 @@
   --accent: #ff9f0a;
   --warning: #ffd60a;
   --danger: #ff453a;
+  --chart-blue: #0a84ff;
+  --chart-green: #34c759;
+  --chart-orange: #ff9f0a;
+  --chart-pink: #ff375f;
+  --chart-purple: #bf5af2;
+  --chart-cyan: #64d2ff;
+  --chart-label-primary: rgba(255, 255, 255, 0.88);
+  --chart-label-secondary: rgba(255, 255, 255, 0.6);
   --nav-h: 72px;
 }
 

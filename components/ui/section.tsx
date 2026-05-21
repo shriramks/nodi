@@ -13,6 +13,40 @@ type SectionProps = {
   className?: string;
 };
 
+type PageHeaderProps = {
+  action?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+  leading?: ReactNode;
+  subtitle?: ReactNode;
+  title: ReactNode;
+};
+
+export function PageHeader({
+  action,
+  children,
+  className,
+  leading,
+  subtitle,
+  title,
+}: PageHeaderProps) {
+  return (
+    <section className={joinClasses(["space-y-2", className])}>
+      {leading}
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-[32px] font-bold leading-[1.1]">{title}</h1>
+          {subtitle ? (
+            <p className="mt-1 text-[13px] leading-[1.4] text-text-2">{subtitle}</p>
+          ) : null}
+          {children}
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
+      </div>
+    </section>
+  );
+}
+
 export function Section({ children, className }: SectionProps) {
   return <section className={joinClasses(["space-y-2", className])}>{children}</section>;
 }

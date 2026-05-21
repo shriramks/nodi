@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { getLibraryStats, listTags } from "@/lib/db/queries";
 import type { LibraryStatsBreakdownItem, LibraryStatsRatingBucket } from "@/lib/db/types";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
-import { Section, SectionHeader } from "@/components/ui/section";
+import { PageHeader, Section, SectionHeader } from "@/components/ui/section";
 import { MoviesOverTime } from "./movies-over-time";
 import { StatsTagFilter } from "./stats-tag-filter";
 
@@ -13,21 +13,21 @@ export const metadata: Metadata = {
 };
 
 const LANGUAGE_COLORS = [
-  "#0A84FF",
-  "#34C759",
-  "#FF9F0A",
-  "#FF375F",
-  "#BF5AF2",
-  "#64D2FF",
+  "var(--chart-blue)",
+  "var(--chart-green)",
+  "var(--chart-orange)",
+  "var(--chart-pink)",
+  "var(--chart-purple)",
+  "var(--chart-cyan)",
 ];
 
 const GENRE_COLORS = [
-  "#0A84FF",
-  "#34C759",
-  "#FF375F",
-  "#BF5AF2",
-  "#FF9F0A",
-  "#64D2FF",
+  "var(--chart-blue)",
+  "var(--chart-green)",
+  "var(--chart-pink)",
+  "var(--chart-purple)",
+  "var(--chart-orange)",
+  "var(--chart-cyan)",
 ];
 
 export default async function StatsPage({
@@ -51,14 +51,16 @@ export default async function StatsPage({
 
   return (
     <main>
-      {/* Header */}
-      <section className="flex items-center justify-between gap-4 pb-3">
-        <h1 className="text-[32px] font-bold leading-[1.1]">Stats</h1>
-        <div className="flex items-center gap-2 shrink-0">
-          {tags.length > 0 && <StatsTagFilter tags={tags} currentTag={tagFilter} />}
-          <SettingsSheet />
-        </div>
-      </section>
+      <PageHeader
+        title="Stats"
+        className="pb-3"
+        action={(
+          <div className="flex items-center gap-2">
+            {tags.length > 0 && <StatsTagFilter tags={tags} currentTag={tagFilter} />}
+            <SettingsSheet />
+          </div>
+        )}
+      />
 
       {/* Hero metrics */}
       <div
@@ -307,7 +309,7 @@ function TreemapCell({
         style={{
           fontSize: 11,
           fontWeight: 600,
-          color: "rgba(255,255,255,0.88)",
+          color: "var(--chart-label-primary)",
           lineHeight: 1.2,
           overflow: "hidden",
           textOverflow: "ellipsis",
@@ -319,7 +321,7 @@ function TreemapCell({
       <span
         style={{
           fontSize: 10,
-          color: "rgba(255,255,255,0.60)",
+          color: "var(--chart-label-secondary)",
           fontVariantNumeric: "tabular-nums",
         }}
       >

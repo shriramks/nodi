@@ -80,7 +80,7 @@ Raw hex values and rgba() never appear in component code - only tokens.
 --divider       List row separators
 ```
 
-### Action / state colours (Tailwind tokens - in tailwind.config.ts)
+### Action / state colours (Tailwind tokens - mapped in app/globals.css)
 
 | Token | Value | Use |
 |-------|-------|-----|
@@ -131,6 +131,39 @@ state.error     -> color.unsynced
   with headline text.
 - Section divider labels (e.g. "Recently Watched", "Languages", "Cast") get `px-4 py-2` - they
   are structural, not content.
+
+### Page and section spacing contract
+
+The shell owns horizontal page padding. `app/(shell)/layout.tsx` constrains shell content to
+`max-w-md` and applies `px-4`, so first-level page content should not add extra horizontal padding.
+Page routes should normally start with `PageHeader` from `components/ui/section.tsx` and then use
+`space-y-4` or `space-y-6` on the main flow depending on density:
+
+- `space-y-4` for dense poster-first pages where the grid begins immediately after the header.
+- `space-y-6` for settings, search, and form-heavy pages where sections need more breathing room.
+- Stats may use divider-led sections instead of a single main `space-y-*` stack because the chart
+  blocks are intentionally separated by full-width divider lines.
+
+`PageHeader` is the standard large-title row:
+
+- title is display size (`32px`, `700`, `leading-[1.1]`)
+- subtitle is subheadline (`13px`, text-2, `leading-[1.4]`)
+- trailing page controls sit in the header action slot, not in the shell
+- optional leading navigation, such as `BackButton`, sits above the title row with an 8px gap
+
+`Section` owns only vertical rhythm (`space-y-2`). It does not add horizontal padding because the
+shell already provides it. `SectionHeader` is the reusable section label primitive; use it instead
+of repeating uppercase 11px label classes in page code.
+
+Horizontal content may intentionally bleed only when it needs native swipe behaviour at the page
+edge, such as cast carousels or sheet chip rows. Use:
+
+- `SectionScrollBleed` for page content, which applies `-mx-4 overflow-x-auto px-4`
+- `SheetScrollBleed` for bottom-sheet content, which applies `-mx-5 overflow-x-auto px-5`
+
+Do not hand-code those bleed class strings at call sites. The negative margin cancels the owning
+container padding while the matching inner padding keeps the first and last items aligned to the
+normal content edge.
 
 ---
 
@@ -367,6 +400,14 @@ Use for:
 - add/edit tags
 - change watch status
 
+### Settings primitives
+
+Settings screens use `SettingsPanel`, `SettingsLinkRow`, `SettingsTextInput`,
+`SettingsActionButton`, `SettingsFieldLabel`, and `SettingsStatusBadge` from
+`components/ui/settings.tsx`. These primitives encode the shared settings card, form input, button,
+label, and connection-state badge styles. Provider settings pages should use those helpers rather
+than duplicating input/button class strings.
+
 ---
 
 ## 7. Motion
@@ -479,8 +520,8 @@ sizes.
 
 ## 10. Token Reference
 
-Raw values for all design tokens. Already defined in `app/globals.css` and `tailwind.config.ts` -
-this section is a quick lookup, not the source of truth.
+Raw values for all design tokens. Already defined in `app/globals.css` - this section is a quick
+lookup, not the source of truth.
 
 ### Font stack
 
@@ -506,6 +547,14 @@ System font - SF Pro on iOS/macOS, Segoe UI on Windows, Roboto on Android. No we
   --border-faint: rgba(0,0,0,0.06);
   --tap-active:   rgba(0,0,0,0.04);
   --divider:      rgba(0,0,0,0.08);
+  --chart-blue:   #0A84FF;
+  --chart-green:  #34C759;
+  --chart-orange: #FF9F0A;
+  --chart-pink:   #FF375F;
+  --chart-purple: #BF5AF2;
+  --chart-cyan:   #64D2FF;
+  --chart-label-primary:   rgba(255,255,255,0.88);
+  --chart-label-secondary: rgba(255,255,255,0.60);
   --nav-h:        72px;
 }
 

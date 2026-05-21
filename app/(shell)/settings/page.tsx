@@ -5,7 +5,7 @@ import { Cloud, LogOut } from "lucide-react";
 import { signOut } from "@/app/auth/actions";
 import { requireUser } from "@/lib/auth/server";
 import { AppearancePicker } from "@/components/settings/appearance-picker";
-import { Section, SectionHeader } from "@/components/ui/section";
+import { PageHeader, Section, SectionHeader } from "@/components/ui/section";
 import { SettingsLinkRow } from "@/components/ui/settings";
 import type { Theme } from "@/lib/db/types";
 
@@ -21,12 +21,11 @@ export default async function SettingsPage() {
 
   return (
     <main className="space-y-6">
-      <section>
-        <h1 className="text-[32px] font-bold leading-[1.1]">Settings</h1>
-        <p className="mt-1 truncate text-[13px] text-text-2">
+      <PageHeader title="Settings">
+        <p className="mt-1 truncate text-[13px] leading-[1.4] text-text-2">
           {user.email ?? "Signed in"}
         </p>
-      </section>
+      </PageHeader>
 
       <Section>
         <SectionHeader className="px-1 font-semibold text-text-faint">Appearance</SectionHeader>

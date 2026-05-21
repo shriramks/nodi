@@ -21,10 +21,6 @@ async function queueTraktSyncEvent(eventType: string, payload: TraktSyncPayload)
   });
 }
 
-function normalizeTagName(name: string) {
-  return name.trim().replace(/\s+/g, " ").toLowerCase();
-}
-
 export async function bulkUpdateRating(movieIds: string[], ratingPayload: unknown): Promise<void> {
   const user = await requireUser();
   const supabase = await createSupabaseServerClient();

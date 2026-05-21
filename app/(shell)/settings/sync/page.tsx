@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Cloud, Database } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
+import { PageHeader } from "@/components/ui/section";
 import { SettingsLinkRow, SettingsStatusBadge } from "@/components/ui/settings";
 import { getProviderSyncSettings } from "@/lib/db/queries";
 
@@ -18,13 +19,11 @@ export default async function SyncSettingsPage() {
 
   return (
     <main className="space-y-6">
-      <section>
-        <BackButton />
-        <h1 className="mt-2 text-[32px] font-bold leading-[1.1]">Sync</h1>
-        <p className="mt-1 text-[13px] text-text-2">
-          TMDB is required for search. Trakt adds optional syncing.
-        </p>
-      </section>
+      <PageHeader
+        leading={<BackButton />}
+        title="Sync"
+        subtitle="TMDB is required for search. Trakt adds optional syncing."
+      />
 
       <section className="space-y-3">
         <ProviderLink

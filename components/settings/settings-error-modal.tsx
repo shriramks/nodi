@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { SettingsActionButton } from "@/components/ui/settings";
 
 type SettingsErrorModalProps = {
   action: string;
@@ -32,13 +33,13 @@ export function SettingsErrorModal({
             Reference: {logKey}
           </p>
         ) : null}
-        <button
-          className="mt-4 h-11 w-full rounded-xl bg-accent/15 px-4 text-[15px] font-semibold text-accent"
+        <SettingsActionButton
+          className="mt-4"
           onClick={() => setOpen(false)}
           type="button"
         >
           Close
-        </button>
+        </SettingsActionButton>
       </div>
     </div>
   );

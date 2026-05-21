@@ -4,10 +4,13 @@ import { headers } from "next/headers";
 import { BackButton } from "@/components/navigation/back-button";
 import { SettingsErrorModal } from "@/components/settings/settings-error-modal";
 import { TraktSyncControls } from "@/components/settings/trakt-sync-controls";
+import { PageHeader } from "@/components/ui/section";
 import {
+  SettingsActionButton,
   SettingsFieldLabel,
   SettingsPanel,
   SettingsStatusBadge,
+  SettingsTextInput,
 } from "@/components/ui/settings";
 import { getProviderSyncSettings } from "@/lib/db/queries";
 import { getTraktRedirectUri } from "@/lib/providers/trakt/credentials";
@@ -42,13 +45,11 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
 
   return (
     <main className="space-y-6">
-      <section>
-        <BackButton />
-        <h1 className="mt-2 text-[32px] font-bold leading-[1.1]">Trakt Sync</h1>
-        <p className="mt-1 text-[13px] text-text-2">
-          Optional syncing for watched history, ratings, and watchlist.
-        </p>
-      </section>
+      <PageHeader
+        leading={<BackButton />}
+        title="Trakt Sync"
+        subtitle="Optional syncing for watched history, ratings, and watchlist."
+      />
 
       {params.connected ? (
         <p className="rounded-2xl border border-border bg-surface p-3 text-[13px] text-watched">
@@ -77,31 +78,26 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
         <form action={saveTraktCredentialsAction} className="space-y-3">
           <label className="block">
             <SettingsFieldLabel>Client ID</SettingsFieldLabel>
-            <input
+            <SettingsTextInput
               name="clientId"
               autoComplete="off"
-              className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-[15px] outline-none focus:border-accent"
               placeholder={sync.credentials.hasClientId ? "Saved. Enter to replace." : ""}
               required
             />
           </label>
           <label className="block">
             <SettingsFieldLabel>Client Secret</SettingsFieldLabel>
-            <input
+            <SettingsTextInput
               name="clientSecret"
               autoComplete="off"
-              className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-[15px] outline-none focus:border-accent"
               placeholder={sync.credentials.hasClientSecret ? "Saved. Enter to replace." : ""}
               required
               type="password"
             />
           </label>
-          <button
-            type="submit"
-            className="h-11 w-full rounded-xl bg-accent/15 px-4 text-[15px] font-semibold text-accent"
-          >
+          <SettingsActionButton type="submit">
             Save Trakt App Credentials
-          </button>
+          </SettingsActionButton>
         </form>
       </SettingsPanel>
 
@@ -124,31 +120,25 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
 
         {hasAppCredentials ? (
           <form action="/api/providers/trakt/connect" method="get">
-            <button
-              className="flex h-11 w-full items-center justify-center rounded-xl bg-accent/15 px-4 text-[15px] font-semibold text-accent"
-              type="submit"
-            >
+            <SettingsActionButton type="submit">
               {connected ? "Reconnect Trakt" : "Authorize Trakt"}
-            </button>
+            </SettingsActionButton>
           </form>
         ) : (
-          <button
+          <SettingsActionButton
             type="button"
             disabled
-            className="h-11 w-full rounded-xl border border-border bg-surface-muted px-4 text-[15px] font-semibold text-text-muted opacity-50"
+            tone="neutral"
           >
             Save credentials first
-          </button>
+          </SettingsActionButton>
         )}
 
         {connected ? (
           <form action={disconnectTraktAction}>
-            <button
-              type="submit"
-              className="h-11 w-full rounded-xl border border-border bg-surface-muted px-4 text-[15px] font-semibold text-unsynced"
-            >
+            <SettingsActionButton type="submit" tone="danger">
               Disconnect Trakt
-            </button>
+            </SettingsActionButton>
           </form>
         ) : null}
       </SettingsPanel>

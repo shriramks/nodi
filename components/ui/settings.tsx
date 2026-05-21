@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { ButtonHTMLAttributes, InputHTMLAttributes } from "react";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 
@@ -101,4 +102,43 @@ type SettingsFieldLabelProps = {
 
 export function SettingsFieldLabel({ children }: SettingsFieldLabelProps) {
   return <span className="text-[13px] text-text-muted">{children}</span>;
+}
+
+type SettingsTextInputProps = InputHTMLAttributes<HTMLInputElement>;
+
+export function SettingsTextInput({ className, ...props }: SettingsTextInputProps) {
+  return (
+    <input
+      className={joinClasses([
+        "mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-[15px] outline-none focus:border-accent",
+        className,
+      ])}
+      {...props}
+    />
+  );
+}
+
+type SettingsActionButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  tone?: "accent" | "danger" | "neutral";
+};
+
+export function SettingsActionButton({
+  className,
+  tone = "accent",
+  type = "button",
+  ...props
+}: SettingsActionButtonProps) {
+  return (
+    <button
+      className={joinClasses([
+        "flex h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-[15px] font-semibold disabled:cursor-not-allowed disabled:opacity-45",
+        tone === "accent" ? "bg-accent/15 text-accent" : undefined,
+        tone === "danger" ? "border border-border bg-surface-muted text-unsynced" : undefined,
+        tone === "neutral" ? "border border-border bg-surface-muted text-text-muted" : undefined,
+        className,
+      ])}
+      type={type}
+      {...props}
+    />
+  );
 }

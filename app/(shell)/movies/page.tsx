@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { MovieLibraryGrid } from "@/components/movie/movie-library-grid";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
+import { PageHeader } from "@/components/ui/section";
 import { getWatchedLibrarySummary, listLibraryMoviesPage, listTags } from "@/lib/db/queries";
 import type { LibraryStatsBreakdownItem } from "@/lib/db/types";
 
@@ -44,29 +45,27 @@ export default async function MoviesPage({
 
   return (
     <main className="space-y-4">
-      <section>
-        {showStatsReturn && (
+      <PageHeader
+        title="Movies"
+        action={<SettingsSheet />}
+        leading={showStatsReturn ? (
           <Link
             href={returnToStatsHref}
-            className="-ml-1 mb-1 inline-flex min-h-11 items-center text-[17px] text-accent"
+            className="-ml-1 inline-flex min-h-11 items-center text-[17px] text-accent"
           >
             ‹ Stats
           </Link>
+        ) : null}
+        subtitle={(
+          <>
+            <span className="tabnum">
+              {activeLabels.length > 0 ? watchedPage.totalCount : summary.watchedCount}
+            </span>{" "}
+            watched
+            {activeLabels.length > 0 && <> · {activeLabels.join(" · ")}</>}
+          </>
         )}
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-[32px] font-bold leading-[1.1]">Movies</h1>
-            <p className="mt-1 text-[13px] text-text-2">
-              <span className="tabnum">
-                {activeLabels.length > 0 ? watchedPage.totalCount : summary.watchedCount}
-              </span>{" "}
-              watched
-              {activeLabels.length > 0 && <> · {activeLabels.join(" · ")}</>}
-            </p>
-          </div>
-          <SettingsSheet />
-        </div>
-      </section>
+      />
 
       {watchedPage.movies.length > 0 || activeLabels.length > 0 ? (
         <MovieLibraryGrid
