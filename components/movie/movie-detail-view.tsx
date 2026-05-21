@@ -5,6 +5,7 @@ import { Film } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
+import { CreditPosterCard } from "@/components/media/credit-poster-card";
 import { OverviewText } from "@/components/movie/overview-text";
 import {
   CollapsibleSection,
@@ -59,6 +60,12 @@ type DetailMovie = {
     name: string;
   }>;
   trivia?: DetailSourceItem[];
+  relatedMovies?: Array<{
+    id: number;
+    title: string;
+    posterPath: string | null;
+    releaseYear: number | null;
+  }>;
 };
 
 type MovieDetailViewProps = {
@@ -100,6 +107,10 @@ export function MovieDetailView({
     ...movie.cast.map((member) => ({
       path: member.profile_path,
       role: "profileAvatar" as const,
+    })),
+    ...(movie.relatedMovies ?? []).map((relatedMovie) => ({
+      path: relatedMovie.posterPath,
+      role: "railPoster" as const,
     })),
   ]);
   const detailRows = [
@@ -260,6 +271,27 @@ export function MovieDetailView({
           </p>
         )}
       </CollapsibleSection>
+
+      <Section>
+        <SectionHeader>Related Movies</SectionHeader>
+        {(movie.relatedMovies?.length ?? 0) > 0 ? (
+          <SectionScrollBleed className="flex gap-3 pb-1">
+            {movie.relatedMovies?.map((relatedMovie) => (
+              <CreditPosterCard
+                key={relatedMovie.id}
+                href={`/movie/tmdb/${relatedMovie.id}`}
+                posterPath={relatedMovie.posterPath}
+                subtitle={relatedMovie.releaseYear ? String(relatedMovie.releaseYear) : null}
+                title={relatedMovie.title}
+              />
+            ))}
+          </SectionScrollBleed>
+        ) : (
+          <p className="text-[15px] leading-[1.4] text-text-muted">
+            No related movies available.
+          </p>
+        )}
+      </Section>
 
     </main>
   );

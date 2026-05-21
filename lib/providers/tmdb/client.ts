@@ -29,6 +29,8 @@ export type TmdbMovieSearchResponse = {
   total_results: number;
 };
 
+export type TmdbMovieListResponse = TmdbMovieSearchResponse;
+
 export type TmdbMovieDetails = {
   id: number;
   imdb_id?: string | null;
@@ -197,6 +199,28 @@ export function getTmdbMovieDetailsWithAuth(
 export function getTmdbMovieCredits(tmdbId: number, language?: string | null) {
   return fetchTmdbJson<TmdbMovieCredits>(`/movie/${tmdbId}/credits`, {
     language,
+  });
+}
+
+export function getTmdbMovieRecommendations(
+  tmdbId: number,
+  language?: string | null,
+  page = 1,
+) {
+  return fetchTmdbJson<TmdbMovieListResponse>(`/movie/${tmdbId}/recommendations`, {
+    language,
+    page,
+  });
+}
+
+export function getTmdbSimilarMovies(
+  tmdbId: number,
+  language?: string | null,
+  page = 1,
+) {
+  return fetchTmdbJson<TmdbMovieListResponse>(`/movie/${tmdbId}/similar`, {
+    language,
+    page,
   });
 }
 

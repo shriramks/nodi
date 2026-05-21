@@ -6,6 +6,7 @@ import { MovieDetailView } from "@/components/movie/movie-detail-view";
 import { isAppError } from "@/lib/errors";
 import { getMovieDetail, listTags } from "@/lib/db/queries";
 import { enrichTmdbMovieOnDemand } from "@/lib/providers/tmdb/enrichment";
+import { getRelatedTmdbMovies } from "@/lib/providers/tmdb/related";
 import { getMovieWikipediaTrivia } from "@/lib/providers/wikipedia/trivia";
 import {
   RatingSheet,
@@ -42,19 +43,22 @@ export default async function MovieDetailPage({
     movie = await loadMovieOrNotFound(enrichedMovie.id);
   }
 
-  const trivia = await getMovieWikipediaTrivia({
-    imdbId: movie.imdb_id,
-    releaseYear: movie.release_year,
-    title: movie.title,
-    tmdbId: movie.tmdb_id,
-  });
+  const [trivia, relatedMovies] = await Promise.all([
+    getMovieWikipediaTrivia({
+      imdbId: movie.imdb_id,
+      releaseYear: movie.release_year,
+      title: movie.title,
+      tmdbId: movie.tmdb_id,
+    }),
+    getRelatedTmdbMovies(movie.tmdb_id),
+  ]);
   const { userMovie } = movie;
   const status = userMovie?.status ?? null;
 
   return (
     <MovieDetailView
       actions={<UserStateActions movieId={movie.id} status={status} />}
-      movie={{ ...movie, trivia }}
+      movie={{ ...movie, trivia, relatedMovies }}
       ratingPicker={
         status === "watched" ? (
           <RatingSheet
