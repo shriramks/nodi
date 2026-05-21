@@ -111,73 +111,95 @@ export function MovieDetailView({
   ].filter((row): row is { label: string; value: string } => row !== null);
 
   return (
-    <main className="space-y-4 pb-4">
-      <div className="flex items-center justify-between">
-        <BackButton />
-        <SettingsSheet />
-      </div>
-
-      <section>
-        <div className="grid grid-cols-[112px_minmax(0,1fr)] gap-4">
-          <div
-            className="flex aspect-[2/3] w-full items-center justify-center rounded-2xl border border-border bg-surface-muted bg-cover bg-center"
-            style={
-              movie.poster_path
-                ? { backgroundImage: `url(${tmdbImageUrl(movie.poster_path, "w342")})` }
-                : undefined
-            }
-          >
-            {!movie.poster_path && (
-              <Film
-                aria-hidden="true"
-                className="h-7 w-7 text-text-faint"
-                strokeWidth={1.8}
-              />
-            )}
-          </div>
-
-          <div className="min-w-0 space-y-2 self-start">
-            <h1 className="text-[22px] font-bold leading-[1.2]">{movie.title}</h1>
-
-            {metaLine && (
-              <p className="text-[13px] leading-[1.4] text-text-2">{metaLine}</p>
-            )}
-
-            {watchedSummary ??
-              (statusLabel && statusColour ? (
-                <p className={`text-[15px] font-semibold ${statusColour}`}>
-                  {statusLabel}
-                </p>
-              ) : null)}
-
-            <div className="flex items-center gap-2.5">
-              {ratingPicker}
-              {movie.tmdb_vote_average !== null &&
-                movie.tmdb_vote_average !== undefined && (
-                  <span className="text-[13px] text-text-muted">
-                    · ★ {movie.tmdb_vote_average}
-                  </span>
-                )}
+    <main className="-mt-6 space-y-5 pb-4">
+      <section className="-mx-4">
+        <div className="relative h-[244px] overflow-hidden bg-surface-muted">
+          {movie.backdrop_path ? (
+            <Image
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full object-cover"
+              height={439}
+              priority
+              sizes="(max-width: 448px) 100vw, 448px"
+              src={tmdbImageUrl(movie.backdrop_path, "w780")}
+              width={780}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center bg-surface-muted">
+              <Film aria-hidden="true" className="h-10 w-10 text-text-faint" strokeWidth={1.6} />
             </div>
-
-            {visibleTags.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {visibleTags.map((tag) => (
-                  <span
-                    key={tag.id}
-                    className="rounded-lg border border-accent/25 bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent"
-                  >
-                    {tag.name}
-                  </span>
-                ))}
-                {(movie.tags?.length ?? 0) > 3 && (
-                  <span className="rounded-lg border border-border px-2 py-0.5 text-[11px] text-text-faint">
-                    +{(movie.tags?.length ?? 0) - 3}
-                  </span>
-                )}
-              </div>
-            )}
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-background" />
+          <div
+            className="absolute left-4 right-4 top-0 flex items-center justify-between"
+            style={{ paddingTop: "calc(1.25rem + env(safe-area-inset-top))" }}
+          >
+            <BackButton className="-ml-1 flex h-11 items-center gap-0.5 text-white drop-shadow-sm" />
+            <SettingsSheet />
           </div>
+        </div>
+      </section>
+
+      <section className="relative -mt-[92px] min-h-[202px]">
+        <div className="absolute left-0 top-0 flex aspect-[2/3] w-32 items-center justify-center overflow-hidden rounded-2xl border-[5px] border-background bg-surface-muted shadow-sm">
+          {movie.poster_path ? (
+            <Image
+              alt=""
+              aria-hidden="true"
+              className="h-full w-full object-cover"
+              height={513}
+              priority
+              sizes="128px"
+              src={tmdbImageUrl(movie.poster_path, "w342")}
+              width={342}
+            />
+          ) : (
+            <Film aria-hidden="true" className="h-8 w-8 text-text-faint" strokeWidth={1.8} />
+          )}
+        </div>
+
+        <div className="min-w-0 space-y-2 pl-36 pt-[96px]">
+          <h1 className="text-[22px] font-bold leading-[1.2]">{movie.title}</h1>
+
+          {metaLine && (
+            <p className="text-[13px] leading-[1.4] text-text-2">{metaLine}</p>
+          )}
+
+          {watchedSummary ??
+            (statusLabel && statusColour ? (
+              <p className={`text-[15px] font-semibold ${statusColour}`}>
+                {statusLabel}
+              </p>
+            ) : null)}
+
+          <div className="flex items-center gap-2.5">
+            {ratingPicker}
+            {movie.tmdb_vote_average !== null &&
+              movie.tmdb_vote_average !== undefined && (
+                <span className="text-[13px] text-text-muted">
+                  · ★ {movie.tmdb_vote_average}
+                </span>
+              )}
+          </div>
+
+          {visibleTags.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {visibleTags.map((tag) => (
+                <span
+                  key={tag.id}
+                  className="rounded-lg border border-accent/25 bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent"
+                >
+                  {tag.name}
+                </span>
+              ))}
+              {(movie.tags?.length ?? 0) > 3 && (
+                <span className="rounded-lg border border-border px-2 py-0.5 text-[11px] text-text-faint">
+                  +{(movie.tags?.length ?? 0) - 3}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </section>
 

@@ -264,6 +264,23 @@ Rules:
 - Rating should appear in detail or alternate list contexts, not in the watched poster grid.
 - Poster placeholders should preserve aspect ratio to avoid layout shift.
 
+### MovieDetailHero
+```text
+[edge-to-edge backdrop banner]
+    [poster overlaps lower edge] [title / metadata / state / rating / tags]
+```
+
+Rules:
+- Movie detail uses `backdrop_path` as an edge-to-edge cinematic banner that bleeds through the
+  shell padding, matching the actor detail banner treatment.
+- The poster remains the vertical identity anchor and overlaps the lower banner edge; do not replace
+  it with backdrop-only title art.
+- Back, settings, title, metadata, watched/watchlist state, rating, and tag summary all remain in
+  the hero area. Primary actions stay immediately below the hero, followed by watch history, plot,
+  cast, tags, and details.
+- If a movie has no backdrop, render a quiet `bg-surface-muted` fallback with the standard film icon
+  and keep the same poster/title layout so the page does not jump between states.
+
 ### TagFilterRow
 ```text
 [All] [Thriller] [Korean] [Rewatch] [...]
