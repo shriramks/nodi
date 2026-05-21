@@ -112,7 +112,7 @@ export function MovieDetailView({
   ].filter((row): row is { label: string; value: string } => row !== null);
 
   return (
-    <main className="-mt-6 space-y-5 pb-4">
+    <main className="-mt-6 space-y-4 pb-4">
       <section className="-mx-4">
         <div className="relative h-[244px] overflow-hidden bg-surface-muted">
           {movie.backdrop_path ? (
@@ -142,7 +142,7 @@ export function MovieDetailView({
         </div>
       </section>
 
-      <section className="relative -mt-[92px] min-h-[202px]">
+      <section className="relative -mt-[92px] min-h-[194px]">
         <div className="absolute left-0 top-0 flex aspect-[2/3] w-32 items-center justify-center overflow-hidden rounded-2xl border-[5px] border-background bg-surface-muted shadow-sm">
           {movie.poster_path ? (
             <Image
@@ -160,11 +160,11 @@ export function MovieDetailView({
           )}
         </div>
 
-        <div className="min-w-0 space-y-2 pl-36 pt-[96px]">
+        <div className="min-w-0 space-y-1.5 pl-36 pt-[76px]">
           <h1 className="text-[22px] font-bold leading-[1.2]">{movie.title}</h1>
 
           {metaLine && (
-            <p className="text-[13px] leading-[1.4] text-text-2">{metaLine}</p>
+            <p className="text-[13px] leading-[1.35] text-text-2">{metaLine}</p>
           )}
 
           {watchedSummary ??
@@ -174,7 +174,7 @@ export function MovieDetailView({
               </p>
             ) : null)}
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 pt-0.5">
             {ratingPicker}
             {movie.tmdb_vote_average !== null &&
               movie.tmdb_vote_average !== undefined && (
