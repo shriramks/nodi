@@ -2,6 +2,8 @@ import { Film, Check } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
+import { tmdbImage } from "@/lib/providers/tmdb/images";
+
 type PosterCardProps = {
   movieId: string;
   title: string;
@@ -10,8 +12,6 @@ type PosterCardProps = {
   isSelected?: boolean;
   onToggle?: (movieId: string) => void;
 };
-
-const posterBaseUrl = "https://image.tmdb.org/t/p/w342";
 
 export function PosterCard({
   movieId,
@@ -38,10 +38,7 @@ export function PosterCard({
             alt=""
             aria-hidden="true"
             className="h-full w-full object-cover"
-            height={513}
-            sizes="(max-width: 640px) 25vw, 160px"
-            src={`${posterBaseUrl}${posterPath}`}
-            width={342}
+            {...tmdbImage(posterPath, "gridPoster")}
           />
         ) : (
           <Film aria-hidden="true" className="h-7 w-7 text-text-faint" strokeWidth={1.8} />

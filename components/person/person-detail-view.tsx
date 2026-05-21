@@ -2,12 +2,13 @@ import Image from "next/image";
 import { Film, UserRound } from "lucide-react";
 
 import { CreditPosterCard } from "@/components/media/credit-poster-card";
+import { TmdbImagePrefetcher } from "@/components/media/tmdb-image-prefetcher";
 import { BackButton } from "@/components/navigation/back-button";
 import { OverviewText } from "@/components/movie/overview-text";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { DetailBlock, DetailSourceList, type DetailSourceItem } from "@/components/ui/detail";
 import { Section, SectionHeader, SectionScrollBleed } from "@/components/ui/section";
-import { tmdbImageUrl } from "@/lib/providers/tmdb/images";
+import { tmdbImage, tmdbImagePrefetchUrls } from "@/lib/providers/tmdb/images";
 
 export type KnownForCredit = {
   id: number;
@@ -54,9 +55,16 @@ export function PersonDetailView({
       : person.department
         ? `Known for ${person.department}`
         : null;
+  const prefetchUrls = tmdbImagePrefetchUrls([
+    ...person.knownFor.map((credit) => ({
+      path: credit.posterPath,
+      role: "railPoster" as const,
+    })),
+  ]);
 
   return (
     <main className="-mt-6 space-y-5 pb-4">
+      <TmdbImagePrefetcher urls={prefetchUrls} />
       <section className="-mx-4">
         <div className="relative h-[244px] overflow-hidden bg-surface-muted">
           {heroBackdrop ? (
@@ -64,11 +72,8 @@ export function PersonDetailView({
               alt=""
               aria-hidden="true"
               className="h-full w-full object-cover"
-              height={439}
               priority
-              sizes="(max-width: 448px) 100vw, 448px"
-              src={tmdbImageUrl(heroBackdrop, "w780")}
-              width={780}
+              {...tmdbImage(heroBackdrop, "heroBackdrop")}
             />
           ) : (
             <div className="flex h-full items-center justify-center bg-surface-muted">
@@ -93,11 +98,8 @@ export function PersonDetailView({
               alt=""
               aria-hidden="true"
               className="h-full w-full object-cover object-[center_25%]"
-              height={513}
               priority
-              sizes="144px"
-              src={tmdbImageUrl(person.profilePath, "w342")}
-              width={342}
+              {...tmdbImage(person.profilePath, "profilePortrait")}
             />
           ) : (
             <UserRound aria-hidden="true" className="h-12 w-12 text-text-faint" strokeWidth={1.6} />

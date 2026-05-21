@@ -1,15 +1,16 @@
 ## Todo
 
-### 83 — App-Wide Image Cache And Prefetch
-
-Files: pending
-
-- Audit poster, backdrop, cast, and provider image usage across the app.
-- Centralize cache, sizing, priority, and prefetch behavior for faster detail transitions.
-- Add app-wide guardrails against duplicate fetches and oversized mobile image downloads.
-- Across complete app: the movies screen, watchlist screen, movie dtail screen, actor detail screen
-
 ## Done
+
+### 83 — 2026-05-21 — App-Wide Image Cache And Prefetch
+
+Files: `components/media/credit-poster-card.tsx`, `components/media/tmdb-image-prefetcher.tsx`, `components/movie/movie-detail-view.tsx`, `components/movie/movie-library-grid.tsx`, `components/movie/poster-card.tsx`, `components/person/person-detail-view.tsx`, `components/search/movie-search.tsx`, `lib/providers/tmdb/images.ts`, `next.config.ts`, `public/sw.js`
+
+- Audited poster, backdrop, cast, search, provider-credit, and person image usage across Movies, To Watch, movie detail, actor detail, and search surfaces.
+- Centralized TMDB image URL, role sizing, optimized-image prefetch URL generation, dedupe, and mobile size guardrails in `lib/providers/tmdb/images.ts`.
+- Added a client prefetch bridge that batches optimized image URLs, skips constrained connections, and avoids duplicate browser fetches across mounted views.
+- Added a bounded service-worker image cache with duplicate in-flight request coalescing and prefetch message support.
+- Converted search result posters from direct CSS TMDB backgrounds to `next/image`, and wired list/detail/person surfaces to shared sizing and prefetch behavior.
 
 ### 1 — 2026-05-05 — Foundation
 

@@ -12,9 +12,10 @@ import {
   SectionHeader,
   SectionScrollBleed,
 } from "@/components/ui/section";
+import { TmdbImagePrefetcher } from "@/components/media/tmdb-image-prefetcher";
 import { DetailRow, DetailSourceList, type DetailSourceItem } from "@/components/ui/detail";
 import type { MovieStatus } from "@/lib/db/types";
-import { tmdbImageUrl } from "@/lib/providers/tmdb/images";
+import { tmdbImage, tmdbImagePrefetchUrls } from "@/lib/providers/tmdb/images";
 
 function languageDisplayName(code: string): string {
   try {
@@ -95,6 +96,12 @@ export function MovieDetailView({
     .filter(Boolean)
     .join(" · ");
   const visibleTags = (movie.tags ?? []).slice(0, 3);
+  const prefetchUrls = tmdbImagePrefetchUrls([
+    ...movie.cast.map((member) => ({
+      path: member.profile_path,
+      role: "profileAvatar" as const,
+    })),
+  ]);
   const detailRows = [
     movie.release_date ? { label: "Release", value: formatReleaseDate(movie.release_date) } : null,
     movie.runtime_minutes ? { label: "Runtime", value: `${movie.runtime_minutes} min` } : null,
@@ -113,6 +120,7 @@ export function MovieDetailView({
 
   return (
     <main className="-mt-6 space-y-4 pb-4">
+      <TmdbImagePrefetcher urls={prefetchUrls} />
       <section className="-mx-4">
         <div className="relative h-[244px] overflow-hidden bg-surface-muted">
           {movie.backdrop_path ? (
@@ -120,11 +128,8 @@ export function MovieDetailView({
               alt=""
               aria-hidden="true"
               className="h-full w-full object-cover"
-              height={439}
               priority
-              sizes="(max-width: 448px) 100vw, 448px"
-              src={tmdbImageUrl(movie.backdrop_path, "w780")}
-              width={780}
+              {...tmdbImage(movie.backdrop_path, "heroBackdrop")}
             />
           ) : (
             <div className="flex h-full items-center justify-center bg-surface-muted">
@@ -149,11 +154,8 @@ export function MovieDetailView({
               alt=""
               aria-hidden="true"
               className="h-full w-full object-cover"
-              height={513}
               priority
-              sizes="128px"
-              src={tmdbImageUrl(movie.poster_path, "w342")}
-              width={342}
+              {...tmdbImage(movie.poster_path, "detailPoster")}
             />
           ) : (
             <Film aria-hidden="true" className="h-8 w-8 text-text-faint" strokeWidth={1.8} />
@@ -288,11 +290,8 @@ function CastMemberLink({
           <Image
             alt=""
             aria-hidden="true"
-                      className="h-full w-full object-cover object-[center_28%]"
-                      height={278}
-                      sizes="64px"
-                      src={tmdbImageUrl(profilePath, "w185")}
-                      width={185}
+            className="h-full w-full object-cover object-[center_28%]"
+            {...tmdbImage(profilePath, "profileAvatar")}
           />
         ) : (
           <Film className="h-5 w-5 text-text-faint" strokeWidth={1.8} />

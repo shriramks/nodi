@@ -1,9 +1,12 @@
 /* global self, caches, fetch, URL, Request, Response */
 
-const VERSION = "2026-05-09-2";
+const VERSION = "2026-05-21-1";
 const PRECACHE = `nodi-precache-${VERSION}`;
 const RUNTIME = `nodi-runtime-${VERSION}`;
+const IMAGE_RUNTIME = `nodi-images-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
+const MAX_IMAGE_CACHE_ENTRIES = 160;
+const inFlightFetches = new Map();
 
 const PRECACHE_URLS = [
   OFFLINE_URL,
@@ -63,8 +66,19 @@ self.addEventListener("fetch", (event) => {
   }
 
   const url = new URL(request.url);
+  const isSameOrigin = url.origin === self.location.origin;
 
-  if (url.origin !== self.location.origin) {
+  if (isOptimizedImageRequest(url) || isTmdbImageRequest(url)) {
+    event.respondWith(
+      staleWhileRevalidate(event, {
+        cacheName: IMAGE_RUNTIME,
+        maxEntries: MAX_IMAGE_CACHE_ENTRIES,
+      }),
+    );
+    return;
+  }
+
+  if (!isSameOrigin) {
     return;
   }
 
@@ -78,7 +92,32 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (isStaticAsset(request, url)) {
-    event.respondWith(staleWhileRevalidate(event));
+    const isImage = request.destination === "image";
+
+    event.respondWith(
+      staleWhileRevalidate(event, {
+        cacheName: isImage ? IMAGE_RUNTIME : RUNTIME,
+        maxEntries: isImage ? MAX_IMAGE_CACHE_ENTRIES : undefined,
+      }),
+    );
+  }
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type !== "NODI_PREFETCH_IMAGES") {
+    return;
+  }
+
+  const urls = normalizePrefetchUrls(event.data.urls);
+
+  if (urls.length === 0) {
+    return;
+  }
+
+  const prefetch = prefetchImages(urls);
+
+  if (typeof event.waitUntil === "function") {
+    event.waitUntil(prefetch);
   }
 });
 
@@ -106,10 +145,12 @@ async function handleNavigation(event) {
   }
 }
 
-async function staleWhileRevalidate(event) {
+async function staleWhileRevalidate(event, options = {}) {
   const { request } = event;
-  const cachedResponse = await caches.match(request);
-  const freshResponse = fetchAndCache(request);
+  const { cacheName = RUNTIME, maxEntries } = options;
+  const cache = await caches.open(cacheName);
+  const cachedResponse = await cache.match(request);
+  const freshResponse = fetchAndCache(request, cacheName, maxEntries);
 
   if (cachedResponse) {
     event.waitUntil(freshResponse);
@@ -125,19 +166,36 @@ async function staleWhileRevalidate(event) {
   );
 }
 
-async function fetchAndCache(request) {
-  try {
-    const response = await fetch(request);
+async function fetchAndCache(request, cacheName = RUNTIME, maxEntries) {
+  const key = request.url;
 
-    if (isCacheable(response) && !request.headers.has("range")) {
-      const cache = await caches.open(RUNTIME);
-      await cache.put(request, response.clone());
-    }
-
-    return response;
-  } catch {
-    return undefined;
+  if (inFlightFetches.has(key)) {
+    const inFlightResponse = await inFlightFetches.get(key);
+    return inFlightResponse?.clone();
   }
+
+  const fetchPromise = fetch(request)
+    .then(async (response) => {
+      if (isCacheable(response) && !request.headers.has("range")) {
+        const cache = await caches.open(cacheName);
+        await cache.put(request, response.clone());
+
+        if (maxEntries) {
+          await trimCache(cache, maxEntries);
+        }
+      }
+
+      return response;
+    })
+    .catch(() => undefined)
+    .finally(() => {
+      inFlightFetches.delete(key);
+    });
+
+  inFlightFetches.set(key, fetchPromise);
+
+  const response = await fetchPromise;
+  return response?.clone();
 }
 
 function isStaticAsset(request, url) {
@@ -169,7 +227,87 @@ function isStaticAsset(request, url) {
 function isCacheable(response) {
   return (
     response &&
-    response.status === 200 &&
-    (response.type === "basic" || response.type === "default")
+    (response.status === 200 || response.type === "opaque") &&
+    (response.type === "basic" ||
+      response.type === "cors" ||
+      response.type === "default" ||
+      response.type === "opaque")
   );
+}
+
+async function prefetchImages(urls) {
+  const queue = [...urls];
+  const workers = Array.from({ length: Math.min(3, queue.length) }, async () => {
+    while (queue.length > 0) {
+      const url = queue.shift();
+      const request = new Request(url, {
+        cache: "reload",
+        credentials: "same-origin",
+      });
+
+      const cache = await caches.open(IMAGE_RUNTIME);
+      const cachedResponse = await cache.match(request);
+
+      if (!cachedResponse) {
+        await fetchAndCache(request, IMAGE_RUNTIME, MAX_IMAGE_CACHE_ENTRIES);
+      }
+    }
+  });
+
+  await Promise.all(workers);
+}
+
+function normalizePrefetchUrls(urls) {
+  if (!Array.isArray(urls)) {
+    return [];
+  }
+
+  const normalized = [];
+  const seen = new Set();
+
+  for (const value of urls) {
+    if (typeof value !== "string") {
+      continue;
+    }
+
+    try {
+      const url = new URL(value, self.location.origin);
+
+      if (!isOptimizedImageRequest(url) && !isTmdbImageRequest(url)) {
+        continue;
+      }
+
+      const href = url.href;
+
+      if (!seen.has(href)) {
+        seen.add(href);
+        normalized.push(href);
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return normalized.slice(0, 32);
+}
+
+function isOptimizedImageRequest(url) {
+  return url.origin === self.location.origin && url.pathname === "/_next/image";
+}
+
+function isTmdbImageRequest(url) {
+  return (
+    url.origin === "https://image.tmdb.org" &&
+    url.pathname.startsWith("/t/p/")
+  );
+}
+
+async function trimCache(cache, maxEntries) {
+  const keys = await cache.keys();
+
+  if (keys.length <= maxEntries) {
+    return;
+  }
+
+  await Promise.all(keys.slice(0, keys.length - maxEntries).map((key) => cache.delete(key)));
 }

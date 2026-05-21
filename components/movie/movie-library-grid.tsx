@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpDown, ChevronDown, ListFilter, LoaderCircle, X } from "lucide-react";
 import { PosterCard } from "@/components/movie/poster-card";
 import { BulkActionsBar } from "@/components/movie/bulk-actions-bar";
+import { TmdbImagePrefetcher } from "@/components/media/tmdb-image-prefetcher";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import {
   SectionHeader,
@@ -19,6 +20,7 @@ import type {
   Tag,
 } from "@/lib/db/types";
 import type { LibraryMoviePage } from "@/lib/db/queries";
+import { tmdbImagePrefetchUrls } from "@/lib/providers/tmdb/images";
 
 // ─── Sort / filter types ──────────────────────────────────────────────────────
 
@@ -451,9 +453,17 @@ export function MovieLibraryGrid({
   // ─── Render ───────────────────────────────────────────────────────────────
 
   const gridClass = "grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2";
+  const posterPrefetchUrls = tmdbImagePrefetchUrls(
+    processed.map(({ movie }) => ({
+      path: movie.poster_path,
+      role: "gridPoster",
+    })),
+    24,
+  );
 
   return (
     <>
+      <TmdbImagePrefetcher urls={posterPrefetchUrls} />
       <div className="space-y-3">
         {/* Toolbar */}
         <div className="flex items-center justify-between gap-2">

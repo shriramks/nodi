@@ -1,17 +1,19 @@
 "use client";
 
 import { Film, LoaderCircle, Search, X } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { TmdbImagePrefetcher } from "@/components/media/tmdb-image-prefetcher";
 import type {
   MovieSearchResponse,
   MovieSearchResult,
 } from "@/lib/providers/tmdb/adapters";
+import { tmdbImage, tmdbImagePrefetchUrls } from "@/lib/providers/tmdb/images";
 
 type SearchStatus = "idle" | "loading" | "success" | "error";
 
-const posterBaseUrl = "https://image.tmdb.org/t/p/w342";
 const minimumQueryLength = 2;
 
 export function MovieSearch() {
@@ -76,6 +78,12 @@ export function MovieSearch() {
   const activeResponse = response?.query === normalizedQuery ? response : null;
   const activeStatus = normalizedQuery.length < minimumQueryLength ? "idle" : status;
   const results = activeResponse?.results ?? [];
+  const prefetchUrls = tmdbImagePrefetchUrls(
+    results.map((result) => ({
+      path: result.posterPath,
+      role: "searchPoster",
+    })),
+  );
 
   function handleQueryChange(nextQuery: string) {
     setQuery(nextQuery);
@@ -103,6 +111,7 @@ export function MovieSearch() {
 
   return (
     <div className="space-y-5">
+      <TmdbImagePrefetcher urls={prefetchUrls} />
       <section className="flex h-[50px] items-center gap-3 rounded-xl border border-border bg-surface-muted pl-4 pr-1">
         <Search aria-hidden="true" className="h-5 w-5 shrink-0 text-text-muted" />
         <input
@@ -196,14 +205,16 @@ function SearchResultPoster({
     >
       <div
         aria-hidden="true"
-        className="relative flex aspect-[2/3] w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-surface-muted bg-cover bg-center transition-transform duration-200 group-hover:-translate-y-0.5"
-        style={
-          result.posterPath
-            ? { backgroundImage: `url(${posterBaseUrl}${result.posterPath})` }
-            : undefined
-        }
+        className="relative flex aspect-[2/3] w-full items-center justify-center overflow-hidden rounded-2xl border border-border bg-surface-muted transition-transform duration-200 group-hover:-translate-y-0.5"
       >
-        {result.posterPath ? null : (
+        {result.posterPath ? (
+          <Image
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-cover"
+            {...tmdbImage(result.posterPath, "searchPoster")}
+          />
+        ) : (
           <Film className="h-5 w-5 text-text-faint" strokeWidth={1.8} />
         )}
         {isOpening ? (
