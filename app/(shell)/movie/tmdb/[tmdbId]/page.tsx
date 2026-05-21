@@ -15,6 +15,7 @@ import {
   type TmdbMovieCredits,
   type TmdbMovieDetails,
 } from "@/lib/providers/tmdb/client";
+import { getMovieWikipediaTrivia } from "@/lib/providers/wikipedia/trivia";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { TmdbUserStateActions } from "./tmdb-movie-detail-client";
 import {
@@ -46,6 +47,12 @@ export default async function TmdbMovieDetailPage({
   const tmdbId = normalizeTmdbId(rawTmdbId);
   await redirectIfSaved(tmdbId);
   const [detail, credits] = await loadTmdbMovieOrNotFound(tmdbId);
+  const trivia = await getMovieWikipediaTrivia({
+    imdbId: detail.imdb_id,
+    releaseYear: releaseYear(normalizeDate(detail.release_date)),
+    title: normalizeText(detail.title) ?? "Untitled movie",
+    tmdbId: detail.id,
+  });
   const ingestPayload = toTmdbMovieIngestPayload(detail, credits);
 
   return (
@@ -56,7 +63,7 @@ export default async function TmdbMovieDetailPage({
           markWatched={markTmdbWatchedAction.bind(null, ingestPayload)}
         />
       }
-      movie={toDetailMovie(detail, credits)}
+      movie={{ ...toDetailMovie(detail, credits), trivia }}
       status={null}
     />
   );

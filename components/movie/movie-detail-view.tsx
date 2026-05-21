@@ -12,7 +12,7 @@ import {
   SectionHeader,
   SectionScrollBleed,
 } from "@/components/ui/section";
-import { DetailRow } from "@/components/ui/detail";
+import { DetailRow, DetailSourceList, type DetailSourceItem } from "@/components/ui/detail";
 import type { MovieStatus } from "@/lib/db/types";
 import { tmdbImageUrl } from "@/lib/providers/tmdb/images";
 
@@ -57,6 +57,7 @@ type DetailMovie = {
     id: string;
     name: string;
   }>;
+  trivia?: DetailSourceItem[];
 };
 
 type MovieDetailViewProps = {
@@ -234,6 +235,13 @@ export function MovieDetailView({
           </p>
         )}
       </Section>
+
+      <CollapsibleSection title="Trivia">
+        <DetailSourceList
+          emptyText="No source-backed trivia available."
+          items={movie.trivia ?? []}
+        />
+      </CollapsibleSection>
 
       {status ? tagEditor : null}
 

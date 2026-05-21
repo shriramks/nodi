@@ -5,7 +5,7 @@ import { CreditPosterCard } from "@/components/media/credit-poster-card";
 import { BackButton } from "@/components/navigation/back-button";
 import { OverviewText } from "@/components/movie/overview-text";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
-import { DetailBlock, DetailTextList } from "@/components/ui/detail";
+import { DetailBlock, DetailSourceList, type DetailSourceItem } from "@/components/ui/detail";
 import { Section, SectionHeader, SectionScrollBleed } from "@/components/ui/section";
 import { tmdbImageUrl } from "@/lib/providers/tmdb/images";
 
@@ -28,7 +28,7 @@ export type PersonDetail = {
   birthplace: string | null;
   department: string | null;
   knownFor: KnownForCredit[];
-  trivia: string[];
+  trivia: DetailSourceItem[];
 };
 
 type PersonDetailViewProps = {
@@ -129,7 +129,10 @@ export function PersonDetailView({
 
       <Section>
         <SectionHeader>Trivia</SectionHeader>
-        <DetailTextList emptyText="No trivia available." items={person.trivia} />
+        <DetailSourceList
+          emptyText="No source-backed trivia available."
+          items={person.trivia}
+        />
       </Section>
 
       <Section>

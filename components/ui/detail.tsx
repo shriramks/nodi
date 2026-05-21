@@ -75,3 +75,46 @@ export function DetailTextList({
     </div>
   );
 }
+
+export type DetailSourceItem = {
+  sourceLabel: string;
+  sourceUrl: string;
+  text: string;
+};
+
+export function DetailSourceList({
+  emptyText,
+  items,
+}: {
+  emptyText: string;
+  items: DetailSourceItem[];
+}) {
+  if (items.length === 0) {
+    return (
+      <p className="text-[15px] leading-[1.4] text-text-muted">
+        {emptyText}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5">
+      {items.map((item) => (
+        <p
+          key={`${item.sourceUrl}-${item.text}`}
+          className="border-b border-divider pb-2.5 text-[15px] leading-[1.45] text-text-2 last:border-b-0 last:pb-0"
+        >
+          {item.text}
+          <a
+            className="ml-1.5 whitespace-nowrap text-[12px] font-semibold text-accent active:opacity-70"
+            href={item.sourceUrl}
+            rel="noreferrer"
+            target="_blank"
+          >
+            {item.sourceLabel}
+          </a>
+        </p>
+      ))}
+    </div>
+  );
+}

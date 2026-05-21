@@ -6,6 +6,7 @@ import {
   type KnownForCredit,
   type PersonDetail,
 } from "@/components/person/person-detail-view";
+import type { DetailSourceItem } from "@/components/ui/detail";
 import { AppError, isAppError } from "@/lib/errors";
 import {
   getTmdbPersonCombinedCredits,
@@ -14,6 +15,7 @@ import {
   type TmdbPersonCredit,
   type TmdbPersonDetails,
 } from "@/lib/providers/tmdb/client";
+import { getPersonWikipediaTrivia } from "@/lib/providers/wikipedia/trivia";
 
 type PersonDetailPageProps = {
   params: Promise<{ personId: string }>;
@@ -44,13 +46,19 @@ export default async function TmdbPersonDetailPage({
   const [{ personId: rawPersonId }, query] = await Promise.all([params, searchParams]);
   const personId = normalizePersonId(rawPersonId);
   const [detail, credits] = await loadTmdbPersonOrNotFound(personId);
+  const trivia = await getPersonWikipediaTrivia({
+    birthday: normalizeDate(detail.birthday),
+    imdbId: detail.imdb_id,
+    name: normalizeText(detail.name) ?? "Unknown",
+    tmdbPersonId: detail.id,
+  });
 
   return (
     <PersonDetailView
       contextBackdropPath={normalizeBackdropPath(query.backdrop)}
       contextCharacter={normalizeQueryText(query.character)}
       contextMovie={normalizeQueryText(query.movie)}
-      person={toPersonDetail(detail, credits)}
+      person={toPersonDetail(detail, credits, trivia)}
     />
   );
 }
@@ -86,6 +94,7 @@ function normalizePersonId(value: string) {
 function toPersonDetail(
   detail: TmdbPersonDetails,
   credits: TmdbPersonCombinedCredits,
+  trivia: DetailSourceItem[],
 ): PersonDetail {
   const knownFor = toKnownForCredits(credits);
 
@@ -98,7 +107,7 @@ function toPersonDetail(
     birthplace: normalizeText(detail.place_of_birth),
     department: normalizeText(detail.known_for_department),
     knownFor,
-    trivia: randomizedTrivia(detail, credits, knownFor),
+    trivia,
   };
 }
 
@@ -169,93 +178,6 @@ function knownForScore(credit: TmdbPersonCredit) {
   const backdropBonus = credit.backdrop_path ? 4 : 0;
 
   return popularity + votes + posterBonus + backdropBonus;
-}
-
-function randomizedTrivia(
-  detail: TmdbPersonDetails,
-  credits: TmdbPersonCombinedCredits,
-  knownFor: KnownForCredit[],
-) {
-  const facts = buildTrivia(detail, credits, knownFor);
-  return shuffle(facts).slice(0, 3);
-}
-
-function buildTrivia(
-  detail: TmdbPersonDetails,
-  credits: TmdbPersonCombinedCredits,
-  knownFor: KnownForCredit[],
-) {
-  const facts: string[] = [];
-  const name = normalizeText(detail.name) ?? "This actor";
-  const alias = detail.also_known_as?.map(normalizeText).find(Boolean);
-  const castCount = credits.cast?.length ?? 0;
-  const crewCount = credits.crew?.length ?? 0;
-  const allCredits = [...(credits.cast ?? []), ...(credits.crew ?? [])];
-  const firstYear = creditYears(allCredits).at(0) ?? null;
-  const latestYear = creditYears(allCredits).at(-1) ?? null;
-  const topRated = topRatedCredit(allCredits);
-
-  if (detail.known_for_department) {
-    facts.push(`${name} is primarily listed for ${detail.known_for_department} on TMDB.`);
-  }
-
-  if (detail.place_of_birth) {
-    facts.push(`${name} was born in ${detail.place_of_birth}.`);
-  }
-
-  if (alias && alias !== name) {
-    facts.push(`${name} is also credited as ${alias}.`);
-  }
-
-  if (castCount > 0 || crewCount > 0) {
-    facts.push(`${name} has ${castCount + crewCount} TMDB-listed film and TV credits in this profile.`);
-  }
-
-  if (firstYear && latestYear && firstYear !== latestYear) {
-    facts.push(`${name}'s listed screen credits span from ${firstYear} to ${latestYear}.`);
-  } else if (firstYear) {
-    facts.push(`${name}'s listed screen credits include work from ${firstYear}.`);
-  }
-
-  if (knownFor[0]) {
-    facts.push(`${knownFor[0].title} is one of ${name}'s most prominent TMDB credits.`);
-  }
-
-  if (topRated) {
-    facts.push(`${topRated.title} is among ${name}'s highest-rated listed credits on TMDB.`);
-  }
-
-  return facts;
-}
-
-function creditYears(credits: TmdbPersonCredit[]) {
-  return Array.from(
-    new Set(
-      credits
-        .flatMap((credit) => [
-          releaseYear(normalizeDate(credit.release_date)),
-          releaseYear(normalizeDate(credit.first_air_date)),
-        ])
-        .filter((year): year is number => year !== null),
-    ),
-  ).sort((a, b) => a - b);
-}
-
-function topRatedCredit(credits: TmdbPersonCredit[]) {
-  return credits
-    .filter((credit) => (credit.vote_count ?? 0) >= 50)
-    .map((credit) => ({
-      title: normalizeText(credit.title) ?? normalizeText(credit.name),
-      rating: credit.vote_average ?? 0,
-      votes: credit.vote_count ?? 0,
-    }))
-    .filter((credit): credit is { title: string; rating: number; votes: number } => Boolean(credit.title))
-    .sort((a, b) => b.rating - a.rating || b.votes - a.votes)
-    .at(0) ?? null;
-}
-
-function shuffle<T>(items: T[]) {
-  return [...items].sort(() => Math.random() - 0.5);
 }
 
 function normalizeDate(value: string | null | undefined) {
