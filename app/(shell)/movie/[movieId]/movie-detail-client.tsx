@@ -425,73 +425,80 @@ export function TagEditor({
   }
 
   return (
-    <section>
-      <p className="px-4 py-1 text-[11px] uppercase tracking-wide text-text-faint">
-        Tags
-      </p>
-
-      {/* Current tags — single scrollable row */}
-      {tags.length > 0 && (
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-3 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {tags.map((tag) => (
-            <button
-              key={tag.id}
-              type="button"
-              onClick={() => handleRemove(tag.id)}
-              disabled={isPending}
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-accent/12 px-2.5 text-[13px] font-medium text-accent active:opacity-70 disabled:opacity-50"
-            >
-              <span>{tag.name}</span>
-              <X aria-hidden="true" className="h-3 w-3 opacity-60" strokeWidth={2.5} />
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Search-filtered suggestions — only visible while typing */}
-      {suggestions.length > 0 && (
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {suggestions.map((tag) => (
-            <button
-              key={tag.id}
-              type="button"
-              onClick={() => handleAttach(tag.id)}
-              disabled={isPending}
-              className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 text-[13px] text-text-2 active:opacity-70 disabled:opacity-50"
-            >
-              <Plus aria-hidden="true" className="h-3 w-3 opacity-50" strokeWidth={2.5} />
-              <span>{tag.name}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* New tag input */}
-      <form className="flex items-center gap-1 border-t border-divider px-4 py-2" onSubmit={handleCreateNew}>
-        <input
-          aria-label="New tag name"
-          className="min-w-0 flex-1 bg-transparent py-2 text-[15px] text-foreground outline-none placeholder:text-text-muted"
-          maxLength={80}
-          onChange={(e) => setNewTagName(e.target.value)}
-          placeholder="New tag…"
-          value={newTagName}
+    <details className="group" open>
+      <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 px-4 py-1 text-[11px] uppercase tracking-wide text-text-faint active:opacity-70 [&::-webkit-details-marker]:hidden">
+        <span>Tags</span>
+        <ChevronDown
+          aria-hidden="true"
+          className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180"
+          strokeWidth={2.2}
         />
-        <button
-          aria-label="Add tag"
-          disabled={isPending || newTagName.trim().length === 0}
-          type="submit"
-          className="flex shrink-0 items-center justify-end gap-1.5 text-[15px] font-semibold text-accent disabled:opacity-40 active:opacity-60"
-          style={{ minHeight: 44, minWidth: 44 }}
-        >
-          {isCreatingTag ? (
-            <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
-          ) : null}
-          Add
-        </button>
-      </form>
+      </summary>
 
-      {error ? <p className="px-4 pt-1 text-[13px] text-unsynced">{error}</p> : null}
-    </section>
+      <section>
+        {/* Current tags — single scrollable row */}
+        {tags.length > 0 && (
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-3 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {tags.map((tag) => (
+              <button
+                key={tag.id}
+                type="button"
+                onClick={() => handleRemove(tag.id)}
+                disabled={isPending}
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-accent/12 px-2.5 text-[13px] font-medium text-accent active:opacity-70 disabled:opacity-50"
+              >
+                <span>{tag.name}</span>
+                <X aria-hidden="true" className="h-3 w-3 opacity-60" strokeWidth={2.5} />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Search-filtered suggestions — only visible while typing */}
+        {suggestions.length > 0 && (
+          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {suggestions.map((tag) => (
+              <button
+                key={tag.id}
+                type="button"
+                onClick={() => handleAttach(tag.id)}
+                disabled={isPending}
+                className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-border px-2.5 text-[13px] text-text-2 active:opacity-70 disabled:opacity-50"
+              >
+                <Plus aria-hidden="true" className="h-3 w-3 opacity-50" strokeWidth={2.5} />
+                <span>{tag.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* New tag input */}
+        <form className="flex items-center gap-1 border-t border-divider px-4 py-2" onSubmit={handleCreateNew}>
+          <input
+            aria-label="New tag name"
+            className="min-w-0 flex-1 bg-transparent py-2 text-[15px] text-foreground outline-none placeholder:text-text-muted"
+            maxLength={80}
+            onChange={(e) => setNewTagName(e.target.value)}
+            placeholder="New tag…"
+            value={newTagName}
+          />
+          <button
+            aria-label="Add tag"
+            disabled={isPending || newTagName.trim().length === 0}
+            type="submit"
+            className="flex shrink-0 items-center justify-end gap-1.5 text-[15px] font-semibold text-accent disabled:opacity-40 active:opacity-60"
+            style={{ minHeight: 44, minWidth: 44 }}
+          >
+            {isCreatingTag ? (
+              <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+            ) : null}
+            Add
+          </button>
+        </form>
+
+        {error ? <p className="px-4 pt-1 text-[13px] text-unsynced">{error}</p> : null}
+      </section>
+    </details>
   );
 }
 

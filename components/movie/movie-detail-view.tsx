@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
-import { Film } from "lucide-react";
+import { ChevronDown, Film } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
@@ -229,10 +229,15 @@ export function MovieDetailView({
 
       {status ? tagEditor : null}
 
-      <section className="space-y-2">
-        <p className="text-[11px] uppercase tracking-wide text-text-muted">
-          Details
-        </p>
+      <details className="group space-y-2" open>
+        <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 text-[11px] uppercase tracking-wide text-text-muted active:opacity-70 [&::-webkit-details-marker]:hidden">
+          <span>Details</span>
+          <ChevronDown
+            aria-hidden="true"
+            className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180"
+            strokeWidth={2.2}
+          />
+        </summary>
         {detailRows.length > 0 ? (
           <div>
             {detailRows.map((row) => (
@@ -244,7 +249,7 @@ export function MovieDetailView({
             No extra details available.
           </p>
         )}
-      </section>
+      </details>
 
     </main>
   );
