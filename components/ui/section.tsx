@@ -58,9 +58,9 @@ type SectionHeaderProps = {
 
 export function SectionHeader({ children, className }: SectionHeaderProps) {
   return (
-    <p className={joinClasses(["flex min-h-8 items-center", sectionLabelClass, className])}>
+    <div className={joinClasses(["flex min-h-8 items-center", sectionLabelClass, className])}>
       {children}
-    </p>
+    </div>
   );
 }
 
