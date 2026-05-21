@@ -138,3 +138,27 @@ button {
 .tabnum {
   font-variant-numeric: tabular-nums;
 }
+
+@layer components {
+  .movie-detail-hero-scrim {
+    background:
+      linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0.62) 0%,
+        rgba(0, 0, 0, 0.24) 34%,
+        rgba(0, 0, 0, 0.72) 72%,
+        var(--bg-primary) 100%
+      );
+  }
+
+  .movie-detail-title-vignette {
+    background:
+      radial-gradient(
+        ellipse at 72% 58%,
+        rgba(0, 0, 0, 0.78) 0%,
+        rgba(0, 0, 0, 0.58) 38%,
+        rgba(0, 0, 0, 0.22) 68%,
+        transparent 100%
+      );
+  }
+}

@@ -148,7 +148,8 @@ export function MovieDetailView({
               <Film aria-hidden="true" className="h-10 w-10 text-text-faint" strokeWidth={1.6} />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-background" />
+          <div className="movie-detail-hero-scrim absolute inset-0" />
+          <div className="movie-detail-title-vignette absolute inset-x-0 bottom-0 h-[168px]" />
           <div
             className="absolute left-4 right-4 top-0 flex items-center justify-between"
             style={{ paddingTop: "calc(1.25rem + env(safe-area-inset-top))" }}
@@ -159,8 +160,8 @@ export function MovieDetailView({
         </div>
       </section>
 
-      <section className="relative -mt-[92px] min-h-[194px]">
-        <div className="absolute left-0 top-0 flex aspect-[2/3] w-32 items-center justify-center overflow-hidden rounded-2xl border-[5px] border-background bg-surface-muted shadow-sm">
+      <section className="relative -mt-[92px] flex min-h-[194px] items-start gap-4">
+        <div className="flex aspect-[2/3] w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-[5px] border-background bg-surface-muted shadow-sm">
           {movie.poster_path ? (
             <Image
               alt=""
@@ -174,7 +175,7 @@ export function MovieDetailView({
           )}
         </div>
 
-        <div className="min-w-0 space-y-1.5 pl-36">
+        <div className="min-w-0 flex-1 space-y-1.5 pt-1">
           <h1 className="text-[22px] font-bold leading-[1.2]">{movie.title}</h1>
 
           {metaLine && (
