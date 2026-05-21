@@ -407,7 +407,7 @@ function formatList(values: string[]) {
 }
 
 function qidFromWikidataUrl(value: string) {
-  const match = /^https:\/\/www\.wikidata\.org\/entity\/(Q\d+)$/.exec(value);
+  const match = /^https?:\/\/www\.wikidata\.org\/entity\/(Q\d+)$/.exec(value);
   return match?.[1] ?? null;
 }
 
