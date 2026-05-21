@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { getLibraryStats, listTags } from "@/lib/db/queries";
 import type { LibraryStatsBreakdownItem, LibraryStatsRatingBucket } from "@/lib/db/types";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
+import { Section, SectionHeader } from "@/components/ui/section";
 import { MoviesOverTime } from "./movies-over-time";
 import { StatsTagFilter } from "./stats-tag-filter";
 
@@ -144,33 +145,36 @@ export default async function StatsPage({
 
           <div className="h-px bg-divider" />
 
-          <SectionHeader title="By genre" />
-          {stats.genreBreakdown.length === 0 ? (
-            <EmptyBreakdown />
-          ) : (
-            <GenreTreemap
-              items={stats.genreBreakdown}
-              colors={GENRE_COLORS}
-              hrefForItem={(item) => moviesFilterHref({ genre: item.label, tag: tagFilter, returnTo: statsHref })}
-            />
-          )}
+          <StatsBreakdownSection title="By genre">
+            {stats.genreBreakdown.length === 0 ? (
+              <EmptyBreakdown />
+            ) : (
+              <GenreTreemap
+                items={stats.genreBreakdown}
+                colors={GENRE_COLORS}
+                hrefForItem={(item) => moviesFilterHref({ genre: item.label, tag: tagFilter, returnTo: statsHref })}
+              />
+            )}
+          </StatsBreakdownSection>
 
           <div className="h-px bg-divider" />
 
-          <SectionHeader title="By rating" />
-          <RatingDistribution breakdown={stats.ratingBreakdown} />
+          <StatsBreakdownSection title="By rating">
+            <RatingDistribution breakdown={stats.ratingBreakdown} />
+          </StatsBreakdownSection>
 
           <div className="h-px bg-divider" />
 
-          <SectionHeader title="By language" />
-          {filteredLanguages.length === 0 ? (
-            <EmptyBreakdown />
-          ) : (
-            <LanguageDonut
-              items={filteredLanguages}
-              hrefForItem={(item) => moviesFilterHref({ language: item.key, tag: tagFilter, returnTo: statsHref })}
-            />
-          )}
+          <StatsBreakdownSection title="By language">
+            {filteredLanguages.length === 0 ? (
+              <EmptyBreakdown />
+            ) : (
+              <LanguageDonut
+                items={filteredLanguages}
+                hrefForItem={(item) => moviesFilterHref({ language: item.key, tag: tagFilter, returnTo: statsHref })}
+              />
+            )}
+          </StatsBreakdownSection>
         </>
       ) : (
         <p className="pt-6 text-[15px] leading-[1.4] text-text-2">
@@ -215,14 +219,23 @@ function HeroMetric({
   );
 }
 
-function SectionHeader({ title }: { title: string }) {
+function StatsBreakdownSection({
+  children,
+  title,
+}: {
+  children: ReactNode;
+  title: string;
+}) {
   return (
-    <p className="pt-4 pb-2 text-[17px] font-semibold">{title}</p>
+    <Section className="py-4">
+      <SectionHeader>{title}</SectionHeader>
+      {children}
+    </Section>
   );
 }
 
 function EmptyBreakdown() {
-  return <p className="pb-4 text-[15px] leading-[1.4] text-text-muted">No data yet.</p>;
+  return <p className="text-[15px] leading-[1.4] text-text-muted">No data yet.</p>;
 }
 
 function GenreTreemap({
@@ -251,7 +264,7 @@ function GenreTreemap({
   const row2H = TOTAL_H - row1H;
 
   return (
-    <div className="pb-4 flex flex-col" style={{ gap: 2 }}>
+    <div className="flex flex-col" style={{ gap: 2 }}>
       <div className="flex" style={{ gap: 2, height: row1H }}>
         {row1Items.map((item, idx) => (
           <TreemapCell key={item.key} item={item} color={colors[idx % colors.length]} href={hrefForItem(item)} />
@@ -354,7 +367,7 @@ function LanguageDonut({
   const topShort = top.label.slice(0, 3);
 
   return (
-    <div className="flex flex-col items-center gap-3 pb-4">
+    <div className="flex flex-col items-center gap-3">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         {segments.map(({ item, d, color }) => (
           <a key={item.key} href={hrefForItem(item)} aria-label={`View ${item.label} movies`}>
@@ -409,7 +422,7 @@ function RatingDistribution({ breakdown }: { breakdown: LibraryStatsRatingBucket
   }
 
   return (
-    <div className="flex items-end gap-1.5 pb-4" style={{ height: 80, paddingTop: 16 }}>
+    <div className="flex items-end gap-1.5" style={{ height: 80, paddingTop: 16 }}>
       {breakdown.map(({ rating, count }) => (
         <div key={rating} className="flex flex-1 flex-col items-center gap-1">
           <div

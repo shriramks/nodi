@@ -13,7 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
-import { CollapsibleSection, SectionScrollBleed } from "@/components/ui/section";
+import { CollapsibleSection, SectionHeader, SectionScrollBleed } from "@/components/ui/section";
 
 function parseLocalDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -288,7 +288,7 @@ export function WatchDateForm({ movieId }: { movieId: string }) {
 
   return (
     <section className="mt-4 space-y-2">
-      <p className="text-[11px] uppercase tracking-wide text-text-muted">Log rewatch</p>
+      <SectionHeader>Log rewatch</SectionHeader>
       <div className="flex items-center border-b border-divider" style={{ minHeight: 44 }}>
         <span className="mr-3 shrink-0 text-[13px] text-text-faint">Watched on</span>
         <label className="relative flex flex-1 cursor-pointer items-center gap-2 min-w-0 justify-end">

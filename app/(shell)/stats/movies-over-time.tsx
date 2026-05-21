@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Section, SectionHeader } from "@/components/ui/section";
 import { monthLabels } from "@/lib/db/queries/stats-transforms";
 import type { LibraryStatsTimeBucket } from "@/lib/db/types";
 
@@ -50,9 +51,9 @@ export function MoviesOverTime({
   }, [view]);
 
   return (
-    <section>
-      <div className="flex items-center justify-between gap-3 pt-4 pb-3">
-        <p className="text-[17px] font-semibold">Over time</p>
+    <Section className="py-4">
+      <div className="flex items-center justify-between gap-3">
+        <SectionHeader>Over time</SectionHeader>
         <div
           className="flex rounded-xl p-1 gap-0.5"
           style={{ backgroundColor: "var(--bg-secondary)" }}
@@ -150,7 +151,7 @@ export function MoviesOverTime({
         </div>
       </div>
 
-    </section>
+    </Section>
   );
 }
 
