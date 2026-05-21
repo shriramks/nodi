@@ -33,12 +33,20 @@ product direction.
 ## Working approach
 
 - Read `docs/agent.md` first, then open only the docs and files needed for the task.
-- Read `progress_nodi.md` for current local task state before starting assigned work, and update it after
-  every assigned task with the outcome, verification, migration notes if any, and commit hash if
-  pushed.
-- Maintain `progress_nodi.md` with only two top-level sections: `# Done` and `# Todo`. Keep the most recent
-  entries first, move completed tasks from `Todo` to the top of `Done`, and avoid duplicating the same
-  roadmap item in both sections.
+- Read `progress_nodi.md` for current local task state before starting assigned work.
+- After completing any unit of work, append an entry to `progress_nodi.md`. Format rules:
+  - Every entry (`Todo` and `Done`) has a globally sequential number, oldest `Done` = `#1`, ascending
+    by date. New entries continue the sequence.
+  - Heading format: `### N — YYYY-MM-DD — Title` for `Done` or `### N — Title` for `Todo`.
+  - `Done` entries are ordered oldest-first under `## Done`. `Todo` entries sit above `## Done` under
+    `## Todo`.
+  - Each entry has a `Files:` line listing changed files, then 2-4 terse bullets on what changed and
+    why.
+  - When planning a multi-session task, add all sessions as numbered `Todo` entries first. When a
+    session is completed, move it to `Done` and renumber if needed to stay sequential, then append the
+    files and bullets.
+  - "Local progress log", "update progress", or similar phrases always refer to `progress_nodi.md`;
+    do not grep for it.
 - `progress_nodi.md` is the repo-specific local progress file name. Keep that name instead of a
   generic `progress.md` so local task history stays unambiguous when working across multiple repos.
 - Use targeted lookup with `rg`/`rg --files`; avoid broad file sweeps unless the task actually needs it.
@@ -81,7 +89,7 @@ start with the listed files and only expand outward if those files point elsewhe
 | PWA manifest and icons | `app/manifest.ts`, `public/` | `app/layout.tsx` |
 | Design decisions | `docs/design.md` | the component being changed |
 | Product or architecture questions | `docs/product.md`, `docs/architecture.md` | `supabase/db_guide.md` for DB-specific questions |
-| Progress tracking | `progress_nodi.md` | no code lookup unless progress and code disagree |
+| Progress tracking | `progress_nodi.md` | do not grep for it |
 
 ## Feature code map
 

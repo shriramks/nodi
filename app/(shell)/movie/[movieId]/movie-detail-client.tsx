@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { CollapsibleSection, SectionScrollBleed } from "@/components/ui/section";
 
 function parseLocalDate(dateStr: string): Date {
   const [y, m, d] = dateStr.split("-").map(Number);
@@ -425,20 +426,11 @@ export function TagEditor({
   }
 
   return (
-    <details className="group" open>
-      <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 px-4 py-1 text-[11px] uppercase tracking-wide text-text-faint active:opacity-70 [&::-webkit-details-marker]:hidden">
-        <span>Tags</span>
-        <ChevronDown
-          aria-hidden="true"
-          className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180"
-          strokeWidth={2.2}
-        />
-      </summary>
-
-      <section>
+    <CollapsibleSection title="Tags">
+      <div>
         {/* Current tags — single scrollable row */}
         {tags.length > 0 && (
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-3 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <SectionScrollBleed className="flex gap-2 pb-3 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {tags.map((tag) => (
               <button
                 key={tag.id}
@@ -451,12 +443,12 @@ export function TagEditor({
                 <X aria-hidden="true" className="h-3 w-3 opacity-60" strokeWidth={2.5} />
               </button>
             ))}
-          </div>
+          </SectionScrollBleed>
         )}
 
         {/* Search-filtered suggestions — only visible while typing */}
         {suggestions.length > 0 && (
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <SectionScrollBleed className="flex gap-2 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {suggestions.map((tag) => (
               <button
                 key={tag.id}
@@ -469,11 +461,11 @@ export function TagEditor({
                 <span>{tag.name}</span>
               </button>
             ))}
-          </div>
+          </SectionScrollBleed>
         )}
 
         {/* New tag input */}
-        <form className="flex items-center gap-1 border-t border-divider px-4 py-2" onSubmit={handleCreateNew}>
+        <form className="flex items-center gap-1 border-t border-divider py-2" onSubmit={handleCreateNew}>
           <input
             aria-label="New tag name"
             className="min-w-0 flex-1 bg-transparent py-2 text-[15px] text-foreground outline-none placeholder:text-text-muted"
@@ -496,9 +488,9 @@ export function TagEditor({
           </button>
         </form>
 
-        {error ? <p className="px-4 pt-1 text-[13px] text-unsynced">{error}</p> : null}
-      </section>
-    </details>
+        {error ? <p className="pt-1 text-[13px] text-unsynced">{error}</p> : null}
+      </div>
+    </CollapsibleSection>
   );
 }
 

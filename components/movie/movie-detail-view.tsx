@@ -1,10 +1,16 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
-import { ChevronDown, Film } from "lucide-react";
+import { Film } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { OverviewText } from "@/components/movie/overview-text";
+import {
+  CollapsibleSection,
+  Section,
+  SectionHeader,
+  SectionScrollBleed,
+} from "@/components/ui/section";
 import type { MovieStatus } from "@/lib/db/types";
 
 function languageDisplayName(code: string): string {
@@ -177,15 +183,15 @@ export function MovieDetailView({
 
       {watchHistory}
 
-      <section className="space-y-2">
-        <p className="text-[11px] uppercase tracking-wide text-text-muted">Plot</p>
+      <Section>
+        <SectionHeader>Plot</SectionHeader>
         <OverviewText text={movie.overview} />
-      </section>
+      </Section>
 
-      <section className="space-y-2">
-        <p className="text-[11px] uppercase tracking-wide text-text-muted">Cast</p>
+      <Section>
+        <SectionHeader>Cast</SectionHeader>
         {movie.cast.length > 0 ? (
-          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
+          <SectionScrollBleed className="flex gap-3 pb-1">
             {movie.cast.map((member) => (
               <article key={member.id} className="w-16 shrink-0">
                 <div
@@ -219,25 +225,17 @@ export function MovieDetailView({
                 )}
               </article>
             ))}
-          </div>
+          </SectionScrollBleed>
         ) : (
           <p className="text-[15px] leading-[1.4] text-text-muted">
             No cast details available.
           </p>
         )}
-      </section>
+      </Section>
 
       {status ? tagEditor : null}
 
-      <details className="group space-y-2" open>
-        <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-3 text-[11px] uppercase tracking-wide text-text-muted active:opacity-70 [&::-webkit-details-marker]:hidden">
-          <span>Details</span>
-          <ChevronDown
-            aria-hidden="true"
-            className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180"
-            strokeWidth={2.2}
-          />
-        </summary>
+      <CollapsibleSection title="Details">
         {detailRows.length > 0 ? (
           <div>
             {detailRows.map((row) => (
@@ -249,7 +247,7 @@ export function MovieDetailView({
             No extra details available.
           </p>
         )}
-      </details>
+      </CollapsibleSection>
 
     </main>
   );
@@ -267,7 +265,7 @@ function DetailRow({
   return (
     <div
       className={[
-        "flex min-h-11 items-center justify-between gap-4 px-4 py-2.5",
+        "flex min-h-11 items-center justify-between gap-4 py-2.5",
         divider ? "border-b border-divider last:border-b-0" : "",
       ].join(" ")}
     >
