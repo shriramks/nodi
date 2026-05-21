@@ -3,6 +3,7 @@ import "server-only";
 import { fetchJson } from "@/lib/fetch";
 
 const wikidataSparqlUrl = "https://query.wikidata.org/sparql";
+const wikidataApiUrl = "https://www.wikidata.org/w/api.php";
 const wikipediaSummaryBaseUrl = "https://en.wikipedia.org/api/rest_v1/page/summary/";
 const sourceLabel = "Wikipedia/Wikidata";
 
@@ -66,6 +67,20 @@ type WikipediaSummary = {
     };
   };
   extract?: string;
+};
+
+type WikidataSearchResponse = {
+  search?: Array<{
+    id?: string;
+  }>;
+};
+
+type MovieCandidateBinding = SubjectBinding & {
+  publicationDate?: SparqlValue;
+};
+
+type PersonCandidateBinding = SubjectBinding & {
+  birthDate?: SparqlValue;
 };
 
 export async function getMovieWikipediaTrivia({
@@ -145,10 +160,9 @@ async function resolveMovieSubject(input: MovieWikipediaTriviaInput) {
     input.imdbId ? `?item wdt:P345 ${sparqlString(input.imdbId)}.` : null,
     input.tmdbId ? `?item wdt:P4947 ${sparqlString(String(input.tmdbId))}.` : null,
   ]);
+  const subjectFromIds = idQuery ? await resolveSubject(idQuery) : null;
 
-  return idQuery
-    ? resolveSubject(idQuery)
-    : resolveSubject(movieFallbackQuery(input.title, input.releaseYear), { requireUnique: true });
+  return subjectFromIds ?? resolveMovieFallbackSubject(input);
 }
 
 async function resolvePersonSubject(input: PersonWikipediaTriviaInput) {
@@ -156,10 +170,38 @@ async function resolvePersonSubject(input: PersonWikipediaTriviaInput) {
     input.imdbId ? `?item wdt:P345 ${sparqlString(input.imdbId)}.` : null,
     input.tmdbPersonId ? `?item wdt:P4985 ${sparqlString(String(input.tmdbPersonId))}.` : null,
   ]);
+  const subjectFromIds = idQuery ? await resolveSubject(idQuery) : null;
 
-  return idQuery
-    ? resolveSubject(idQuery)
-    : resolveSubject(personFallbackQuery(input.name, input.birthday), { requireUnique: true });
+  return subjectFromIds ?? resolvePersonFallbackSubject(input);
+}
+
+async function resolveMovieFallbackSubject(input: MovieWikipediaTriviaInput) {
+  const exactSubject = await resolveSubject(movieFallbackQuery(input.title, input.releaseYear), {
+    requireUnique: true,
+  });
+
+  if (exactSubject) {
+    return exactSubject;
+  }
+
+  const candidateQids = await searchWikidataEntities(input.title);
+
+  return resolveMovieSearchCandidate(candidateQids, input.releaseYear);
+}
+
+async function resolvePersonFallbackSubject(input: PersonWikipediaTriviaInput) {
+  const exactSubject = await resolveSubject(personFallbackQuery(input.name, input.birthday), {
+    requireUnique: true,
+  });
+
+  if (exactSubject) {
+    return exactSubject;
+  }
+
+  const candidateQids = await searchWikidataEntities(input.name);
+  const birthYear = yearFromDate(input.birthday);
+
+  return resolvePersonSearchCandidate(candidateQids, birthYear);
 }
 
 async function resolveSubject(
@@ -289,6 +331,100 @@ async function fetchClaims(qid: string, claimKinds: Array<[property: string, kin
   );
 }
 
+async function resolveMovieSearchCandidate(qids: string[], releaseYear?: number | null) {
+  const targetYear = typeof releaseYear === "number" ? releaseYear : null;
+
+  if (qids.length === 0 || !targetYear) {
+    return null;
+  }
+
+  const response = await fetchSparql<MovieCandidateBinding>(`
+    SELECT ?item ?itemLabel ?article ?publicationDate WHERE {
+      VALUES ?item { ${qids.map((qid) => `wd:${qid}`).join(" ")} }
+      ?item wdt:P31/wdt:P279* wd:Q11424.
+      OPTIONAL { ?item wdt:P577 ?publicationDate. }
+      OPTIONAL {
+        ?article schema:about ?item;
+          schema:isPartOf <https://en.wikipedia.org/>.
+      }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+    }
+    LIMIT 20
+  `);
+
+  return selectBestSearchCandidate(
+    qids,
+    response?.results.bindings ?? [],
+    (binding) => isNearbyYear(yearFromDate(binding.publicationDate?.value), targetYear),
+  );
+}
+
+async function resolvePersonSearchCandidate(qids: string[], birthYear: number | null) {
+  if (qids.length === 0 || !birthYear) {
+    return null;
+  }
+
+  const response = await fetchSparql<PersonCandidateBinding>(`
+    SELECT ?item ?itemLabel ?article ?birthDate WHERE {
+      VALUES ?item { ${qids.map((qid) => `wd:${qid}`).join(" ")} }
+      ?item wdt:P31 wd:Q5.
+      OPTIONAL { ?item wdt:P569 ?birthDate. }
+      OPTIONAL {
+        ?article schema:about ?item;
+          schema:isPartOf <https://en.wikipedia.org/>.
+      }
+      SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+    }
+    LIMIT 20
+  `);
+
+  return selectBestSearchCandidate(
+    qids,
+    response?.results.bindings ?? [],
+    (binding) => yearFromDate(binding.birthDate?.value) === birthYear,
+  );
+}
+
+function selectBestSearchCandidate<T extends SubjectBinding>(
+  qids: string[],
+  bindings: T[],
+  isValid: (binding: T) => boolean,
+) {
+  const subjectsByQid = new Map<string, WikidataSubject>();
+
+  for (const binding of bindings) {
+    const qid = qidFromWikidataUrl(binding.item.value);
+
+    if (!qid || subjectsByQid.has(qid) || !isValid(binding)) {
+      continue;
+    }
+
+    subjectsByQid.set(qid, {
+      articleUrl: binding.article?.value ?? null,
+      label: binding.itemLabel?.value ?? null,
+      qid,
+    });
+  }
+
+  for (const qid of qids) {
+    const subject = subjectsByQid.get(qid);
+
+    if (subject?.articleUrl) {
+      return subject;
+    }
+  }
+
+  for (const qid of qids) {
+    const subject = subjectsByQid.get(qid);
+
+    if (subject) {
+      return subject;
+    }
+  }
+
+  return null;
+}
+
 async function fetchWikipediaSummary(articleUrl: string | null) {
   const title = wikipediaTitleFromUrl(articleUrl);
 
@@ -321,6 +457,29 @@ async function fetchSparql<T extends Record<string, SparqlValue | undefined>>(qu
     return await fetchJson<SparqlResponse<T>>(url, { headers: wikimediaHeaders });
   } catch {
     return null;
+  }
+}
+
+async function searchWikidataEntities(search: string) {
+  const normalizedSearch = search.trim();
+
+  if (!normalizedSearch) {
+    return [];
+  }
+
+  const url = new URL(wikidataApiUrl);
+  url.searchParams.set("action", "wbsearchentities");
+  url.searchParams.set("format", "json");
+  url.searchParams.set("language", "en");
+  url.searchParams.set("limit", "8");
+  url.searchParams.set("search", normalizedSearch);
+
+  try {
+    const response = await fetchJson<WikidataSearchResponse>(url, { headers: wikimediaHeaders });
+
+    return uniqueQids(response.search?.map((candidate) => candidate.id) ?? []);
+  } catch {
+    return [];
   }
 }
 
@@ -358,6 +517,16 @@ function firstSentence(value: string | null | undefined) {
   }
 
   return normalized.length > 260 ? `${normalized.slice(0, 257).trimEnd()}...` : normalized;
+}
+
+function yearFromDate(value: string | null | undefined) {
+  const year = value?.match(/^(\d{4})/)?.[1];
+
+  return year ? Number(year) : null;
+}
+
+function isNearbyYear(candidateYear: number | null, targetYear: number) {
+  return candidateYear !== null && Math.abs(candidateYear - targetYear) <= 1;
 }
 
 function claimTrivia(values: string[] | undefined, template: string, sourceUrl: string) {
@@ -409,6 +578,22 @@ function formatList(values: string[]) {
 function qidFromWikidataUrl(value: string) {
   const match = /^https?:\/\/www\.wikidata\.org\/entity\/(Q\d+)$/.exec(value);
   return match?.[1] ?? null;
+}
+
+function uniqueQids(values: Array<string | undefined>) {
+  const qids: string[] = [];
+  const seen = new Set<string>();
+
+  for (const value of values) {
+    if (!value || !/^Q\d+$/.test(value) || seen.has(value)) {
+      continue;
+    }
+
+    seen.add(value);
+    qids.push(value);
+  }
+
+  return qids;
 }
 
 function wikidataItemUrl(qid: string) {
