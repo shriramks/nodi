@@ -145,8 +145,8 @@ button {
       linear-gradient(
         to bottom,
         rgba(0, 0, 0, 0.62) 0%,
-        rgba(0, 0, 0, 0.24) 34%,
-        rgba(0, 0, 0, 0.72) 72%,
+        rgba(0, 0, 0, 0.36) 34%,
+        rgba(0, 0, 0, 0.66) 76%,
         var(--bg-primary) 100%
       );
   }
@@ -154,11 +154,11 @@ button {
   .movie-detail-title-vignette {
     background:
       radial-gradient(
-        ellipse at 72% 58%,
-        rgba(0, 0, 0, 0.78) 0%,
-        rgba(0, 0, 0, 0.58) 38%,
-        rgba(0, 0, 0, 0.22) 68%,
-        transparent 100%
+        ellipse 118% 82% at 73% 87%,
+        rgba(0, 0, 0, 0.74) 0%,
+        rgba(0, 0, 0, 0.52) 34%,
+        rgba(0, 0, 0, 0.18) 63%,
+        transparent 90%
       );
   }
 }

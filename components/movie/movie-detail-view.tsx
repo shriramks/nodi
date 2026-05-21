@@ -149,7 +149,7 @@ export function MovieDetailView({
             </div>
           )}
           <div className="movie-detail-hero-scrim absolute inset-0" />
-          <div className="movie-detail-title-vignette absolute inset-x-0 bottom-0 h-[168px]" />
+          <div className="movie-detail-title-vignette absolute inset-0" />
           <div
             className="absolute left-4 right-4 top-0 flex items-center justify-between"
             style={{ paddingTop: "calc(1.25rem + env(safe-area-inset-top))" }}
