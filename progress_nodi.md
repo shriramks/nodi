@@ -7,6 +7,7 @@ Files: pending
 - Audit poster, backdrop, cast, and provider image usage across the app.
 - Centralize cache, sizing, priority, and prefetch behavior for faster detail transitions.
 - Add app-wide guardrails against duplicate fetches and oversized mobile image downloads.
+- Across complete app: the movies screen, watchlist screen, movie dtail screen, actor detail screen
 
 ## Done
 
