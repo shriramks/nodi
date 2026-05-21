@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 import { Film } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
@@ -189,16 +190,19 @@ export function MovieDetailView({
               <article key={member.id} className="w-16 shrink-0">
                 <div
                   aria-hidden="true"
-                  className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-full bg-surface-muted bg-cover bg-top"
-                  style={
-                    member.profile_path
-                      ? {
-                          backgroundImage: `url(${profileBaseUrl}${member.profile_path})`,
-                        }
-                      : undefined
-                  }
+                  className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-full bg-surface-muted"
                 >
-                  {!member.profile_path && (
+                  {member.profile_path ? (
+                    <Image
+                      alt=""
+                      aria-hidden="true"
+                      className="h-full w-full object-cover object-[center_28%]"
+                      height={278}
+                      sizes="64px"
+                      src={`${profileBaseUrl}${member.profile_path}`}
+                      width={185}
+                    />
+                  ) : (
                     <Film
                       className="h-5 w-5 text-text-faint"
                       strokeWidth={1.8}
