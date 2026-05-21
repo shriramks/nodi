@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 
-const sectionLabelClass = "text-[11px] uppercase tracking-wide text-text-muted";
+const sectionLabelBaseClass = "text-[11px] uppercase tracking-wide";
+const sectionLabelClass = `${sectionLabelBaseClass} text-text-muted`;
 
 function joinClasses(classes: Array<string | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -71,6 +72,49 @@ type SectionScrollBleedProps = {
 export function SectionScrollBleed({ children, className }: SectionScrollBleedProps) {
   return (
     <div className={joinClasses(["-mx-4 overflow-x-auto px-4", className])}>
+      {children}
+    </div>
+  );
+}
+
+type SheetSectionProps = {
+  children: ReactNode;
+  className?: string;
+};
+
+export function SheetSection({ children, className }: SheetSectionProps) {
+  return <section className={joinClasses(["px-5 py-3", className])}>{children}</section>;
+}
+
+type SheetSectionHeaderProps = {
+  children: ReactNode;
+  className?: string;
+};
+
+export function SheetSectionHeader({ children, className }: SheetSectionHeaderProps) {
+  return (
+    <p className={joinClasses([sectionLabelBaseClass, "pb-2 font-semibold text-text-faint", className])}>
+      {children}
+    </p>
+  );
+}
+
+type SheetSectionDividerProps = {
+  className?: string;
+};
+
+export function SheetSectionDivider({ className }: SheetSectionDividerProps) {
+  return <div className={joinClasses(["mx-5 h-px bg-divider", className])} />;
+}
+
+type SheetScrollBleedProps = {
+  children: ReactNode;
+  className?: string;
+};
+
+export function SheetScrollBleed({ children, className }: SheetScrollBleedProps) {
+  return (
+    <div className={joinClasses(["-mx-5 overflow-x-auto px-5", className])}>
       {children}
     </div>
   );

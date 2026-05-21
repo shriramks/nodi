@@ -6,6 +6,13 @@ import { ArrowUpDown, ChevronDown, ListFilter, LoaderCircle, X } from "lucide-re
 import { PosterCard } from "@/components/movie/poster-card";
 import { BulkActionsBar } from "@/components/movie/bulk-actions-bar";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import {
+  SectionHeader,
+  SheetSection,
+  SheetSectionDivider,
+  SheetSectionHeader,
+  SheetScrollBleed,
+} from "@/components/ui/section";
 import type {
   LibraryMovie,
   LibraryStatsTimeBucket,
@@ -526,12 +533,10 @@ export function MovieLibraryGrid({
           <div className="space-y-1">
             {groups.map(({ label, items }) => (
               <section key={label}>
-                <div className="flex items-center gap-3 px-1 py-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-text-faint">
-                    {label}
-                  </span>
+                <SectionHeader className="gap-3 px-1 font-semibold text-text-faint">
+                  <span>{label}</span>
                   <div className="h-px flex-1 bg-divider" />
-                </div>
+                </SectionHeader>
                 <div className={gridClass}>
                   {items.map(({ movie }) => (
                     <PosterCard
@@ -649,12 +654,10 @@ export function MovieLibraryGrid({
             })}
           </div>
 
-          <div className="mx-5 mt-3 h-px bg-divider" />
+          <SheetSectionDivider className="mt-3" />
 
-          <div className="px-5 pb-2 pt-4">
-            <p className="pb-2 text-[11px] font-semibold uppercase tracking-wide text-text-faint">
-              Direction
-            </p>
+          <SheetSection className="pb-2 pt-4">
+            <SheetSectionHeader>Direction</SheetSectionHeader>
             <div
               role="radiogroup"
               aria-label="Sort direction"
@@ -676,7 +679,7 @@ export function MovieLibraryGrid({
                 </button>
               ))}
             </div>
-          </div>
+          </SheetSection>
           <div className="h-2" />
         </BottomSheet>
       )}
@@ -695,42 +698,46 @@ export function MovieLibraryGrid({
 
           {filterOptions.genres.length > 0 && (
             <>
-              <FilterLabel label="Genre" />
-              <div className="flex flex-wrap gap-2 px-5 pb-4">
-                {filterOptions.genres.slice(0, 12).map((genre) => (
-                  <FilterChip
-                    key={genre.key}
-                    active={draftGenre === genre.label}
-                    label={genre.label}
-                    count={genre.count}
-                    onClick={() => setDraftGenre((current) => current === genre.label ? undefined : genre.label)}
-                  />
-                ))}
-              </div>
-              <div className="mx-5 h-px bg-divider" />
+              <SheetSection className="pt-0">
+                <SheetSectionHeader>Genre</SheetSectionHeader>
+                <div className="flex flex-wrap gap-2">
+                  {filterOptions.genres.slice(0, 12).map((genre) => (
+                    <FilterChip
+                      key={genre.key}
+                      active={draftGenre === genre.label}
+                      label={genre.label}
+                      count={genre.count}
+                      onClick={() => setDraftGenre((current) => current === genre.label ? undefined : genre.label)}
+                    />
+                  ))}
+                </div>
+              </SheetSection>
+              <SheetSectionDivider />
             </>
           )}
 
           {filterOptions.languages.length > 0 && (
             <>
-              <FilterLabel label="Language" top />
-              <div className="flex flex-wrap gap-2 px-5 pb-4">
-                {filterOptions.languages.slice(0, 12).map((language) => (
-                  <FilterChip
-                    key={language.key}
-                    active={draftLanguage === language.key}
-                    label={language.label}
-                    count={language.count}
-                    onClick={() => setDraftLanguage((current) => current === language.key ? undefined : language.key)}
-                  />
-                ))}
-              </div>
-              <div className="mx-5 h-px bg-divider" />
+              <SheetSection>
+                <SheetSectionHeader>Language</SheetSectionHeader>
+                <div className="flex flex-wrap gap-2">
+                  {filterOptions.languages.slice(0, 12).map((language) => (
+                    <FilterChip
+                      key={language.key}
+                      active={draftLanguage === language.key}
+                      label={language.label}
+                      count={language.count}
+                      onClick={() => setDraftLanguage((current) => current === language.key ? undefined : language.key)}
+                    />
+                  ))}
+                </div>
+              </SheetSection>
+              <SheetSectionDivider />
             </>
           )}
 
-          <FilterLabel label="Watched date" top />
-          <div className="px-5 pb-3">
+          <SheetSection className="pb-3">
+            <SheetSectionHeader>Watched date</SheetSectionHeader>
             <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-muted p-1">
               {(["year", "month"] as TimeMode[]).map((mode) => (
                 <button
@@ -747,7 +754,7 @@ export function MovieLibraryGrid({
                 </button>
               ))}
             </div>
-          </div>
+          </SheetSection>
 
           {filterOptions.years.length > 0 && (
             <div className="px-5 pb-4">
@@ -776,7 +783,7 @@ export function MovieLibraryGrid({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: "none" }}>
+                  <SheetScrollBleed className="flex gap-2 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {filterOptions.years.map((year) => (
                       <button
                         key={year.key}
@@ -796,7 +803,7 @@ export function MovieLibraryGrid({
                         {year.label}
                       </button>
                     ))}
-                  </div>
+                  </SheetScrollBleed>
                   <div className="grid grid-cols-3 gap-2">
                     {visibleMonths.map((month) => (
                       <button
@@ -824,89 +831,92 @@ export function MovieLibraryGrid({
             </div>
           )}
 
-          <div className="mx-5 h-px bg-divider" />
+          <SheetSectionDivider />
 
           {availableTags.length > 0 && (
             <>
-              <FilterLabel label="Tags" top />
-              <div className="flex flex-wrap gap-2 px-5 pb-4">
-                {availableTags.map((tag) => {
-                  const active = draftTags.has(tag.name);
-                  return (
-                    <button
-                      key={tag.id}
-                      type="button"
-                      aria-pressed={active}
-                      onClick={() => toggleDraftTag(tag.name)}
-                      className={[
-                        "min-h-9 rounded-full border px-3 text-[13px]",
-                        active
-                          ? "border-accent/30 bg-accent/15 font-semibold text-accent"
-                          : "border-border text-text-2",
-                      ].join(" ")}
-                    >
-                      {tag.name}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="mx-5 h-px bg-divider" />
+              <SheetSection>
+                <SheetSectionHeader>Tags</SheetSectionHeader>
+                <SheetScrollBleed className="flex gap-2 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {availableTags.map((tag) => {
+                    const active = draftTags.has(tag.name);
+                    return (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => toggleDraftTag(tag.name)}
+                        className={[
+                          "min-h-9 shrink-0 rounded-full border px-3 text-[13px]",
+                          active
+                            ? "border-accent/30 bg-accent/15 font-semibold text-accent"
+                            : "border-border text-text-2",
+                        ].join(" ")}
+                      >
+                        {tag.name}
+                      </button>
+                    );
+                  })}
+                </SheetScrollBleed>
+              </SheetSection>
+              <SheetSectionDivider />
             </>
           )}
 
-          <FilterLabel label="Rating" top />
-
-          <div className="flex gap-1.5 px-5 pb-3">
-            {RATING_OPS.map((op) => (
-              <button
-                key={op}
-                type="button"
-                aria-pressed={draftRatingOp === op}
-                onClick={() => setDraftRatingOp(op)}
-                className={[
-                  "flex min-h-9 w-9 items-center justify-center rounded-xl border text-[14px]",
-                  draftRatingOp === op
-                    ? "border-accent/30 bg-accent/15 font-semibold text-accent"
-                    : "border-border text-text-2",
-                ].join(" ")}
-              >
-                {OP_SYMBOL[op]}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3 px-5 pb-1">
-            <div className="flex items-center gap-4 rounded-xl bg-surface-muted px-4 py-2">
-              <button
-                type="button"
-                className="text-[20px] font-light text-text-2 active:text-foreground"
-                onClick={() =>
-                  setDraftRatingVal((v) => (v === null || v <= 1 ? null : v - 1))
-                }
-              >
-                −
-              </button>
-              <span className="tabnum min-w-[20px] text-center text-[20px] font-semibold text-accent">
-                {draftRatingVal ?? "—"}
-              </span>
-              <button
-                type="button"
-                className="text-[20px] font-light text-text-2 active:text-foreground"
-                onClick={() =>
-                  setDraftRatingVal((v) => (v === null ? 7 : Math.min(v + 1, 10)))
-                }
-              >
-                +
-              </button>
+          <SheetSection className="pb-1">
+            <SheetSectionHeader>Rating</SheetSectionHeader>
+            <div className="flex gap-1.5 pb-3">
+              {RATING_OPS.map((op) => (
+                <button
+                  key={op}
+                  type="button"
+                  aria-pressed={draftRatingOp === op}
+                  onClick={() => setDraftRatingOp(op)}
+                  className={[
+                    "flex min-h-9 w-9 items-center justify-center rounded-xl border text-[14px]",
+                    draftRatingOp === op
+                      ? "border-accent/30 bg-accent/15 font-semibold text-accent"
+                      : "border-border text-text-2",
+                  ].join(" ")}
+                >
+                  {OP_SYMBOL[op]}
+                </button>
+              ))}
             </div>
-            {draftRatingVal !== null ? (
-              <span className="text-[12px] text-text-faint">
-                rated {OP_SYMBOL[draftRatingOp]} {draftRatingVal}
-              </span>
-            ) : (
-              <span className="text-[12px] text-text-faint">tap + to set a rating filter</span>
-            )}
-          </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4 rounded-xl bg-surface-muted px-4 py-2">
+                <button
+                  type="button"
+                  className="text-[20px] font-light text-text-2 active:text-foreground"
+                  onClick={() =>
+                    setDraftRatingVal((v) => (v === null || v <= 1 ? null : v - 1))
+                  }
+                >
+                  −
+                </button>
+                <span className="tabnum min-w-[20px] text-center text-[20px] font-semibold text-accent">
+                  {draftRatingVal ?? "—"}
+                </span>
+                <button
+                  type="button"
+                  className="text-[20px] font-light text-text-2 active:text-foreground"
+                  onClick={() =>
+                    setDraftRatingVal((v) => (v === null ? 7 : Math.min(v + 1, 10)))
+                  }
+                >
+                  +
+                </button>
+              </div>
+              {draftRatingVal !== null ? (
+                <span className="text-[12px] text-text-faint">
+                  rated {OP_SYMBOL[draftRatingOp]} {draftRatingVal}
+                </span>
+              ) : (
+                <span className="text-[12px] text-text-faint">tap + to set a rating filter</span>
+              )}
+            </div>
+          </SheetSection>
 
           <div
             className="mx-5 mt-4 flex gap-3 pt-4"
@@ -973,14 +983,6 @@ function storedSortState(storageKey: string, sortOptions: SortOption[]) {
   } catch {}
 
   return null;
-}
-
-function FilterLabel({ label, top = false }: { label: string; top?: boolean }) {
-  return (
-    <p className={`px-5 pb-2 ${top ? "pt-3" : ""} text-[11px] font-semibold uppercase tracking-wide text-text-faint`}>
-      {label}
-    </p>
-  );
 }
 
 function FilterChip({

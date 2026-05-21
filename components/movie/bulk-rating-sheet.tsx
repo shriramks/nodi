@@ -5,6 +5,7 @@ import { LoaderCircle } from "lucide-react";
 
 import { bulkUpdateRatingAction } from "@/app/(shell)/movie/bulk-actions";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { SheetSection, SheetSectionDivider, SheetSectionHeader } from "@/components/ui/section";
 
 const RATING_LABELS: Record<number, string> = {
   1: "Awful",
@@ -48,15 +49,19 @@ export function BulkRatingSheet({ movieIds, onClose, onDone }: Props) {
   return (
     <BottomSheet
       ariaLabel="Rate Selected Movies"
+      contentClassName="pt-3"
       dismissButtonLabel="Close ratings"
       onClose={onClose}
     >
-      <p className="mb-1 text-[17px] font-semibold text-foreground">Rate Selected</p>
-      <p className="mb-4 text-[13px] text-text-2">
-        {movieIds.length} {movieIds.length === 1 ? "movie" : "movies"}
-      </p>
+      <div className="px-5 pb-3">
+        <p className="text-[17px] font-semibold text-foreground">Rate Selected</p>
+        <p className="mt-1 text-[13px] text-text-2">
+          {movieIds.length} {movieIds.length === 1 ? "movie" : "movies"}
+        </p>
+      </div>
 
-      <div>
+      <SheetSection className="py-0">
+        <SheetSectionHeader>Rating</SheetSectionHeader>
         {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
           <button
             key={n}
@@ -78,21 +83,25 @@ export function BulkRatingSheet({ movieIds, onClose, onDone }: Props) {
             ) : null}
           </button>
         ))}
-      </div>
+      </SheetSection>
 
-      <button
-        type="button"
-        onClick={() => handleRate(null)}
-        disabled={isPending}
-        className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border text-[15px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
-      >
-        {pendingRating === "clear" ? (
-          <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
-        ) : null}
-        Clear ratings
-      </button>
+      <SheetSectionDivider className="mt-4" />
 
-      {error && <p className="mt-2 text-[13px] text-unsynced">{error}</p>}
+      <SheetSection className="pt-4">
+        <button
+          type="button"
+          onClick={() => handleRate(null)}
+          disabled={isPending}
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border text-[15px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
+        >
+          {pendingRating === "clear" ? (
+            <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+          ) : null}
+          Clear ratings
+        </button>
+
+        {error && <p className="mt-2 text-[13px] text-unsynced">{error}</p>}
+      </SheetSection>
     </BottomSheet>
   );
 }

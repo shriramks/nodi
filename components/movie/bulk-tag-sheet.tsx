@@ -4,6 +4,7 @@ import { useState, useTransition, type FormEvent } from "react";
 import { LoaderCircle, Plus, X } from "lucide-react";
 
 import { BottomSheet } from "@/components/ui/bottom-sheet";
+import { SheetSection, SheetSectionDivider, SheetSectionHeader } from "@/components/ui/section";
 import {
   bulkAddTagAction,
   bulkAttachTagByIdAction,
@@ -78,118 +79,142 @@ export function BulkTagSheet({ movieIds, allTags, onClose, onDone }: Props) {
   }
 
   return (
-    <BottomSheet ariaLabel="Manage Tags" dismissButtonLabel="Close tags" onClose={onClose}>
-      <p className="mb-1 text-[17px] font-semibold text-foreground">Tags</p>
-      <p className="mb-4 text-[13px] text-text-2">
-        {movieIds.length} {movieIds.length === 1 ? "movie" : "movies"} selected
-      </p>
-
-      <div className="mb-4 flex gap-2">
-        <button
-          type="button"
-          onClick={() => setActiveTab("add")}
-          className={[
-            "h-8 rounded-full px-4 text-[13px] font-medium",
-            activeTab === "add"
-              ? "bg-accent/15 text-accent"
-              : "border border-border text-text-2",
-          ].join(" ")}
-        >
-          Add tag
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("remove")}
-          className={[
-            "h-8 rounded-full px-4 text-[13px] font-medium",
-            activeTab === "remove"
-              ? "bg-accent/15 text-accent"
-              : "border border-border text-text-2",
-          ].join(" ")}
-        >
-          Remove tag
-        </button>
+    <BottomSheet
+      ariaLabel="Manage Tags"
+      contentClassName="pt-3"
+      dismissButtonLabel="Close tags"
+      onClose={onClose}
+    >
+      <div className="px-5 pb-3">
+        <p className="text-[17px] font-semibold text-foreground">Tags</p>
+        <p className="mt-1 text-[13px] text-text-2">
+          {movieIds.length} {movieIds.length === 1 ? "movie" : "movies"} selected
+        </p>
       </div>
 
+      <SheetSection className="pb-4 pt-0">
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("add")}
+            className={[
+              "h-8 rounded-full px-4 text-[13px] font-medium",
+              activeTab === "add"
+                ? "bg-accent/15 text-accent"
+                : "border border-border text-text-2",
+            ].join(" ")}
+          >
+            Add tag
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("remove")}
+            className={[
+              "h-8 rounded-full px-4 text-[13px] font-medium",
+              activeTab === "remove"
+                ? "bg-accent/15 text-accent"
+                : "border border-border text-text-2",
+            ].join(" ")}
+          >
+            Remove tag
+          </button>
+        </div>
+      </SheetSection>
+
       {activeTab === "add" && (
-        <div className="max-h-64 overflow-y-auto">
+        <>
           {allTags.length > 0 && (
-            <div className="mb-2">
-              {allTags.map((tag) => (
-                <button
-                  key={tag.id}
-                  type="button"
-                  onClick={() => handleAttach(tag.id)}
-                  disabled={isPending}
-                  className="flex w-full items-center gap-3 border-b border-divider py-3 text-left last:border-b-0 active:opacity-70 disabled:opacity-50"
-                >
-                  {pendingAction?.kind === "attach" && pendingAction.tagId === tag.id ? (
-                    <LoaderCircle
-                      aria-hidden="true"
-                      className="h-4 w-4 shrink-0 animate-spin text-accent"
-                      strokeWidth={2.2}
-                    />
-                  ) : (
-                    <Plus aria-hidden="true" className="h-4 w-4 shrink-0 text-accent" strokeWidth={2} />
-                  )}
-                  <span className="flex-1 text-[15px] text-foreground">{tag.name}</span>
-                </button>
-              ))}
-            </div>
+            <SheetSection className="py-0">
+              <SheetSectionHeader>Existing tags</SheetSectionHeader>
+              <div className="max-h-52 overflow-y-auto">
+                {allTags.map((tag) => (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => handleAttach(tag.id)}
+                    disabled={isPending}
+                    className="flex w-full items-center gap-3 border-b border-divider py-3 text-left last:border-b-0 active:opacity-70 disabled:opacity-50"
+                  >
+                    {pendingAction?.kind === "attach" && pendingAction.tagId === tag.id ? (
+                      <LoaderCircle
+                        aria-hidden="true"
+                        className="h-4 w-4 shrink-0 animate-spin text-accent"
+                        strokeWidth={2.2}
+                      />
+                    ) : (
+                      <Plus aria-hidden="true" className="h-4 w-4 shrink-0 text-accent" strokeWidth={2} />
+                    )}
+                    <span className="flex-1 text-[15px] text-foreground">{tag.name}</span>
+                  </button>
+                ))}
+              </div>
+            </SheetSection>
           )}
 
-          <form onSubmit={handleCreateNew} className="mt-2 flex items-center gap-2 border-t border-divider pt-3">
-            <input
-              type="text"
-              value={newTagName}
-              onChange={(e) => setNewTagName(e.target.value)}
-              placeholder="New tag name…"
-              className="h-10 flex-1 rounded-xl border border-border bg-surface-muted px-3 text-[15px] text-foreground placeholder:text-text-faint"
-            />
-            <button
-              type="submit"
-              disabled={isPending || !newTagName.trim()}
-              className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-4 text-[15px] font-semibold text-white disabled:opacity-40 active:opacity-70"
-            >
-              {pendingAction?.kind === "create" ? (
-                <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
-              ) : null}
-              Create
-            </button>
-          </form>
-        </div>
+          {allTags.length > 0 ? <SheetSectionDivider className="mt-3" /> : null}
+
+          <SheetSection className="pt-3">
+            <SheetSectionHeader>New tag</SheetSectionHeader>
+            <form onSubmit={handleCreateNew} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newTagName}
+                onChange={(e) => setNewTagName(e.target.value)}
+                placeholder="New tag name…"
+                className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-surface-muted px-3 text-[15px] text-foreground placeholder:text-text-faint"
+              />
+              <button
+                type="submit"
+                disabled={isPending || !newTagName.trim()}
+                className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-4 text-[15px] font-semibold text-white disabled:opacity-40 active:opacity-70"
+              >
+                {pendingAction?.kind === "create" ? (
+                  <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+                ) : null}
+                Create
+              </button>
+            </form>
+          </SheetSection>
+        </>
       )}
 
       {activeTab === "remove" && (
-        <div className="max-h-64 overflow-y-auto">
-          {allTags.length === 0 ? (
-            <p className="py-4 text-[15px] text-text-2">No tags to remove.</p>
-          ) : (
-            allTags.map((tag) => (
-              <button
-                key={tag.id}
-                type="button"
-                onClick={() => handleDetach(tag.id)}
-                disabled={isPending}
-                className="flex w-full items-center gap-3 border-b border-divider py-3 text-left last:border-b-0 active:opacity-70 disabled:opacity-50"
-              >
-                {pendingAction?.kind === "detach" && pendingAction.tagId === tag.id ? (
-                  <LoaderCircle
-                    aria-hidden="true"
-                    className="h-4 w-4 shrink-0 animate-spin text-unsynced"
-                    strokeWidth={2.2}
-                  />
-                ) : (
-                  <X aria-hidden="true" className="h-4 w-4 shrink-0 text-unsynced" strokeWidth={2} />
-                )}
-                <span className="flex-1 text-[15px] text-foreground">{tag.name}</span>
-              </button>
-            ))
-          )}
-        </div>
+        <SheetSection className="py-0">
+          <SheetSectionHeader>Existing tags</SheetSectionHeader>
+          <div className="max-h-64 overflow-y-auto">
+            {allTags.length === 0 ? (
+              <p className="py-4 text-[15px] text-text-2">No tags to remove.</p>
+            ) : (
+              allTags.map((tag) => (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => handleDetach(tag.id)}
+                  disabled={isPending}
+                  className="flex w-full items-center gap-3 border-b border-divider py-3 text-left last:border-b-0 active:opacity-70 disabled:opacity-50"
+                >
+                  {pendingAction?.kind === "detach" && pendingAction.tagId === tag.id ? (
+                    <LoaderCircle
+                      aria-hidden="true"
+                      className="h-4 w-4 shrink-0 animate-spin text-unsynced"
+                      strokeWidth={2.2}
+                    />
+                  ) : (
+                    <X aria-hidden="true" className="h-4 w-4 shrink-0 text-unsynced" strokeWidth={2} />
+                  )}
+                  <span className="flex-1 text-[15px] text-foreground">{tag.name}</span>
+                </button>
+              ))
+            )}
+          </div>
+        </SheetSection>
       )}
 
-      {error && <p className="mt-2 text-[13px] text-unsynced">{error}</p>}
+      {error && (
+        <SheetSection className="pt-2">
+          <p className="text-[13px] text-unsynced">{error}</p>
+        </SheetSection>
+      )}
     </BottomSheet>
   );
 }
