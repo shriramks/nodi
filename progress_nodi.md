@@ -695,3 +695,11 @@ Files: `components/movie/movie-detail-view.tsx`, `progress_nodi.md`
 - Moved the title, metadata, watch summary, rating, and tags higher beside the poster.
 - Tightened the movie detail header spacing so the library action sits closer to the poster/details group.
 - Left the app-wide image cache and prefetch work as the next session.
+
+### 83 — 2026-05-21 — Wikidata Trivia QID Parser Fix
+
+Files: `lib/providers/wikipedia/trivia.ts`, `progress_nodi.md`
+
+- Fixed Wikidata subject resolution by accepting both `http` and `https` entity URLs when extracting QIDs.
+- Confirmed the trivia section was empty because SPARQL responses returned `http://www.wikidata.org/entity/Q...` values that the old parser rejected.
+- Verified with `npm run lint` and `npm test`.
