@@ -3,6 +3,11 @@ import type { Metadata } from "next";
 import { BackButton } from "@/components/navigation/back-button";
 import { SettingsErrorModal } from "@/components/settings/settings-error-modal";
 import { TmdbBackfillControls } from "@/components/settings/tmdb-backfill-controls";
+import {
+  SettingsFieldLabel,
+  SettingsPanel,
+  SettingsStatusBadge,
+} from "@/components/ui/settings";
 import { getProviderSyncSettings } from "@/lib/db/queries";
 import { disconnectTmdbAction, saveTmdbTokenAction } from "../actions";
 
@@ -42,7 +47,7 @@ export default async function TmdbSettingsPage({ searchParams }: TmdbSettingsPag
         />
       ) : null}
 
-      <section className="space-y-3 rounded-2xl border border-border bg-surface p-4">
+      <SettingsPanel>
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[17px] font-semibold text-foreground">API token</p>
@@ -50,19 +55,14 @@ export default async function TmdbSettingsPage({ searchParams }: TmdbSettingsPag
               {connected ? "Token saved" : "Token required"}
             </p>
           </div>
-          <span
-            className={[
-              "rounded-full px-2.5 py-1 text-[12px] font-semibold",
-              connected ? "bg-watched/15 text-watched" : "bg-surface-muted text-text-2",
-            ].join(" ")}
-          >
+          <SettingsStatusBadge tone={connected ? "active" : "neutral"}>
             {connected ? "Active" : "Off"}
-          </span>
+          </SettingsStatusBadge>
         </div>
 
         <form action={saveTmdbTokenAction} className="space-y-3">
           <label className="block">
-            <span className="text-[13px] text-text-muted">API Read Access Token</span>
+            <SettingsFieldLabel>API Read Access Token</SettingsFieldLabel>
             <input
               name="apiToken"
               autoComplete="off"
@@ -90,7 +90,7 @@ export default async function TmdbSettingsPage({ searchParams }: TmdbSettingsPag
             </button>
           </form>
         ) : null}
-      </section>
+      </SettingsPanel>
 
       <TmdbBackfillControls enabled={connected} />
     </main>

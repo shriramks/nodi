@@ -3,6 +3,7 @@
 import { CircleStop, DownloadCloud, RefreshCcw, UploadCloud } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { SettingsPanel } from "@/components/ui/settings";
 import type { ProviderSyncSettings } from "@/lib/db/queries/sync";
 
 type SyncAction = "pull" | "push";
@@ -114,7 +115,7 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
 
   return (
     <section className="space-y-4">
-      <div className="rounded-2xl border border-border bg-surface p-4">
+      <SettingsPanel className="space-y-0">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[15px] font-semibold text-foreground">
@@ -142,7 +143,7 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
           <span className="tabnum">{progressCount}</span>
           <span>{formatTimestamp(progress?.updatedAt ?? null)}</span>
         </div>
-      </div>
+      </SettingsPanel>
 
       <dl className="grid grid-cols-2 gap-3 text-[13px]">
         <div className="rounded-2xl border border-border bg-surface p-3">

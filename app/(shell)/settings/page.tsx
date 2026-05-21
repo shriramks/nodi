@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { cookies } from "next/headers";
-import { ChevronRight, Cloud, LogOut } from "lucide-react";
+import { Cloud, LogOut } from "lucide-react";
 
 import { signOut } from "@/app/auth/actions";
 import { requireUser } from "@/lib/auth/server";
 import { AppearancePicker } from "@/components/settings/appearance-picker";
+import { Section, SectionHeader } from "@/components/ui/section";
+import { SettingsLinkRow } from "@/components/ui/settings";
 import type { Theme } from "@/lib/db/types";
 
 export const metadata: Metadata = {
@@ -27,29 +28,18 @@ export default async function SettingsPage() {
         </p>
       </section>
 
-      <section className="space-y-2">
-        <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-text-faint">
-          Appearance
-        </p>
+      <Section>
+        <SectionHeader className="px-1 font-semibold text-text-faint">Appearance</SectionHeader>
         <AppearancePicker current={theme} />
-      </section>
+      </Section>
 
       <section className="space-y-3">
-        <Link
+        <SettingsLinkRow
           href="/settings/sync"
-          className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4 active:bg-tap-active"
-        >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-foreground">
-            <Cloud aria-hidden="true" className="h-5 w-5" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-semibold text-foreground">Sync</span>
-            <span className="mt-0.5 block text-[13px] text-text-muted">
-              TMDB required. Trakt sync optional.
-            </span>
-          </span>
-          <ChevronRight aria-hidden="true" className="h-5 w-5 shrink-0 text-text-muted" />
-        </Link>
+          icon={<Cloud aria-hidden="true" className="h-5 w-5" />}
+          title="Sync"
+          description="TMDB required. Trakt sync optional."
+        />
       </section>
 
       <form action={signOut}>

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { ChevronRight, Cloud, Database } from "lucide-react";
+import { Cloud, Database } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
+import { SettingsLinkRow, SettingsStatusBadge } from "@/components/ui/settings";
 import { getProviderSyncSettings } from "@/lib/db/queries";
 
 export const metadata: Metadata = {
@@ -64,25 +64,14 @@ function ProviderLink({
   status: string;
 }) {
   return (
-    <Link
+    <SettingsLinkRow
       href={href}
-      className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4 active:bg-tap-active"
-    >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-foreground">
-        {icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          <span className="block text-[15px] font-semibold text-foreground">{label}</span>
-          <span className="rounded-full bg-surface-muted px-2 py-0.5 text-[11px] font-semibold text-text-muted">
-            {note}
-          </span>
-        </span>
-        <span className="mt-0.5 block text-[13px] text-text-muted">{description}</span>
-        <span className="mt-0.5 block text-[12px] text-text-faint">{status}</span>
-      </span>
-      <ChevronRight aria-hidden="true" className="h-5 w-5 shrink-0 text-text-muted" />
-    </Link>
+      icon={icon}
+      title={label}
+      titleAccessory={<SettingsStatusBadge size="compact">{note}</SettingsStatusBadge>}
+      description={description}
+      status={status}
+    />
   );
 }
 

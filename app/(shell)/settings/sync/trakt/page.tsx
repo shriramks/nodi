@@ -4,6 +4,11 @@ import { headers } from "next/headers";
 import { BackButton } from "@/components/navigation/back-button";
 import { SettingsErrorModal } from "@/components/settings/settings-error-modal";
 import { TraktSyncControls } from "@/components/settings/trakt-sync-controls";
+import {
+  SettingsFieldLabel,
+  SettingsPanel,
+  SettingsStatusBadge,
+} from "@/components/ui/settings";
 import { getProviderSyncSettings } from "@/lib/db/queries";
 import { getTraktRedirectUri } from "@/lib/providers/trakt/credentials";
 import {
@@ -58,7 +63,7 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
         />
       ) : null}
 
-      <section className="space-y-3 rounded-2xl border border-border bg-surface p-4">
+      <SettingsPanel>
         <div>
           <p className="text-[17px] font-semibold text-foreground">Trakt app credentials</p>
           <p className="mt-1 text-[13px] leading-[1.4] text-text-2">
@@ -71,7 +76,7 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
 
         <form action={saveTraktCredentialsAction} className="space-y-3">
           <label className="block">
-            <span className="text-[13px] text-text-muted">Client ID</span>
+            <SettingsFieldLabel>Client ID</SettingsFieldLabel>
             <input
               name="clientId"
               autoComplete="off"
@@ -81,7 +86,7 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
             />
           </label>
           <label className="block">
-            <span className="text-[13px] text-text-muted">Client Secret</span>
+            <SettingsFieldLabel>Client Secret</SettingsFieldLabel>
             <input
               name="clientSecret"
               autoComplete="off"
@@ -98,9 +103,9 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
             Save Trakt App Credentials
           </button>
         </form>
-      </section>
+      </SettingsPanel>
 
-      <section className="space-y-3 rounded-2xl border border-border bg-surface p-4">
+      <SettingsPanel>
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[17px] font-semibold text-foreground">Authorization</p>
@@ -112,14 +117,9 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
                 : "Not connected"}
             </p>
           </div>
-          <span
-            className={[
-              "rounded-full px-2.5 py-1 text-[12px] font-semibold",
-              connected ? "bg-watched/15 text-watched" : "bg-surface-muted text-text-2",
-            ].join(" ")}
-          >
+          <SettingsStatusBadge tone={connected ? "active" : "neutral"}>
             {connected ? "Active" : "Off"}
-          </span>
+          </SettingsStatusBadge>
         </div>
 
         {hasAppCredentials ? (
@@ -151,7 +151,7 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
             </button>
           </form>
         ) : null}
-      </section>
+      </SettingsPanel>
 
       <TraktSyncControls initialSync={sync} />
     </main>

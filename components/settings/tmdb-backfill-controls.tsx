@@ -2,6 +2,7 @@
 
 import { RefreshCcw, Square } from "lucide-react";
 import { useRef, useState } from "react";
+import { SettingsPanel } from "@/components/ui/settings";
 
 type TmdbBackfillResult = {
   enriched: number;
@@ -88,7 +89,7 @@ export function TmdbBackfillControls({ enabled }: TmdbBackfillControlsProps) {
         : "Token required";
 
   return (
-    <section className="space-y-3 rounded-2xl border border-border bg-surface p-4">
+    <SettingsPanel>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[17px] font-semibold text-foreground">Metadata backfill</p>
@@ -127,6 +128,6 @@ export function TmdbBackfillControls({ enabled }: TmdbBackfillControlsProps) {
       {failureSample && !error ? (
         <p className="text-[13px] leading-[1.4] text-unsynced">{failureSample}</p>
       ) : null}
-    </section>
+    </SettingsPanel>
   );
 }
