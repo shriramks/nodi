@@ -8,6 +8,7 @@ import { readProviderSecret } from "@/lib/providers/credentials";
 const tmdbBaseUrl = "https://api.themoviedb.org/3";
 
 export type TmdbMovieSearchResult = {
+  adult?: boolean;
   id: number;
   title: string;
   original_title: string;
@@ -45,6 +46,12 @@ export type TmdbMovieDetails = {
   vote_average?: number | null;
   vote_count?: number | null;
   popularity?: number | null;
+  belongs_to_collection?: {
+    id: number;
+    name?: string | null;
+    poster_path?: string | null;
+    backdrop_path?: string | null;
+  } | null;
   genres?: Array<{
     id: number;
     name: string;
@@ -60,6 +67,29 @@ export type TmdbMovieCredits = {
     profile_path?: string | null;
     order?: number | null;
   }>;
+  crew?: Array<{
+    id: number;
+    name: string;
+    job?: string | null;
+    department?: string | null;
+    profile_path?: string | null;
+  }>;
+};
+
+export type TmdbMovieKeyword = {
+  id: number;
+  name: string;
+};
+
+export type TmdbMovieKeywordsResponse = {
+  id: number;
+  keywords?: TmdbMovieKeyword[];
+};
+
+export type TmdbCollectionDetails = {
+  id: number;
+  name?: string | null;
+  parts?: TmdbMovieSearchResult[];
 };
 
 export type TmdbPersonDetails = {
@@ -114,6 +144,21 @@ type SearchTmdbMoviesOptions = {
   query: string;
   page?: number;
   language?: string | null;
+};
+
+type DiscoverTmdbMoviesOptions = {
+  language?: string | null;
+  page?: number;
+  primaryReleaseDateGte?: string | null;
+  primaryReleaseDateLte?: string | null;
+  sortBy?: string | null;
+  voteCountGte?: number | null;
+  withCast?: string | null;
+  withCrew?: string | null;
+  withGenres?: string | null;
+  withKeywords?: string | null;
+  withOriginalLanguage?: string | null;
+  withPeople?: string | null;
 };
 
 export type TmdbAuth = {
@@ -199,6 +244,48 @@ export function getTmdbMovieDetailsWithAuth(
 export function getTmdbMovieCredits(tmdbId: number, language?: string | null) {
   return fetchTmdbJson<TmdbMovieCredits>(`/movie/${tmdbId}/credits`, {
     language,
+  });
+}
+
+export function getTmdbMovieKeywords(tmdbId: number) {
+  return fetchTmdbJson<TmdbMovieKeywordsResponse>(`/movie/${tmdbId}/keywords`);
+}
+
+export function getTmdbCollectionDetails(collectionId: number, language?: string | null) {
+  return fetchTmdbJson<TmdbCollectionDetails>(`/collection/${collectionId}`, {
+    language,
+  });
+}
+
+export function discoverTmdbMovies({
+  language,
+  page = 1,
+  primaryReleaseDateGte,
+  primaryReleaseDateLte,
+  sortBy = "popularity.desc",
+  voteCountGte,
+  withCast,
+  withCrew,
+  withGenres,
+  withKeywords,
+  withOriginalLanguage,
+  withPeople,
+}: DiscoverTmdbMoviesOptions) {
+  return fetchTmdbJson<TmdbMovieListResponse>("/discover/movie", {
+    include_adult: false,
+    include_video: false,
+    language,
+    page,
+    "primary_release_date.gte": primaryReleaseDateGte,
+    "primary_release_date.lte": primaryReleaseDateLte,
+    sort_by: sortBy,
+    "vote_count.gte": voteCountGte,
+    with_cast: withCast,
+    with_crew: withCrew,
+    with_genres: withGenres,
+    with_keywords: withKeywords,
+    with_original_language: withOriginalLanguage,
+    with_people: withPeople,
   });
 }
 

@@ -55,7 +55,7 @@ export default async function TmdbMovieDetailPage({
       title: normalizeText(detail.title) ?? "Untitled movie",
       tmdbId: detail.id,
     }),
-    getRelatedTmdbMovies(detail.id),
+    getRelatedTmdbMovies(detail.id, { credits, detail }),
   ]);
   const ingestPayload = toTmdbMovieIngestPayload(detail, credits);
 

@@ -2,6 +2,16 @@
 
 ## Done
 
+### 85 — 2026-05-21 — Scored TMDB Related Movies
+
+Files: `app/(shell)/movie/tmdb/[tmdbId]/page.tsx`, `lib/providers/tmdb/client.ts`, `lib/providers/tmdb/related.ts`, `tests/providers/tmdb-related.test.ts`
+
+- Added TMDB keywords, collection details, and discover client helpers so related movies can use richer TMDB-only signals.
+- Replaced the plain recommendations/similar append flow with a scored blend of collection siblings, keyword discovery, people discovery, TMDB recommendations, and TMDB similar results.
+- Weighted direct collection matches and repeated cross-source matches above generic popularity-heavy recommendations, while filtering current, adult, and invalid candidates.
+- Passed already-loaded TMDB detail and credits from the remote detail page into related lookup to avoid duplicate detail/credits fetches.
+- Added focused Vitest coverage for ranking, dedupe, and candidate filtering behavior.
+
 ### 83 — 2026-05-21 — App-Wide Image Cache And Prefetch
 
 Files: `components/media/credit-poster-card.tsx`, `components/media/tmdb-image-prefetcher.tsx`, `components/movie/movie-detail-view.tsx`, `components/movie/movie-library-grid.tsx`, `components/movie/poster-card.tsx`, `components/person/person-detail-view.tsx`, `components/search/movie-search.tsx`, `lib/providers/tmdb/images.ts`, `next.config.ts`, `public/sw.js`
@@ -702,4 +712,12 @@ Files: `lib/providers/wikipedia/trivia.ts`, `progress_nodi.md`
 
 - Fixed Wikidata subject resolution by accepting both `http` and `https` entity URLs when extracting QIDs.
 - Confirmed the trivia section was empty because SPARQL responses returned `http://www.wikidata.org/entity/Q...` values that the old parser rejected.
+- Verified with `npm run lint` and `npm test`.
+
+### 84 — 2026-05-21 — Movie Detail Info Poster Alignment
+
+Files: `components/movie/movie-detail-view.tsx`, `progress_nodi.md`
+
+- Removed the hard-coded top padding that pushed the movie info cluster below the poster top edge.
+- Kept the poster gutter and cinematic banner layout intact while aligning title, metadata, watched state, rating, and tags with the poster.
 - Verified with `npm run lint` and `npm test`.
