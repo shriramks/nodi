@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Film } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
@@ -11,7 +12,9 @@ import {
   SectionHeader,
   SectionScrollBleed,
 } from "@/components/ui/section";
+import { DetailRow } from "@/components/ui/detail";
 import type { MovieStatus } from "@/lib/db/types";
+import { tmdbImageUrl } from "@/lib/providers/tmdb/images";
 
 function languageDisplayName(code: string): string {
   try {
@@ -31,9 +34,6 @@ function formatReleaseDate(dateStr: string): string {
   }).format(date);
 }
 
-const posterBaseUrl = "https://image.tmdb.org/t/p/w342";
-const profileBaseUrl = "https://image.tmdb.org/t/p/w185";
-
 type DetailMovie = {
   title: string;
   poster_path: string | null;
@@ -42,11 +42,13 @@ type DetailMovie = {
   original_language: string | null;
   primary_genre_name: string | null;
   overview: string | null;
+  backdrop_path?: string | null;
   runtime_minutes: number | null;
   tmdb_vote_average: number | null;
   tmdb_vote_count: number | null;
   cast: Array<{
     id: string | number;
+    tmdb_person_id?: number | null;
     name: string;
     character_name: string | null;
     profile_path: string | null;
@@ -121,7 +123,7 @@ export function MovieDetailView({
             className="flex aspect-[2/3] w-full items-center justify-center rounded-2xl border border-border bg-surface-muted bg-cover bg-center"
             style={
               movie.poster_path
-                ? { backgroundImage: `url(${posterBaseUrl}${movie.poster_path})` }
+                ? { backgroundImage: `url(${tmdbImageUrl(movie.poster_path, "w342")})` }
                 : undefined
             }
           >
@@ -193,37 +195,15 @@ export function MovieDetailView({
         {movie.cast.length > 0 ? (
           <SectionScrollBleed className="flex gap-3 pb-1">
             {movie.cast.map((member) => (
-              <article key={member.id} className="w-16 shrink-0">
-                <div
-                  aria-hidden="true"
-                  className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-full bg-surface-muted"
-                >
-                  {member.profile_path ? (
-                    <Image
-                      alt=""
-                      aria-hidden="true"
-                      className="h-full w-full object-cover object-[center_28%]"
-                      height={278}
-                      sizes="64px"
-                      src={`${profileBaseUrl}${member.profile_path}`}
-                      width={185}
-                    />
-                  ) : (
-                    <Film
-                      className="h-5 w-5 text-text-faint"
-                      strokeWidth={1.8}
-                    />
-                  )}
-                </div>
-                <p className="mt-1.5 truncate text-center text-[11px] text-foreground">
-                  {member.name}
-                </p>
-                {member.character_name && (
-                  <p className="mt-0.5 truncate text-center text-[10px] text-text-faint">
-                    {member.character_name}
-                  </p>
-                )}
-              </article>
+              <CastMemberLink
+                key={member.id}
+                characterName={member.character_name}
+                backdropPath={movie.backdrop_path}
+                movieTitle={movie.title}
+                name={member.name}
+                personId={member.tmdb_person_id}
+                profilePath={member.profile_path}
+              />
             ))}
           </SectionScrollBleed>
         ) : (
@@ -253,26 +233,70 @@ export function MovieDetailView({
   );
 }
 
-function DetailRow({
-  label,
-  value,
-  divider = true,
+function CastMemberLink({
+  backdropPath,
+  characterName,
+  movieTitle,
+  name,
+  personId,
+  profilePath,
 }: {
-  label: string;
-  value: string;
-  divider?: boolean;
+  backdropPath?: string | null;
+  characterName: string | null;
+  movieTitle: string;
+  name: string;
+  personId?: number | null;
+  profilePath: string | null;
 }) {
+  const content = (
+    <>
+      <div
+        aria-hidden="true"
+        className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-full bg-surface-muted"
+      >
+        {profilePath ? (
+          <Image
+            alt=""
+            aria-hidden="true"
+                      className="h-full w-full object-cover object-[center_28%]"
+                      height={278}
+                      sizes="64px"
+                      src={tmdbImageUrl(profilePath, "w185")}
+                      width={185}
+          />
+        ) : (
+          <Film className="h-5 w-5 text-text-faint" strokeWidth={1.8} />
+        )}
+      </div>
+      <p className="mt-1.5 truncate text-center text-[11px] text-foreground">
+        {name}
+      </p>
+      {characterName && (
+        <p className="mt-0.5 truncate text-center text-[10px] text-text-faint">
+          {characterName}
+        </p>
+      )}
+    </>
+  );
+
+  if (!personId) {
+    return <article className="w-16 shrink-0">{content}</article>;
+  }
+
+  const params = new URLSearchParams({ movie: movieTitle });
+  if (backdropPath) {
+    params.set("backdrop", backdropPath);
+  }
+  if (characterName) {
+    params.set("character", characterName);
+  }
+
   return (
-    <div
-      className={[
-        "flex min-h-11 items-center justify-between gap-4 py-2.5",
-        divider ? "border-b border-divider last:border-b-0" : "",
-      ].join(" ")}
+    <Link
+      className="w-16 shrink-0 active:opacity-70"
+      href={`/person/tmdb/${personId}?${params.toString()}`}
     >
-      <span className="text-[15px] text-text-2">{label}</span>
-      <span className="tabnum text-[15px] font-semibold text-foreground">
-        {value}
-      </span>
-    </div>
+      {content}
+    </Link>
   );
 }

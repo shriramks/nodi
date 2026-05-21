@@ -379,6 +379,21 @@ Rules for DetailRow:
 - Groups are separated by a full-width sep line (--divider), not by background colour.
 - Group header (SectionDivider) labels the group above its first row.
 
+Use `DetailRow`, `DetailBlock`, and `DetailTextList` from `components/ui/detail.tsx` instead of
+repeating row, stacked-field, or flat divided-text styles in detail screens. Trivia/fact lists are
+flat divided text, not cards.
+
+### CreditPosterCard
+```text
+[2:3 poster]
+[headline-ish title, 12px semibold]
+[footnote metadata]
+```
+
+Use `CreditPosterCard` from `components/media/credit-poster-card.tsx` for Known For-style
+horizontal credit rails. Movie credits can link to TMDB movie detail routes; TV credits may render
+as non-linked cards until TV detail routes exist.
+
 ### ValueLabel (inline pair - e.g. chart legends, rating helper labels)
 ```text
 [subheadline value, colour-coded]
@@ -449,6 +464,7 @@ should never be more important than a headline-sized one on the same screen.
 |-------------|---------------------|------------------------|-----------------|
 | Overview grid (Movies, To Watch) | poster image | metadata via sheets and tag/language filters | PosterCard |
 | Detail drill-down (Movie Detail) | poster + compact metadata cluster | plot + cast carousel + label:value groups | DetailRow |
+| Profile drill-down (Person Detail) | backdrop + circular portrait + name | biography + flat trivia + credit carousel | DetailBlock / DetailTextList / CreditPosterCard |
 | Summary strip (Stats totals) | display/title-1 number | subheadline label below | MetricCard |
 | Edit/input (tag/status sheet) | body labels + headline inputs | footnote hints | BottomSheet |
 | Search results | headline title + poster | footnote metadata + status pill | ListRow |

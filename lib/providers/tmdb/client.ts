@@ -60,6 +60,54 @@ export type TmdbMovieCredits = {
   }>;
 };
 
+export type TmdbPersonDetails = {
+  adult?: boolean;
+  also_known_as?: string[];
+  biography?: string | null;
+  birthday?: string | null;
+  deathday?: string | null;
+  gender?: number | null;
+  homepage?: string | null;
+  id: number;
+  imdb_id?: string | null;
+  known_for_department?: string | null;
+  name: string;
+  place_of_birth?: string | null;
+  popularity?: number | null;
+  profile_path?: string | null;
+};
+
+export type TmdbPersonCredit = {
+  adult?: boolean;
+  backdrop_path?: string | null;
+  character?: string | null;
+  credit_id?: string;
+  department?: string | null;
+  episode_count?: number;
+  first_air_date?: string | null;
+  id: number;
+  job?: string | null;
+  media_type?: "movie" | "tv" | string;
+  name?: string | null;
+  order?: number;
+  original_name?: string | null;
+  original_title?: string | null;
+  overview?: string | null;
+  poster_path?: string | null;
+  release_date?: string | null;
+  title?: string | null;
+  video?: boolean;
+  vote_average?: number | null;
+  vote_count?: number | null;
+  popularity?: number | null;
+};
+
+export type TmdbPersonCombinedCredits = {
+  id: number;
+  cast?: TmdbPersonCredit[];
+  crew?: TmdbPersonCredit[];
+};
+
 type SearchTmdbMoviesOptions = {
   query: string;
   page?: number;
@@ -160,4 +208,22 @@ export function getTmdbMovieCreditsWithAuth(
   return fetchTmdbJsonWithAuth<TmdbMovieCredits>(auth, `/movie/${tmdbId}/credits`, {
     language,
   });
+}
+
+export function getTmdbPersonDetails(personId: number, language?: string | null) {
+  return fetchTmdbJson<TmdbPersonDetails>(`/person/${personId}`, {
+    language,
+  });
+}
+
+export function getTmdbPersonCombinedCredits(
+  personId: number,
+  language?: string | null,
+) {
+  return fetchTmdbJson<TmdbPersonCombinedCredits>(
+    `/person/${personId}/combined_credits`,
+    {
+      language,
+    },
+  );
 }

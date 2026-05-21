@@ -78,10 +78,12 @@ start with the listed files and only expand outward if those files point elsewhe
 | Tags | `lib/db/mutations/tags.ts`, `lib/db/queries/tags.ts` | movie detail client/page files |
 | Sync events and provider connection state | `lib/db/mutations/sync.ts`, `lib/db/queries/sync.ts` | `supabase/migrations/`, future `app/api/sync/` routes |
 | TMDB provider logic | `lib/providers/tmdb/client.ts`, `lib/providers/tmdb/adapters.ts` | search/detail routes that call them |
+| TMDB images | `lib/providers/tmdb/images.ts` | components rendering TMDB images |
 | Search UI and API | `components/search/movie-search.tsx`, `app/(shell)/search/page.tsx` | `app/api/search/movies/route.ts`, TMDB adapter/client |
 | Remote TMDB detail before ingestion | `app/(shell)/movie/tmdb/[tmdbId]/page.tsx` | `app/(shell)/movie/tmdb/[tmdbId]/tmdb-movie-detail-client.tsx`, `app/(shell)/movie/actions.ts` |
 | Local movie detail | `app/(shell)/movie/[movieId]/page.tsx` | `app/(shell)/movie/[movieId]/movie-detail-client.tsx`, `components/movie/movie-detail-view.tsx`, `app/(shell)/movie/[movieId]/actions.ts` |
-| Shared movie detail presentation | `components/movie/movie-detail-view.tsx` | `components/movie/overview-text.tsx` |
+| Shared detail presentation | `components/ui/detail.tsx`, `components/movie/movie-detail-view.tsx` | `components/movie/overview-text.tsx`, `components/media/credit-poster-card.tsx` |
+| TMDB person detail | `app/(shell)/person/tmdb/[personId]/page.tsx` | `components/person/person-detail-view.tsx`, `components/media/credit-poster-card.tsx`, `components/ui/detail.tsx` |
 | Watched Movies page | `app/(shell)/movies/page.tsx` | `components/movie/movie-library-grid.tsx`, `components/movie/poster-card.tsx` |
 | To Watch page | `app/(shell)/to-watch/page.tsx` | `components/movie/poster-card.tsx` |
 | Poster grid/card behavior | `components/movie/poster-card.tsx`, `components/movie/movie-library-grid.tsx` | `components/search/movie-search.tsx` if search posters are involved |

@@ -135,11 +135,13 @@ function toDetailMovie(detail: TmdbMovieDetails, credits: TmdbMovieCredits) {
     original_language: normalizeText(detail.original_language),
     primary_genre_name: normalizeText(primaryGenre?.name),
     overview: normalizeText(detail.overview),
+    backdrop_path: detail.backdrop_path ?? null,
     runtime_minutes: detail.runtime && detail.runtime > 0 ? detail.runtime : null,
     tmdb_vote_average: oneDecimal(detail.vote_average),
     tmdb_vote_count: detail.vote_count ?? null,
     cast: toMovieCastPayloads(credits).map((member) => ({
       id: `${member.tmdb_person_id}-${member.cast_order ?? "x"}-${member.character_name ?? ""}`,
+      tmdb_person_id: member.tmdb_person_id,
       name: member.name,
       character_name: member.character_name,
       profile_path: member.profile_path,
