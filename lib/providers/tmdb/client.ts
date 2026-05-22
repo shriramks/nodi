@@ -142,6 +142,10 @@ export type TmdbPersonCombinedCredits = {
   crew?: TmdbPersonCredit[];
 };
 
+export type TmdbPersonDetailsWithCombinedCredits = TmdbPersonDetails & {
+  combined_credits?: TmdbPersonCombinedCredits;
+};
+
 type SearchTmdbMoviesOptions = {
   query: string;
   page?: number;
@@ -411,6 +415,27 @@ export function getTmdbPersonDetailsWithAuth(
   language?: string | null,
 ) {
   return fetchTmdbJsonWithAuth<TmdbPersonDetails>(auth, `/person/${personId}`, {
+    language,
+  });
+}
+
+export function getTmdbPersonDetailsWithCombinedCredits(
+  personId: number,
+  language?: string | null,
+) {
+  return fetchTmdbJson<TmdbPersonDetailsWithCombinedCredits>(`/person/${personId}`, {
+    append_to_response: "combined_credits",
+    language,
+  });
+}
+
+export function getTmdbPersonDetailsWithCombinedCreditsWithAuth(
+  auth: TmdbAuth,
+  personId: number,
+  language?: string | null,
+) {
+  return fetchTmdbJsonWithAuth<TmdbPersonDetailsWithCombinedCredits>(auth, `/person/${personId}`, {
+    append_to_response: "combined_credits",
     language,
   });
 }

@@ -7,13 +7,12 @@ import {
 } from "@/components/person/person-detail-view";
 import { AppError, isAppError } from "@/lib/errors";
 import {
-  getTmdbPersonCombinedCreditsWithAuth,
   getTmdbPersonDetails,
-  getTmdbPersonDetailsWithAuth,
+  getTmdbPersonDetailsWithCombinedCreditsWithAuth,
   loadTmdbAuthForCurrentUser,
   type TmdbAuth,
   type TmdbPersonCombinedCredits,
-  type TmdbPersonDetails,
+  type TmdbPersonDetailsWithCombinedCredits,
 } from "@/lib/providers/tmdb/client";
 import { toRelevantPersonMovies } from "@/lib/providers/tmdb/person-credits";
 
@@ -47,28 +46,21 @@ export default async function TmdbPersonDetailPage({
   const [{ personId: rawPersonId }, query] = await Promise.all([params, searchParams]);
   const personId = normalizePersonId(rawPersonId);
   const auth = await loadTmdbAuthForCurrentUser();
-  const [detail, credits] = await loadTmdbPersonOrNotFound(personId, auth);
+  const detail = await loadTmdbPersonOrNotFound(personId, auth);
 
   return (
     <PersonDetailView
       contextBackdropPath={normalizeBackdropPath(query.backdrop)}
       contextCharacter={normalizeQueryText(query.character)}
       contextMovie={normalizeQueryText(query.movie)}
-      person={toPersonDetail(
-        detail,
-        credits,
-        normalizePositiveInt(query.sourceMovieId),
-      )}
+      person={toPersonDetail(detail, normalizePositiveInt(query.sourceMovieId))}
     />
   );
 }
 
 async function loadTmdbPersonOrNotFound(personId: number, auth: TmdbAuth) {
   try {
-    return await Promise.all([
-      getTmdbPersonDetailsWithAuth(auth, personId),
-      getTmdbPersonCombinedCreditsWithAuth(auth, personId),
-    ]);
+    return await getTmdbPersonDetailsWithCombinedCreditsWithAuth(auth, personId);
   } catch (error) {
     if (isAppError(error) && error.status === 404) {
       notFound();
@@ -92,10 +84,10 @@ function normalizePersonId(value: string) {
 }
 
 function toPersonDetail(
-  detail: TmdbPersonDetails,
-  credits: TmdbPersonCombinedCredits,
+  detail: TmdbPersonDetailsWithCombinedCredits,
   sourceMovieId: number | null,
 ): PersonDetail {
+  const credits = detail.combined_credits ?? emptyPersonCombinedCredits(detail.id);
   const knownFor = toRelevantPersonMovies(credits, { sourceMovieId });
 
   return {
@@ -108,6 +100,10 @@ function toPersonDetail(
     department: normalizeText(detail.known_for_department),
     knownFor,
   };
+}
+
+function emptyPersonCombinedCredits(id: number): TmdbPersonCombinedCredits {
+  return { id, cast: [], crew: [] };
 }
 
 function normalizeDate(value: string | null | undefined) {
