@@ -6,7 +6,7 @@ import { TmdbImagePrefetcher } from "@/components/media/tmdb-image-prefetcher";
 import { BackButton } from "@/components/navigation/back-button";
 import { OverviewText } from "@/components/movie/overview-text";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
-import { DetailBlock, DetailSourceList, type DetailSourceItem } from "@/components/ui/detail";
+import { DetailBlock } from "@/components/ui/detail";
 import { Section, SectionHeader, SectionScrollBleed } from "@/components/ui/section";
 import { tmdbImage, tmdbImagePrefetchUrls } from "@/lib/providers/tmdb/images";
 
@@ -29,7 +29,6 @@ export type PersonDetail = {
   birthplace: string | null;
   department: string | null;
   knownFor: KnownForCredit[];
-  trivia: DetailSourceItem[];
 };
 
 type PersonDetailViewProps = {
@@ -127,14 +126,6 @@ export function PersonDetailView({
       <Section>
         <SectionHeader>Biography</SectionHeader>
         <OverviewText text={person.biography} />
-      </Section>
-
-      <Section>
-        <SectionHeader>Trivia</SectionHeader>
-        <DetailSourceList
-          emptyText="No source-backed trivia available."
-          items={person.trivia}
-        />
       </Section>
 
       <Section>

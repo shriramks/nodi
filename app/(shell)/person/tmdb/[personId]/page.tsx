@@ -5,7 +5,6 @@ import {
   PersonDetailView,
   type PersonDetail,
 } from "@/components/person/person-detail-view";
-import type { DetailSourceItem } from "@/components/ui/detail";
 import { AppError, isAppError } from "@/lib/errors";
 import {
   getTmdbPersonCombinedCredits,
@@ -14,7 +13,6 @@ import {
   type TmdbPersonDetails,
 } from "@/lib/providers/tmdb/client";
 import { toRelevantPersonMovies } from "@/lib/providers/tmdb/person-credits";
-import { getPersonWikipediaTrivia } from "@/lib/providers/wikipedia/trivia";
 
 type PersonDetailPageProps = {
   params: Promise<{ personId: string }>;
@@ -46,12 +44,6 @@ export default async function TmdbPersonDetailPage({
   const [{ personId: rawPersonId }, query] = await Promise.all([params, searchParams]);
   const personId = normalizePersonId(rawPersonId);
   const [detail, credits] = await loadTmdbPersonOrNotFound(personId);
-  const trivia = await getPersonWikipediaTrivia({
-    birthday: normalizeDate(detail.birthday),
-    imdbId: detail.imdb_id,
-    name: normalizeText(detail.name) ?? "Unknown",
-    tmdbPersonId: detail.id,
-  });
 
   return (
     <PersonDetailView
@@ -61,7 +53,6 @@ export default async function TmdbPersonDetailPage({
       person={toPersonDetail(
         detail,
         credits,
-        trivia,
         normalizePositiveInt(query.sourceMovieId),
       )}
     />
@@ -99,7 +90,6 @@ function normalizePersonId(value: string) {
 function toPersonDetail(
   detail: TmdbPersonDetails,
   credits: TmdbPersonCombinedCredits,
-  trivia: DetailSourceItem[],
   sourceMovieId: number | null,
 ): PersonDetail {
   const knownFor = toRelevantPersonMovies(credits, { sourceMovieId });
@@ -113,7 +103,6 @@ function toPersonDetail(
     birthplace: normalizeText(detail.place_of_birth),
     department: normalizeText(detail.known_for_department),
     knownFor,
-    trivia,
   };
 }
 

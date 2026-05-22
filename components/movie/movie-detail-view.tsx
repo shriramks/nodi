@@ -14,7 +14,7 @@ import {
   SectionScrollBleed,
 } from "@/components/ui/section";
 import { TmdbImagePrefetcher } from "@/components/media/tmdb-image-prefetcher";
-import { DetailRow, DetailSourceList, type DetailSourceItem } from "@/components/ui/detail";
+import { DetailRow } from "@/components/ui/detail";
 import type { MovieStatus } from "@/lib/db/types";
 import { tmdbImage, tmdbImagePrefetchUrls } from "@/lib/providers/tmdb/images";
 
@@ -60,7 +60,6 @@ type DetailMovie = {
     id: string;
     name: string;
   }>;
-  trivia?: DetailSourceItem[];
   relatedMovies?: Array<{
     id: number;
     title: string;
@@ -251,13 +250,6 @@ export function MovieDetailView({
           </p>
         )}
       </Section>
-
-      <CollapsibleSection title="Trivia">
-        <DetailSourceList
-          emptyText="No source-backed trivia available."
-          items={movie.trivia ?? []}
-        />
-      </CollapsibleSection>
 
       {status ? tagEditor : null}
 

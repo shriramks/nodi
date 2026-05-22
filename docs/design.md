@@ -397,8 +397,7 @@ Rules for DetailRow:
 - Group header (SectionDivider) labels the group above its first row.
 
 Use `DetailRow`, `DetailBlock`, and `DetailTextList` from `components/ui/detail.tsx` instead of
-repeating row, stacked-field, or flat divided-text styles in detail screens. Trivia/fact lists are
-flat divided text, not cards.
+repeating row, stacked-field, or flat divided-text styles in detail screens.
 
 ### CreditPosterCard
 ```text
@@ -481,7 +480,7 @@ should never be more important than a headline-sized one on the same screen.
 |-------------|---------------------|------------------------|-----------------|
 | Overview grid (Movies, To Watch) | poster image | metadata via sheets and tag/language filters | PosterCard |
 | Detail drill-down (Movie Detail) | poster + compact metadata cluster | plot + cast carousel + label:value groups | DetailRow |
-| Profile drill-down (Person Detail) | backdrop + circular portrait + name | biography + flat trivia + credit carousel | DetailBlock / DetailTextList / CreditPosterCard |
+| Profile drill-down (Person Detail) | backdrop + circular portrait + name | biography + credit carousel | DetailBlock / CreditPosterCard |
 | Summary strip (Stats totals) | display/title-1 number | subheadline label below | MetricCard |
 | Edit/input (tag/status sheet) | body labels + headline inputs | footnote hints | BottomSheet |
 | Search results | headline title + poster | footnote metadata + status pill | ListRow |
