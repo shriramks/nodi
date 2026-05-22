@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { cache } from "react";
+import { Suspense, cache } from "react";
 
-import { MovieDetailView } from "@/components/movie/movie-detail-view";
+import {
+  MovieDetailView,
+  MovieRelatedMovies,
+  MovieRelatedMoviesLoading,
+} from "@/components/movie/movie-detail-view";
 import { isAppError } from "@/lib/errors";
 import { getMovieDetail, listTags } from "@/lib/db/queries";
 import { enrichTmdbMovieOnDemand } from "@/lib/providers/tmdb/enrichment";
@@ -42,14 +46,14 @@ export default async function MovieDetailPage({
     movie = await loadMovieOrNotFound(enrichedMovie.id);
   }
 
-  const relatedMovies = await getRelatedTmdbMovies(movie.tmdb_id);
+  const relatedMovies = getRelatedTmdbMovies(movie.tmdb_id);
   const { userMovie } = movie;
   const status = userMovie?.status ?? null;
 
   return (
     <MovieDetailView
       actions={<UserStateActions movieId={movie.id} status={status} />}
-      movie={{ ...movie, relatedMovies }}
+      movie={movie}
       ratingPicker={
         status === "watched" ? (
           <RatingSheet
@@ -57,6 +61,11 @@ export default async function MovieDetailPage({
             currentRating={userMovie?.personal_rating ?? null}
           />
         ) : null
+      }
+      relatedMovies={
+        <Suspense fallback={<MovieRelatedMoviesLoading />}>
+          <MovieRelatedMovies movies={relatedMovies} />
+        </Suspense>
       }
       status={status}
       tagEditor={

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/providers/tmdb/client", () => ({
   discoverTmdbMovies: vi.fn(),
@@ -8,6 +8,8 @@ vi.mock("@/lib/providers/tmdb/client", () => ({
   getTmdbMovieCredits: vi.fn(),
   getTmdbMovieCreditsWithAuth: vi.fn(),
   getTmdbMovieDetails: vi.fn(),
+  getTmdbMovieDetailsWithAppendedResponses: vi.fn(),
+  getTmdbMovieDetailsWithAppendedResponsesWithAuth: vi.fn(),
   getTmdbMovieDetailsWithAuth: vi.fn(),
   getTmdbMovieKeywords: vi.fn(),
   getTmdbMovieKeywordsWithAuth: vi.fn(),
@@ -17,7 +19,9 @@ vi.mock("@/lib/providers/tmdb/client", () => ({
   getTmdbSimilarMoviesWithAuth: vi.fn(),
 }));
 
+import * as tmdbClient from "@/lib/providers/tmdb/client";
 import {
+  getRelatedTmdbMovies,
   rankRelatedMovies,
   type RelatedSeed,
 } from "@/lib/providers/tmdb/related";
@@ -47,6 +51,59 @@ const seed: RelatedSeed = {
 };
 
 describe("TMDB related movies", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("uses appended movie details instead of separate primary related calls", async () => {
+    vi.mocked(tmdbClient.getTmdbMovieDetailsWithAppendedResponses).mockResolvedValue({
+      id: 10,
+      original_language: "ja",
+      original_title: "Seed Movie",
+      recommendations: {
+        page: 1,
+        results: [
+          movie({
+            id: 20,
+            title: "Recommended",
+            release_date: "1998-01-01",
+          }),
+        ],
+        total_pages: 1,
+        total_results: 1,
+      },
+      release_date: "1997-01-01",
+      similar: {
+        page: 1,
+        results: [
+          movie({
+            id: 30,
+            title: "Similar",
+            release_date: "1999-01-01",
+          }),
+        ],
+        total_pages: 1,
+        total_results: 1,
+      },
+      title: "Seed Movie",
+    });
+
+    const related = await getRelatedTmdbMovies(10);
+
+    expect(tmdbClient.getTmdbMovieDetailsWithAppendedResponses).toHaveBeenCalledWith(10, [
+      "credits",
+      "keywords",
+      "recommendations",
+      "similar",
+    ]);
+    expect(tmdbClient.getTmdbMovieDetails).not.toHaveBeenCalled();
+    expect(tmdbClient.getTmdbMovieCredits).not.toHaveBeenCalled();
+    expect(tmdbClient.getTmdbMovieKeywords).not.toHaveBeenCalled();
+    expect(tmdbClient.getTmdbMovieRecommendations).not.toHaveBeenCalled();
+    expect(tmdbClient.getTmdbSimilarMovies).not.toHaveBeenCalled();
+    expect(related.map((item) => item.id)).toEqual([20, 30]);
+  });
+
   it("boosts collection siblings and titles found by multiple related sources", () => {
     const ranked = rankRelatedMovies(10, seed, [
       {

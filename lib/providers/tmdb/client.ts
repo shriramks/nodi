@@ -60,6 +60,12 @@ export type TmdbMovieDetails = {
   }>;
 };
 
+export type TmdbMovieAppendToResponse =
+  | "credits"
+  | "keywords"
+  | "recommendations"
+  | "similar";
+
 export type TmdbMovieCredits = {
   id: number;
   cast?: Array<{
@@ -86,6 +92,13 @@ export type TmdbMovieKeyword = {
 export type TmdbMovieKeywordsResponse = {
   id: number;
   keywords?: TmdbMovieKeyword[];
+};
+
+export type TmdbMovieDetailsWithAppendedResponses = TmdbMovieDetails & {
+  credits?: TmdbMovieCredits;
+  keywords?: TmdbMovieKeywordsResponse;
+  recommendations?: TmdbMovieListResponse;
+  similar?: TmdbMovieListResponse;
 };
 
 export type TmdbCollectionDetails = {
@@ -246,6 +259,29 @@ export function getTmdbMovieDetailsWithAuth(
   language?: string | null,
 ) {
   return fetchTmdbJsonWithAuth<TmdbMovieDetails>(auth, `/movie/${tmdbId}`, {
+    language,
+  });
+}
+
+export function getTmdbMovieDetailsWithAppendedResponses(
+  tmdbId: number,
+  appendToResponse: TmdbMovieAppendToResponse[],
+  language?: string | null,
+) {
+  return fetchTmdbJson<TmdbMovieDetailsWithAppendedResponses>(`/movie/${tmdbId}`, {
+    append_to_response: appendToResponse.join(","),
+    language,
+  });
+}
+
+export function getTmdbMovieDetailsWithAppendedResponsesWithAuth(
+  auth: TmdbAuth,
+  tmdbId: number,
+  appendToResponse: TmdbMovieAppendToResponse[],
+  language?: string | null,
+) {
+  return fetchTmdbJsonWithAuth<TmdbMovieDetailsWithAppendedResponses>(auth, `/movie/${tmdbId}`, {
+    append_to_response: appendToResponse.join(","),
     language,
   });
 }

@@ -73,6 +73,7 @@ type MovieDetailViewProps = {
   status: MovieStatus | null;
   actions: ReactNode;
   ratingPicker?: ReactNode;
+  relatedMovies?: ReactNode;
   tagEditor?: ReactNode;
   watchedSummary?: ReactNode;
   watchHistory?: ReactNode;
@@ -82,6 +83,7 @@ export function MovieDetailView({
   actions,
   movie,
   ratingPicker,
+  relatedMovies,
   status,
   tagEditor,
   watchedSummary,
@@ -107,10 +109,6 @@ export function MovieDetailView({
     ...movie.cast.map((member) => ({
       path: member.profile_path,
       role: "profileAvatar" as const,
-    })),
-    ...(movie.relatedMovies ?? []).map((relatedMovie) => ({
-      path: relatedMovie.posterPath,
-      role: "railPoster" as const,
     })),
   ]);
   const detailRows = [
@@ -267,28 +265,63 @@ export function MovieDetailView({
         )}
       </CollapsibleSection>
 
-      <Section>
-        <SectionHeader>Related Movies</SectionHeader>
-        {(movie.relatedMovies?.length ?? 0) > 0 ? (
-          <SectionScrollBleed className="flex gap-3 pb-1">
-            {movie.relatedMovies?.map((relatedMovie) => (
-              <CreditPosterCard
-                key={relatedMovie.id}
-                href={`/movie/tmdb/${relatedMovie.id}`}
-                posterPath={relatedMovie.posterPath}
-                subtitle={relatedMovie.releaseYear ? String(relatedMovie.releaseYear) : null}
-                title={relatedMovie.title}
-              />
-            ))}
-          </SectionScrollBleed>
-        ) : (
-          <p className="text-[15px] leading-[1.4] text-text-muted">
-            No related movies available.
-          </p>
-        )}
-      </Section>
+      {relatedMovies ?? <MovieRelatedMoviesSection movies={movie.relatedMovies ?? []} />}
 
     </main>
+  );
+}
+
+export async function MovieRelatedMovies({
+  movies,
+}: {
+  movies: Promise<NonNullable<DetailMovie["relatedMovies"]>>;
+}) {
+  return <MovieRelatedMoviesSection movies={await movies} />;
+}
+
+export function MovieRelatedMoviesLoading() {
+  return (
+    <Section>
+      <SectionHeader>Related Movies</SectionHeader>
+      <p className="text-[15px] leading-[1.4] text-text-muted">Loading related movies...</p>
+    </Section>
+  );
+}
+
+function MovieRelatedMoviesSection({
+  movies,
+}: {
+  movies: NonNullable<DetailMovie["relatedMovies"]>;
+}) {
+  const prefetchUrls = tmdbImagePrefetchUrls(
+    movies.map((relatedMovie) => ({
+      path: relatedMovie.posterPath,
+      role: "railPoster" as const,
+    })),
+  );
+
+  return (
+    <Section>
+      <TmdbImagePrefetcher urls={prefetchUrls} />
+      <SectionHeader>Related Movies</SectionHeader>
+      {movies.length > 0 ? (
+        <SectionScrollBleed className="flex gap-3 pb-1">
+          {movies.map((relatedMovie) => (
+            <CreditPosterCard
+              key={relatedMovie.id}
+              href={`/movie/tmdb/${relatedMovie.id}`}
+              posterPath={relatedMovie.posterPath}
+              subtitle={relatedMovie.releaseYear ? String(relatedMovie.releaseYear) : null}
+              title={relatedMovie.title}
+            />
+          ))}
+        </SectionScrollBleed>
+      ) : (
+        <p className="text-[15px] leading-[1.4] text-text-muted">
+          No related movies available.
+        </p>
+      )}
+    </Section>
   );
 }
 

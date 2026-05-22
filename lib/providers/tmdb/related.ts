@@ -6,20 +6,14 @@ import {
   discoverTmdbMoviesWithAuth,
   getTmdbCollectionDetails,
   getTmdbCollectionDetailsWithAuth,
-  getTmdbMovieCredits,
-  getTmdbMovieCreditsWithAuth,
-  getTmdbMovieDetails,
-  getTmdbMovieDetailsWithAuth,
-  getTmdbMovieKeywords,
-  getTmdbMovieKeywordsWithAuth,
-  getTmdbMovieRecommendations,
-  getTmdbMovieRecommendationsWithAuth,
-  getTmdbSimilarMovies,
-  getTmdbSimilarMoviesWithAuth,
+  getTmdbMovieDetailsWithAppendedResponses,
+  getTmdbMovieDetailsWithAppendedResponsesWithAuth,
   type TmdbAuth,
   type TmdbMovieCredits,
   type TmdbMovieDetails,
+  type TmdbMovieDetailsWithAppendedResponses,
   type TmdbMovieKeywordsResponse,
+  type TmdbMovieListResponse,
   type TmdbMovieSearchResult,
 } from "@/lib/providers/tmdb/client";
 
@@ -36,8 +30,20 @@ const discoverVoteFloor = 35;
 type RelatedTmdbMovieContext = {
   auth?: TmdbAuth;
   credits?: TmdbMovieCredits | null;
-  detail?: TmdbMovieDetails | null;
+  detail?: TmdbMovieDetailsWithRelatedResponses | null;
+  keywords?: TmdbMovieKeywordsResponse | null;
+  recommendations?: TmdbMovieListResponse | null;
+  similar?: TmdbMovieListResponse | null;
 };
+
+type TmdbMovieDetailsWithRelatedResponses = TmdbMovieDetailsWithAppendedResponses | TmdbMovieDetails;
+
+const primaryRelatedAppendToResponse = [
+  "credits",
+  "keywords",
+  "recommendations",
+  "similar",
+] as const;
 
 export type RelatedSource =
   | "collection"
@@ -66,37 +72,19 @@ export async function getRelatedTmdbMovies(
   }
 
   const auth = context.auth;
-  const [detail, credits, keywords, recommendations, similar] = await Promise.all([
-    context.detail
-      ? Promise.resolve(context.detail)
-      : expectedErrorAsNull(
-        auth
-          ? getTmdbMovieDetailsWithAuth(auth, tmdbId)
-          : getTmdbMovieDetails(tmdbId),
-      ),
-    context.credits
-      ? Promise.resolve(context.credits)
-      : expectedErrorAsNull(
-        auth
-          ? getTmdbMovieCreditsWithAuth(auth, tmdbId)
-          : getTmdbMovieCredits(tmdbId),
-      ),
-    expectedErrorAsNull(
-      auth
-        ? getTmdbMovieKeywordsWithAuth(auth, tmdbId)
-        : getTmdbMovieKeywords(tmdbId),
-    ),
-    expectedErrorAsNull(
-      auth
-        ? getTmdbMovieRecommendationsWithAuth(auth, tmdbId)
-        : getTmdbMovieRecommendations(tmdbId),
-    ),
-    expectedErrorAsNull(
-      auth
-        ? getTmdbSimilarMoviesWithAuth(auth, tmdbId)
-        : getTmdbSimilarMovies(tmdbId),
-    ),
-  ]);
+  const detail = context.detail ?? (await expectedErrorAsNull(
+    auth
+      ? getTmdbMovieDetailsWithAppendedResponsesWithAuth(
+        auth,
+        tmdbId,
+        [...primaryRelatedAppendToResponse],
+      )
+      : getTmdbMovieDetailsWithAppendedResponses(tmdbId, [...primaryRelatedAppendToResponse]),
+  ));
+  const credits = context.credits ?? appendedCredits(detail);
+  const keywords = context.keywords ?? appendedKeywords(detail);
+  const recommendations = context.recommendations ?? appendedRecommendations(detail);
+  const similar = context.similar ?? appendedSimilar(detail);
 
   const seed = toRelatedSeed(detail, credits, keywords);
   const secondarySources = await loadSecondarySources(seed, auth);
@@ -218,6 +206,22 @@ async function loadSecondarySources(seed: RelatedSeed, auth?: TmdbAuth) {
     (source): source is { source: RelatedSource; results: TmdbMovieSearchResult[] } =>
       source !== null,
   );
+}
+
+function appendedCredits(detail: TmdbMovieDetailsWithRelatedResponses | null) {
+  return detail && "credits" in detail ? detail.credits ?? null : null;
+}
+
+function appendedKeywords(detail: TmdbMovieDetailsWithRelatedResponses | null) {
+  return detail && "keywords" in detail ? detail.keywords ?? null : null;
+}
+
+function appendedRecommendations(detail: TmdbMovieDetailsWithRelatedResponses | null) {
+  return detail && "recommendations" in detail ? detail.recommendations ?? null : null;
+}
+
+function appendedSimilar(detail: TmdbMovieDetailsWithRelatedResponses | null) {
+  return detail && "similar" in detail ? detail.similar ?? null : null;
 }
 
 function tmdbDiscoverMovies(auth: TmdbAuth | undefined, options: Parameters<typeof discoverTmdbMovies>[0]) {

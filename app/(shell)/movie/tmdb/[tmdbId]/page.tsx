@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { Suspense } from "react";
 
-import { MovieDetailView } from "@/components/movie/movie-detail-view";
+import {
+  MovieDetailView,
+  MovieRelatedMovies,
+  MovieRelatedMoviesLoading,
+} from "@/components/movie/movie-detail-view";
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError } from "@/lib/db/errors";
 import { isAppError, AppError } from "@/lib/errors";
@@ -11,12 +16,11 @@ import {
 } from "@/lib/providers/tmdb/adapters";
 import {
   getTmdbMovieDetails,
-  getTmdbMovieCreditsWithAuth,
-  getTmdbMovieDetailsWithAuth,
+  getTmdbMovieDetailsWithAppendedResponsesWithAuth,
   loadTmdbAuthForCurrentUser,
   type TmdbAuth,
   type TmdbMovieCredits,
-  type TmdbMovieDetails,
+  type TmdbMovieDetailsWithAppendedResponses,
 } from "@/lib/providers/tmdb/client";
 import { getRelatedTmdbMovies } from "@/lib/providers/tmdb/related";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -50,8 +54,9 @@ export default async function TmdbMovieDetailPage({
   const tmdbId = normalizeTmdbId(rawTmdbId);
   await redirectIfSaved(tmdbId);
   const auth = await loadTmdbAuthForCurrentUser();
-  const [detail, credits] = await loadTmdbMovieOrNotFound(tmdbId, auth);
-  const relatedMovies = await getRelatedTmdbMovies(detail.id, { auth, credits, detail });
+  const detail = await loadTmdbMovieOrNotFound(tmdbId, auth);
+  const credits = appendedCredits(detail);
+  const relatedMovies = getRelatedTmdbMovies(detail.id, { auth, credits, detail });
   const ingestPayload = toTmdbMovieIngestPayload(detail, credits);
 
   return (
@@ -62,7 +67,12 @@ export default async function TmdbMovieDetailPage({
           markWatched={markTmdbWatchedAction.bind(null, ingestPayload)}
         />
       }
-      movie={{ ...toDetailMovie(detail, credits), relatedMovies }}
+      movie={toDetailMovie(detail, credits)}
+      relatedMovies={
+        <Suspense fallback={<MovieRelatedMoviesLoading />}>
+          <MovieRelatedMovies movies={relatedMovies} />
+        </Suspense>
+      }
       status={null}
     />
   );
@@ -71,25 +81,11 @@ export default async function TmdbMovieDetailPage({
 async function redirectIfSaved(tmdbId: number) {
   const user = await requireUser();
   const supabase = await createSupabaseServerClient();
-  const { data: movie, error: movieError } = await supabase
-    .from("movies")
-    .select("id")
-    .eq("tmdb_id", tmdbId)
-    .maybeSingle();
-
-  if (movieError) {
-    throwDatabaseError("Failed to check local movie state.", movieError);
-  }
-
-  if (!movie) {
-    return;
-  }
-
   const { data: userMovie, error: userMovieError } = await supabase
     .from("user_movies")
-    .select("movie_id")
+    .select("movie_id, movies!inner(tmdb_id)")
     .eq("user_id", user.id)
-    .eq("movie_id", movie.id)
+    .eq("movies.tmdb_id", tmdbId)
     .maybeSingle();
 
   if (userMovieError) {
@@ -97,15 +93,17 @@ async function redirectIfSaved(tmdbId: number) {
   }
 
   if (userMovie) {
-    redirect(`/movie/${movie.id}`);
+    redirect(`/movie/${userMovie.movie_id}`);
   }
 }
 
 async function loadTmdbMovieOrNotFound(tmdbId: number, auth: TmdbAuth) {
   try {
-    return await Promise.all([
-      getTmdbMovieDetailsWithAuth(auth, tmdbId),
-      getTmdbMovieCreditsWithAuth(auth, tmdbId),
+    return await getTmdbMovieDetailsWithAppendedResponsesWithAuth(auth, tmdbId, [
+      "credits",
+      "keywords",
+      "recommendations",
+      "similar",
     ]);
   } catch (error) {
     if (isAppError(error) && error.status === 404) {
@@ -114,6 +112,10 @@ async function loadTmdbMovieOrNotFound(tmdbId: number, auth: TmdbAuth) {
 
     throw error;
   }
+}
+
+function appendedCredits(detail: TmdbMovieDetailsWithAppendedResponses): TmdbMovieCredits {
+  return detail.credits ?? { id: detail.id, cast: [], crew: [] };
 }
 
 function normalizeTmdbId(value: string) {
@@ -129,7 +131,7 @@ function normalizeTmdbId(value: string) {
   return tmdbId;
 }
 
-function toDetailMovie(detail: TmdbMovieDetails, credits: TmdbMovieCredits) {
+function toDetailMovie(detail: TmdbMovieDetailsWithAppendedResponses, credits: TmdbMovieCredits) {
   const primaryGenre = detail.genres?.[0] ?? null;
   const releaseDate = normalizeDate(detail.release_date);
 

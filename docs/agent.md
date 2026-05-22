@@ -49,6 +49,9 @@ product direction.
     do not grep for it.
 - `progress_nodi.md` is the repo-specific local progress file name. Keep that name instead of a
   generic `progress.md` so local task history stays unambiguous when working across multiple repos.
+- `progress_nodi.md` is local-only and ignored by Git. Update it for local task tracking, but do not
+  mention that it is untracked/ignored in routine summaries, and never stage, force-add, commit, or
+  push it.
 - Use targeted lookup with `rg`/`rg --files`; avoid broad file sweeps unless the task actually needs it.
 - Do not start routine changes by scanning the whole repo. Use the lookup map below first, then search
   narrowly inside the relevant directory or feature surface.
