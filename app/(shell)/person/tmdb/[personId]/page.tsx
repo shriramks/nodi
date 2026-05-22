@@ -7,8 +7,11 @@ import {
 } from "@/components/person/person-detail-view";
 import { AppError, isAppError } from "@/lib/errors";
 import {
-  getTmdbPersonCombinedCredits,
+  getTmdbPersonCombinedCreditsWithAuth,
   getTmdbPersonDetails,
+  getTmdbPersonDetailsWithAuth,
+  loadTmdbAuthForCurrentUser,
+  type TmdbAuth,
   type TmdbPersonCombinedCredits,
   type TmdbPersonDetails,
 } from "@/lib/providers/tmdb/client";
@@ -43,7 +46,8 @@ export default async function TmdbPersonDetailPage({
 }: PersonDetailPageProps) {
   const [{ personId: rawPersonId }, query] = await Promise.all([params, searchParams]);
   const personId = normalizePersonId(rawPersonId);
-  const [detail, credits] = await loadTmdbPersonOrNotFound(personId);
+  const auth = await loadTmdbAuthForCurrentUser();
+  const [detail, credits] = await loadTmdbPersonOrNotFound(personId, auth);
 
   return (
     <PersonDetailView
@@ -59,11 +63,11 @@ export default async function TmdbPersonDetailPage({
   );
 }
 
-async function loadTmdbPersonOrNotFound(personId: number) {
+async function loadTmdbPersonOrNotFound(personId: number, auth: TmdbAuth) {
   try {
     return await Promise.all([
-      getTmdbPersonDetails(personId),
-      getTmdbPersonCombinedCredits(personId),
+      getTmdbPersonDetailsWithAuth(auth, personId),
+      getTmdbPersonCombinedCreditsWithAuth(auth, personId),
     ]);
   } catch (error) {
     if (isAppError(error) && error.status === 404) {

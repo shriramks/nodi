@@ -10,8 +10,11 @@ import {
   toTmdbMovieIngestPayload,
 } from "@/lib/providers/tmdb/adapters";
 import {
-  getTmdbMovieCredits,
   getTmdbMovieDetails,
+  getTmdbMovieCreditsWithAuth,
+  getTmdbMovieDetailsWithAuth,
+  loadTmdbAuthForCurrentUser,
+  type TmdbAuth,
   type TmdbMovieCredits,
   type TmdbMovieDetails,
 } from "@/lib/providers/tmdb/client";
@@ -46,8 +49,9 @@ export default async function TmdbMovieDetailPage({
   const { tmdbId: rawTmdbId } = await params;
   const tmdbId = normalizeTmdbId(rawTmdbId);
   await redirectIfSaved(tmdbId);
-  const [detail, credits] = await loadTmdbMovieOrNotFound(tmdbId);
-  const relatedMovies = await getRelatedTmdbMovies(detail.id, { credits, detail });
+  const auth = await loadTmdbAuthForCurrentUser();
+  const [detail, credits] = await loadTmdbMovieOrNotFound(tmdbId, auth);
+  const relatedMovies = await getRelatedTmdbMovies(detail.id, { auth, credits, detail });
   const ingestPayload = toTmdbMovieIngestPayload(detail, credits);
 
   return (
@@ -97,11 +101,11 @@ async function redirectIfSaved(tmdbId: number) {
   }
 }
 
-async function loadTmdbMovieOrNotFound(tmdbId: number) {
+async function loadTmdbMovieOrNotFound(tmdbId: number, auth: TmdbAuth) {
   try {
     return await Promise.all([
-      getTmdbMovieDetails(tmdbId),
-      getTmdbMovieCredits(tmdbId),
+      getTmdbMovieDetailsWithAuth(auth, tmdbId),
+      getTmdbMovieCreditsWithAuth(auth, tmdbId),
     ]);
   } catch (error) {
     if (isAppError(error) && error.status === 404) {

@@ -8,6 +8,7 @@ import { AppError, getErrorMessage, isAppError } from "@/lib/errors";
 import {
   getTmdbMovieCreditsWithAuth,
   getTmdbMovieDetailsWithAuth,
+  loadTmdbAuthForCurrentUser,
   loadTmdbAuthForUser,
   type TmdbAuth,
 } from "@/lib/providers/tmdb/client";
@@ -29,6 +30,10 @@ export type TmdbMetadataBackfillResult = {
 type TmdbBackfillOptions = {
   limit?: number | null;
   scanLimit?: number | null;
+};
+
+type TmdbOnDemandEnrichmentOptions = {
+  auth?: TmdbAuth;
 };
 
 type TmdbEnrichmentCandidate = {
@@ -81,14 +86,16 @@ export async function backfillCurrentUserTmdbMetadata(
   return result;
 }
 
-export async function enrichTmdbMovieOnDemand(movie: Movie): Promise<Movie> {
+export async function enrichTmdbMovieOnDemand(
+  movie: Movie,
+  options: TmdbOnDemandEnrichmentOptions = {},
+): Promise<Movie> {
   if (!needsTmdbMetadataEnrichment(movie)) {
     return movie;
   }
 
   try {
-    const user = await requireUser();
-    const auth = await loadTmdbAuthForUser(user.id);
+    const auth = options.auth ?? await loadTmdbAuthForCurrentUser();
     return await enrichTmdbMovieMetadata(movie.tmdb_id, auth);
   } catch (error) {
     if (isExpectedLazyEnrichmentError(error)) {

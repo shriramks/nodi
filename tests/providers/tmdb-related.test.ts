@@ -2,12 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/providers/tmdb/client", () => ({
   discoverTmdbMovies: vi.fn(),
+  discoverTmdbMoviesWithAuth: vi.fn(),
   getTmdbCollectionDetails: vi.fn(),
+  getTmdbCollectionDetailsWithAuth: vi.fn(),
   getTmdbMovieCredits: vi.fn(),
+  getTmdbMovieCreditsWithAuth: vi.fn(),
   getTmdbMovieDetails: vi.fn(),
+  getTmdbMovieDetailsWithAuth: vi.fn(),
   getTmdbMovieKeywords: vi.fn(),
+  getTmdbMovieKeywordsWithAuth: vi.fn(),
   getTmdbMovieRecommendations: vi.fn(),
+  getTmdbMovieRecommendationsWithAuth: vi.fn(),
   getTmdbSimilarMovies: vi.fn(),
+  getTmdbSimilarMoviesWithAuth: vi.fn(),
 }));
 
 import {

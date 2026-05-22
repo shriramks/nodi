@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { requireUser } from "@/lib/auth/server";
 import { fetchJson } from "@/lib/fetch";
 import { AppError } from "@/lib/errors";
@@ -177,7 +179,7 @@ function tmdbUrl(path: string, params: Record<string, string | number | boolean 
   return url;
 }
 
-export async function loadTmdbAuthForUser(userId: string): Promise<TmdbAuth> {
+export const loadTmdbAuthForUser = cache(async (userId: string): Promise<TmdbAuth> => {
   const apiToken = await readProviderSecret(userId, "tmdb", "api_token_encrypted");
 
   if (!apiToken) {
@@ -188,15 +190,18 @@ export async function loadTmdbAuthForUser(userId: string): Promise<TmdbAuth> {
   }
 
   return { apiToken };
-}
+});
+
+export const loadTmdbAuthForCurrentUser = cache(async (): Promise<TmdbAuth> => {
+  const user = await requireUser();
+  return loadTmdbAuthForUser(user.id);
+});
 
 async function fetchTmdbJson<T>(
   path: string,
   params?: Record<string, string | number | boolean | null | undefined>,
 ) {
-  const user = await requireUser();
-  const auth = await loadTmdbAuthForUser(user.id);
-
+  const auth = await loadTmdbAuthForCurrentUser();
   return fetchTmdbJsonWithAuth<T>(auth, path, params);
 }
 
@@ -251,8 +256,22 @@ export function getTmdbMovieKeywords(tmdbId: number) {
   return fetchTmdbJson<TmdbMovieKeywordsResponse>(`/movie/${tmdbId}/keywords`);
 }
 
+export function getTmdbMovieKeywordsWithAuth(auth: TmdbAuth, tmdbId: number) {
+  return fetchTmdbJsonWithAuth<TmdbMovieKeywordsResponse>(auth, `/movie/${tmdbId}/keywords`);
+}
+
 export function getTmdbCollectionDetails(collectionId: number, language?: string | null) {
   return fetchTmdbJson<TmdbCollectionDetails>(`/collection/${collectionId}`, {
+    language,
+  });
+}
+
+export function getTmdbCollectionDetailsWithAuth(
+  auth: TmdbAuth,
+  collectionId: number,
+  language?: string | null,
+) {
+  return fetchTmdbJsonWithAuth<TmdbCollectionDetails>(auth, `/collection/${collectionId}`, {
     language,
   });
 }
@@ -289,6 +308,41 @@ export function discoverTmdbMovies({
   });
 }
 
+export function discoverTmdbMoviesWithAuth(
+  auth: TmdbAuth,
+  {
+    language,
+    page = 1,
+    primaryReleaseDateGte,
+    primaryReleaseDateLte,
+    sortBy = "popularity.desc",
+    voteCountGte,
+    withCast,
+    withCrew,
+    withGenres,
+    withKeywords,
+    withOriginalLanguage,
+    withPeople,
+  }: DiscoverTmdbMoviesOptions,
+) {
+  return fetchTmdbJsonWithAuth<TmdbMovieListResponse>(auth, "/discover/movie", {
+    include_adult: false,
+    include_video: false,
+    language,
+    page,
+    "primary_release_date.gte": primaryReleaseDateGte,
+    "primary_release_date.lte": primaryReleaseDateLte,
+    sort_by: sortBy,
+    "vote_count.gte": voteCountGte,
+    with_cast: withCast,
+    with_crew: withCrew,
+    with_genres: withGenres,
+    with_keywords: withKeywords,
+    with_original_language: withOriginalLanguage,
+    with_people: withPeople,
+  });
+}
+
 export function getTmdbMovieRecommendations(
   tmdbId: number,
   language?: string | null,
@@ -300,12 +354,36 @@ export function getTmdbMovieRecommendations(
   });
 }
 
+export function getTmdbMovieRecommendationsWithAuth(
+  auth: TmdbAuth,
+  tmdbId: number,
+  language?: string | null,
+  page = 1,
+) {
+  return fetchTmdbJsonWithAuth<TmdbMovieListResponse>(auth, `/movie/${tmdbId}/recommendations`, {
+    language,
+    page,
+  });
+}
+
 export function getTmdbSimilarMovies(
   tmdbId: number,
   language?: string | null,
   page = 1,
 ) {
   return fetchTmdbJson<TmdbMovieListResponse>(`/movie/${tmdbId}/similar`, {
+    language,
+    page,
+  });
+}
+
+export function getTmdbSimilarMoviesWithAuth(
+  auth: TmdbAuth,
+  tmdbId: number,
+  language?: string | null,
+  page = 1,
+) {
+  return fetchTmdbJsonWithAuth<TmdbMovieListResponse>(auth, `/movie/${tmdbId}/similar`, {
     language,
     page,
   });
@@ -327,11 +405,35 @@ export function getTmdbPersonDetails(personId: number, language?: string | null)
   });
 }
 
+export function getTmdbPersonDetailsWithAuth(
+  auth: TmdbAuth,
+  personId: number,
+  language?: string | null,
+) {
+  return fetchTmdbJsonWithAuth<TmdbPersonDetails>(auth, `/person/${personId}`, {
+    language,
+  });
+}
+
 export function getTmdbPersonCombinedCredits(
   personId: number,
   language?: string | null,
 ) {
   return fetchTmdbJson<TmdbPersonCombinedCredits>(
+    `/person/${personId}/combined_credits`,
+    {
+      language,
+    },
+  );
+}
+
+export function getTmdbPersonCombinedCreditsWithAuth(
+  auth: TmdbAuth,
+  personId: number,
+  language?: string | null,
+) {
+  return fetchTmdbJsonWithAuth<TmdbPersonCombinedCredits>(
+    auth,
     `/person/${personId}/combined_credits`,
     {
       language,

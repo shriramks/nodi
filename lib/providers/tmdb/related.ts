@@ -3,12 +3,20 @@ import "server-only";
 import { isAppError } from "@/lib/errors";
 import {
   discoverTmdbMovies,
+  discoverTmdbMoviesWithAuth,
   getTmdbCollectionDetails,
+  getTmdbCollectionDetailsWithAuth,
   getTmdbMovieCredits,
+  getTmdbMovieCreditsWithAuth,
   getTmdbMovieDetails,
+  getTmdbMovieDetailsWithAuth,
   getTmdbMovieKeywords,
+  getTmdbMovieKeywordsWithAuth,
   getTmdbMovieRecommendations,
+  getTmdbMovieRecommendationsWithAuth,
   getTmdbSimilarMovies,
+  getTmdbSimilarMoviesWithAuth,
+  type TmdbAuth,
   type TmdbMovieCredits,
   type TmdbMovieDetails,
   type TmdbMovieKeywordsResponse,
@@ -26,6 +34,7 @@ const relatedMovieLimit = 12;
 const discoverVoteFloor = 35;
 
 type RelatedTmdbMovieContext = {
+  auth?: TmdbAuth;
   credits?: TmdbMovieCredits | null;
   detail?: TmdbMovieDetails | null;
 };
@@ -56,20 +65,41 @@ export async function getRelatedTmdbMovies(
     return [];
   }
 
+  const auth = context.auth;
   const [detail, credits, keywords, recommendations, similar] = await Promise.all([
     context.detail
       ? Promise.resolve(context.detail)
-      : expectedErrorAsNull(getTmdbMovieDetails(tmdbId)),
+      : expectedErrorAsNull(
+        auth
+          ? getTmdbMovieDetailsWithAuth(auth, tmdbId)
+          : getTmdbMovieDetails(tmdbId),
+      ),
     context.credits
       ? Promise.resolve(context.credits)
-      : expectedErrorAsNull(getTmdbMovieCredits(tmdbId)),
-    expectedErrorAsNull(getTmdbMovieKeywords(tmdbId)),
-    expectedErrorAsNull(getTmdbMovieRecommendations(tmdbId)),
-    expectedErrorAsNull(getTmdbSimilarMovies(tmdbId)),
+      : expectedErrorAsNull(
+        auth
+          ? getTmdbMovieCreditsWithAuth(auth, tmdbId)
+          : getTmdbMovieCredits(tmdbId),
+      ),
+    expectedErrorAsNull(
+      auth
+        ? getTmdbMovieKeywordsWithAuth(auth, tmdbId)
+        : getTmdbMovieKeywords(tmdbId),
+    ),
+    expectedErrorAsNull(
+      auth
+        ? getTmdbMovieRecommendationsWithAuth(auth, tmdbId)
+        : getTmdbMovieRecommendations(tmdbId),
+    ),
+    expectedErrorAsNull(
+      auth
+        ? getTmdbSimilarMoviesWithAuth(auth, tmdbId)
+        : getTmdbSimilarMovies(tmdbId),
+    ),
   ]);
 
   const seed = toRelatedSeed(detail, credits, keywords);
-  const secondarySources = await loadSecondarySources(seed);
+  const secondarySources = await loadSecondarySources(seed, auth);
 
   return rankRelatedMovies(tmdbId, seed, [
     { source: "recommendations", results: recommendations?.results ?? [] },
@@ -134,24 +164,26 @@ export type RelatedSeed = {
   releaseYear: number | null;
 };
 
-async function loadSecondarySources(seed: RelatedSeed) {
+async function loadSecondarySources(seed: RelatedSeed, auth?: TmdbAuth) {
   const secondarySources: Array<
     Promise<{ source: RelatedSource; results: TmdbMovieSearchResult[] } | null>
   > = [];
 
   if (seed.collectionId) {
     secondarySources.push(
-      expectedErrorAsNull(getTmdbCollectionDetails(seed.collectionId)).then((collection) =>
-        collection
-          ? { source: "collection" as const, results: collection.parts ?? [] }
-          : null,
+      expectedErrorAsNull(
+        auth
+          ? getTmdbCollectionDetailsWithAuth(auth, seed.collectionId)
+          : getTmdbCollectionDetails(seed.collectionId),
+      ).then((collection) =>
+        collection ? { source: "collection" as const, results: collection.parts ?? [] } : null,
       ),
     );
   }
 
   if (seed.keywordIds.length > 0) {
     secondarySources.push(
-      expectedErrorAsNull(discoverTmdbMovies({
+      expectedErrorAsNull(tmdbDiscoverMovies(auth, {
         sortBy: "vote_count.desc",
         voteCountGte: discoverVoteFloor,
         withGenres: joinOr(seed.genreIds.slice(0, 3)),
@@ -167,7 +199,7 @@ async function loadSecondarySources(seed: RelatedSeed) {
 
   if (seed.peopleIds.length > 0 || seed.crewIds.length > 0) {
     secondarySources.push(
-      expectedErrorAsNull(discoverTmdbMovies({
+      expectedErrorAsNull(tmdbDiscoverMovies(auth, {
         primaryReleaseDateGte: releaseDateBound(seed.releaseYear, -15),
         primaryReleaseDateLte: releaseDateBound(seed.releaseYear, 15),
         sortBy: "popularity.desc",
@@ -186,6 +218,10 @@ async function loadSecondarySources(seed: RelatedSeed) {
     (source): source is { source: RelatedSource; results: TmdbMovieSearchResult[] } =>
       source !== null,
   );
+}
+
+function tmdbDiscoverMovies(auth: TmdbAuth | undefined, options: Parameters<typeof discoverTmdbMovies>[0]) {
+  return auth ? discoverTmdbMoviesWithAuth(auth, options) : discoverTmdbMovies(options);
 }
 
 function toRelatedSeed(
