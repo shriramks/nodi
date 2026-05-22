@@ -184,6 +184,12 @@ export type TmdbAuth = {
   apiToken: string;
 };
 
+type TmdbRemoteDetailTimingContext = {
+  id: number;
+  resource: "movie" | "person";
+  route: string;
+};
+
 function tmdbUrl(path: string, params: Record<string, string | number | boolean | null | undefined> = {}) {
   const url = new URL(`${tmdbBaseUrl}${path}`);
 
@@ -268,11 +274,23 @@ export function getTmdbMovieDetailsWithAppendedResponses(
   appendToResponse: TmdbMovieAppendToResponse[],
   language?: string | null,
 ) {
-  return fetchTmdbJson<TmdbMovieDetailsWithAppendedResponses>(`/movie/${tmdbId}`, {
-    append_to_response: appendToResponse.join(","),
-    language,
-  });
+  return getCachedTmdbMovieDetailsWithAppendedResponses(
+    tmdbId,
+    appendToResponse.join(","),
+    language ?? null,
+  );
 }
+
+const getCachedTmdbMovieDetailsWithAppendedResponses = cache(
+  (
+    tmdbId: number,
+    appendToResponse: string,
+    language: string | null,
+  ) => fetchTmdbJson<TmdbMovieDetailsWithAppendedResponses>(`/movie/${tmdbId}`, {
+    append_to_response: appendToResponse,
+    language,
+  }),
+);
 
 export function getTmdbMovieDetailsWithAppendedResponsesWithAuth(
   auth: TmdbAuth,
@@ -459,11 +477,16 @@ export function getTmdbPersonDetailsWithCombinedCredits(
   personId: number,
   language?: string | null,
 ) {
-  return fetchTmdbJson<TmdbPersonDetailsWithCombinedCredits>(`/person/${personId}`, {
-    append_to_response: "combined_credits",
-    language,
-  });
+  return getCachedTmdbPersonDetailsWithCombinedCredits(personId, language ?? null);
 }
+
+const getCachedTmdbPersonDetailsWithCombinedCredits = cache(
+  (personId: number, language: string | null) =>
+    fetchTmdbJson<TmdbPersonDetailsWithCombinedCredits>(`/person/${personId}`, {
+      append_to_response: "combined_credits",
+      language,
+    }),
+);
 
 export function getTmdbPersonDetailsWithCombinedCreditsWithAuth(
   auth: TmdbAuth,
@@ -500,4 +523,27 @@ export function getTmdbPersonCombinedCreditsWithAuth(
       language,
     },
   );
+}
+
+export async function timeTmdbRemoteDetailLoad<T>(
+  context: TmdbRemoteDetailTimingContext,
+  load: () => Promise<T>,
+) {
+  const startedAt = Date.now();
+  let outcome = "ok";
+
+  try {
+    return await load();
+  } catch (error) {
+    outcome = "error";
+    throw error;
+  } finally {
+    console.info("tmdb.remote_detail.load", {
+      durationMs: Date.now() - startedAt,
+      id: context.id,
+      outcome,
+      resource: context.resource,
+      route: context.route,
+    });
+  }
 }

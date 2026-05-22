@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { Suspense } from "react";
+import { cache, Suspense } from "react";
 
 import {
   MovieDetailView,
@@ -15,12 +15,12 @@ import {
   toTmdbMovieIngestPayload,
 } from "@/lib/providers/tmdb/adapters";
 import {
-  getTmdbMovieDetails,
-  getTmdbMovieDetailsWithAppendedResponsesWithAuth,
+  getTmdbMovieDetailsWithAppendedResponses,
   loadTmdbAuthForCurrentUser,
-  type TmdbAuth,
+  timeTmdbRemoteDetailLoad,
   type TmdbMovieCredits,
   type TmdbMovieDetailsWithAppendedResponses,
+  type TmdbMovieAppendToResponse,
 } from "@/lib/providers/tmdb/client";
 import { getRelatedTmdbMovies } from "@/lib/providers/tmdb/related";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -34,13 +34,20 @@ type TmdbMovieDetailPageProps = {
   params: Promise<{ tmdbId: string }>;
 };
 
+const movieDetailAppendToResponse: TmdbMovieAppendToResponse[] = [
+  "credits",
+  "keywords",
+  "recommendations",
+  "similar",
+];
+
 export async function generateMetadata({
   params,
 }: TmdbMovieDetailPageProps): Promise<Metadata> {
   try {
     const { tmdbId: rawTmdbId } = await params;
     const tmdbId = normalizeTmdbId(rawTmdbId);
-    const detail = await getTmdbMovieDetails(tmdbId);
+    const detail = await loadTmdbMovieDetail(tmdbId);
     return { title: detail.title };
   } catch {
     return { title: "Movie" };
@@ -54,7 +61,7 @@ export default async function TmdbMovieDetailPage({
   const tmdbId = normalizeTmdbId(rawTmdbId);
   await redirectIfSaved(tmdbId);
   const auth = await loadTmdbAuthForCurrentUser();
-  const detail = await loadTmdbMovieOrNotFound(tmdbId, auth);
+  const detail = await loadTmdbMovieOrNotFound(tmdbId);
   const credits = appendedCredits(detail);
   const relatedMovies = getRelatedTmdbMovies(detail.id, { auth, credits, detail });
   const ingestPayload = toTmdbMovieIngestPayload(detail, credits);
@@ -97,14 +104,16 @@ async function redirectIfSaved(tmdbId: number) {
   }
 }
 
-async function loadTmdbMovieOrNotFound(tmdbId: number, auth: TmdbAuth) {
+const loadTmdbMovieDetail = cache((tmdbId: number) =>
+  timeTmdbRemoteDetailLoad(
+    { id: tmdbId, resource: "movie", route: "/movie/tmdb/[tmdbId]" },
+    () => getTmdbMovieDetailsWithAppendedResponses(tmdbId, movieDetailAppendToResponse),
+  ),
+);
+
+async function loadTmdbMovieOrNotFound(tmdbId: number) {
   try {
-    return await getTmdbMovieDetailsWithAppendedResponsesWithAuth(auth, tmdbId, [
-      "credits",
-      "keywords",
-      "recommendations",
-      "similar",
-    ]);
+    return await loadTmdbMovieDetail(tmdbId);
   } catch (error) {
     if (isAppError(error) && error.status === 404) {
       notFound();

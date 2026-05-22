@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 
 import {
   PersonDetailView,
@@ -7,10 +8,8 @@ import {
 } from "@/components/person/person-detail-view";
 import { AppError, isAppError } from "@/lib/errors";
 import {
-  getTmdbPersonDetails,
-  getTmdbPersonDetailsWithCombinedCreditsWithAuth,
-  loadTmdbAuthForCurrentUser,
-  type TmdbAuth,
+  getTmdbPersonDetailsWithCombinedCredits,
+  timeTmdbRemoteDetailLoad,
   type TmdbPersonCombinedCredits,
   type TmdbPersonDetailsWithCombinedCredits,
 } from "@/lib/providers/tmdb/client";
@@ -32,7 +31,7 @@ export async function generateMetadata({
   try {
     const { personId: rawPersonId } = await params;
     const personId = normalizePersonId(rawPersonId);
-    const detail = await getTmdbPersonDetails(personId);
+    const detail = await loadTmdbPersonDetail(personId);
     return { title: detail.name };
   } catch {
     return { title: "Cast Member" };
@@ -45,8 +44,7 @@ export default async function TmdbPersonDetailPage({
 }: PersonDetailPageProps) {
   const [{ personId: rawPersonId }, query] = await Promise.all([params, searchParams]);
   const personId = normalizePersonId(rawPersonId);
-  const auth = await loadTmdbAuthForCurrentUser();
-  const detail = await loadTmdbPersonOrNotFound(personId, auth);
+  const detail = await loadTmdbPersonOrNotFound(personId);
 
   return (
     <PersonDetailView
@@ -58,9 +56,16 @@ export default async function TmdbPersonDetailPage({
   );
 }
 
-async function loadTmdbPersonOrNotFound(personId: number, auth: TmdbAuth) {
+const loadTmdbPersonDetail = cache((personId: number) =>
+  timeTmdbRemoteDetailLoad(
+    { id: personId, resource: "person", route: "/person/tmdb/[personId]" },
+    () => getTmdbPersonDetailsWithCombinedCredits(personId),
+  ),
+);
+
+async function loadTmdbPersonOrNotFound(personId: number) {
   try {
-    return await getTmdbPersonDetailsWithCombinedCreditsWithAuth(auth, personId);
+    return await loadTmdbPersonDetail(personId);
   } catch (error) {
     if (isAppError(error) && error.status === 404) {
       notFound();
