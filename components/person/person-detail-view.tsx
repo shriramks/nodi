@@ -125,7 +125,7 @@ export function PersonDetailView({
 
       <Section>
         <SectionHeader>Biography</SectionHeader>
-        <OverviewText text={person.biography} />
+        <OverviewText formatExpandedText text={person.biography} />
       </Section>
 
       <Section>
