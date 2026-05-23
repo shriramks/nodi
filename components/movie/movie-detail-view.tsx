@@ -36,6 +36,11 @@ function formatReleaseDate(dateStr: string): string {
   }).format(date);
 }
 
+type TmdbRating = {
+  value: number;
+  voteCount: number | null;
+};
+
 type DetailMovie = {
   title: string;
   tmdb_id?: number | null;
@@ -105,6 +110,7 @@ export function MovieDetailView({
     .filter(Boolean)
     .join(" · ");
   const visibleTags = (movie.tags ?? []).slice(0, 3);
+  const tmdbRating = getTmdbRating(movie);
   const prefetchUrls = tmdbImagePrefetchUrls([
     ...movie.cast.map((member) => ({
       path: member.profile_path,
@@ -117,12 +123,12 @@ export function MovieDetailView({
     movie.original_language
       ? { label: "Language", value: languageDisplayName(movie.original_language) }
       : null,
-    movie.tmdb_vote_average !== null && movie.tmdb_vote_average !== undefined
+    tmdbRating
       ? {
           label: "TMDB rating",
-          value: movie.tmdb_vote_count
-            ? `${movie.tmdb_vote_average} · ${movie.tmdb_vote_count.toLocaleString()} votes`
-            : String(movie.tmdb_vote_average),
+          value: tmdbRating.voteCount
+            ? `${tmdbRating.value} / 10 · ${tmdbRating.voteCount.toLocaleString()} votes`
+            : `${tmdbRating.value} / 10`,
         }
       : null,
   ].filter((row): row is { label: string; value: string } => row !== null);
@@ -188,12 +194,7 @@ export function MovieDetailView({
 
           <div className="flex items-center gap-2.5 pt-0.5">
             {ratingPicker}
-            {movie.tmdb_vote_average !== null &&
-              movie.tmdb_vote_average !== undefined && (
-                <span className="text-[13px] text-text-muted">
-                  · ★ {movie.tmdb_vote_average}
-                </span>
-              )}
+            {tmdbRating ? <TmdbRatingBadge rating={tmdbRating} /> : null}
           </div>
 
           {visibleTags.length > 0 && (
@@ -322,6 +323,36 @@ function MovieRelatedMoviesSection({
         </p>
       )}
     </Section>
+  );
+}
+
+function getTmdbRating(movie: DetailMovie): TmdbRating | null {
+  if (movie.tmdb_vote_average !== null && movie.tmdb_vote_average !== undefined) {
+    return {
+      value: movie.tmdb_vote_average,
+      voteCount: movie.tmdb_vote_count ?? null,
+    };
+  }
+
+  return null;
+}
+
+function TmdbRatingBadge({ rating }: { rating: TmdbRating }) {
+  const voteLabel = rating.voteCount
+    ? ` from ${rating.voteCount.toLocaleString()} votes`
+    : "";
+
+  return (
+    <span
+      className="inline-flex h-7 max-w-full shrink-0 items-center overflow-hidden rounded-lg border border-border bg-surface align-middle text-[12px] font-semibold text-text-2"
+      title={`TMDB rating: ${rating.value}${voteLabel}`}
+      aria-label={`TMDB rating ${rating.value}${voteLabel}`}
+    >
+      <span className="flex h-full items-center bg-tmdb-brand px-1.5 text-[10px] font-black tracking-normal text-white">
+        TMDB
+      </span>
+      <span className="tabnum px-1.5">{rating.value}</span>
+    </span>
   );
 }
 

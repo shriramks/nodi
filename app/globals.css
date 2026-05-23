@@ -24,6 +24,7 @@
   --chart-pink: #ff375f;
   --chart-purple: #bf5af2;
   --chart-cyan: #64d2ff;
+  --tmdb-brand: #01b4e4;
   --chart-label-primary: rgba(255, 255, 255, 0.88);
   --chart-label-secondary: rgba(255, 255, 255, 0.6);
   --nav-h: 72px;
@@ -86,6 +87,7 @@
   --color-warning: var(--warning);
   --color-danger: var(--danger);
   --color-unsynced: var(--danger);
+  --color-tmdb-brand: var(--tmdb-brand);
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
   --font-mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
 }

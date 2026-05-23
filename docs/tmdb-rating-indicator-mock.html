@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TMDB rating indicator mock</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --surface: #f2f2f7;
+        --muted-surface: #e5e5ea;
+        --text: #000000;
+        --text-2: rgba(0, 0, 0, 0.62);
+        --text-muted: rgba(0, 0, 0, 0.42);
+        --border: rgba(0, 0, 0, 0.1);
+        --divider: rgba(0, 0, 0, 0.08);
+        --accent: #ff9f0a;
+        --watched: #34c759;
+        --tmdb: #01b4e4;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #000000;
+          --surface: #1c1c1e;
+          --muted-surface: #2c2c2e;
+          --text: #ffffff;
+          --text-2: rgba(255, 255, 255, 0.64);
+          --text-muted: rgba(255, 255, 255, 0.44);
+          --border: rgba(255, 255, 255, 0.1);
+          --divider: rgba(255, 255, 255, 0.08);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      }
+
+      main {
+        max-width: 430px;
+        min-height: 100vh;
+        margin: 0 auto;
+        padding: 18px 16px 32px;
+      }
+
+      .hero {
+        height: 244px;
+        margin: -18px -16px 0;
+        background:
+          linear-gradient(to bottom, rgba(0, 0, 0, 0.18), var(--bg)),
+          url("https://image.tmdb.org/t/p/w780/mSDsSDwaP3E7dEfUPWy4J0djt4O.jpg") center / cover;
+      }
+
+      .summary {
+        display: flex;
+        min-height: 194px;
+        align-items: flex-start;
+        gap: 16px;
+        margin-top: -92px;
+      }
+
+      .poster {
+        width: 128px;
+        aspect-ratio: 2 / 3;
+        flex: 0 0 auto;
+        overflow: hidden;
+        border: 5px solid var(--bg);
+        border-radius: 16px;
+        background: var(--muted-surface);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+      }
+
+      .poster img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .meta {
+        min-width: 0;
+        flex: 1;
+        padding-top: 6px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 22px;
+        line-height: 1.2;
+        letter-spacing: 0;
+      }
+
+      .subline {
+        margin: 8px 0 0;
+        color: var(--text-2);
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .status {
+        margin: 8px 0 0;
+        color: var(--watched);
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .rating-line {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .your-rating {
+        display: inline-flex;
+        height: 28px;
+        align-items: center;
+        border-radius: 7px;
+        background: color-mix(in srgb, var(--accent) 14%, transparent);
+        padding: 0 9px;
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .source-rating {
+        display: inline-flex;
+        height: 28px;
+        max-width: 100%;
+        align-items: center;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--surface);
+        color: var(--text-2);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .source-rating strong {
+        display: flex;
+        height: 100%;
+        align-items: center;
+        background: var(--tmdb);
+        color: #ffffff;
+        padding: 0 7px;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: 0;
+      }
+
+      .source-rating span {
+        padding: 0 8px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      section {
+        margin-top: 20px;
+      }
+
+      h2 {
+        margin: 0 0 10px;
+        font-size: 15px;
+        line-height: 1.2;
+      }
+
+      .plot {
+        margin: 0;
+        color: var(--text-2);
+        font-size: 15px;
+        line-height: 1.42;
+      }
+
+      .details {
+        border-top: 1px solid var(--divider);
+      }
+
+      .detail-row {
+        display: grid;
+        grid-template-columns: 96px minmax(0, 1fr);
+        gap: 14px;
+        padding: 11px 0;
+        border-bottom: 1px solid var(--divider);
+        font-size: 15px;
+        line-height: 1.35;
+      }
+
+      .detail-row dt {
+        color: var(--text-muted);
+      }
+
+      .detail-row dd {
+        margin: 0;
+        color: var(--text);
+      }
+
+      .detail-rating .primary {
+        font-weight: 650;
+      }
+
+      .detail-rating .secondary {
+        color: var(--text-muted);
+      }
+
+      .notes {
+        margin-top: 24px;
+        padding: 12px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        color: var(--text-2);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="hero" aria-hidden="true"></div>
+
+      <section class="summary" aria-label="Movie summary">
+        <div class="poster">
+          <img
+            src="https://image.tmdb.org/t/p/w342/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg"
+            alt=""
+          />
+        </div>
+
+        <div class="meta">
+          <h1>Spirited Away</h1>
+          <p class="subline">2001 · Japanese · Animation</p>
+          <p class="status">Watched</p>
+          <div class="rating-line">
+            <span class="your-rating">Your rating 10</span>
+            <span class="source-rating" aria-label="TMDB rating 8.5">
+              <strong>TMDB</strong>
+              <span>8.5</span>
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Plot</h2>
+        <p class="plot">
+          A young girl enters a world ruled by spirits, witches, and strange customs, then has to
+          find her way back to herself and her family.
+        </p>
+      </section>
+
+      <section>
+        <h2>Details</h2>
+        <dl class="details">
+          <div class="detail-row">
+            <dt>Release</dt>
+            <dd>20 Jul 2001</dd>
+          </div>
+          <div class="detail-row">
+            <dt>Runtime</dt>
+            <dd>125 min</dd>
+          </div>
+          <div class="detail-row">
+            <dt>Language</dt>
+            <dd>Japanese</dd>
+          </div>
+          <div class="detail-row">
+            <dt>TMDB rating</dt>
+            <dd class="detail-rating">
+              <span class="primary">8.5 / 10</span>
+              <span class="secondary"> · 17,231 votes</span>
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <p class="notes">
+        Mock only: header gets the compact source badge; Details spells out the source and keeps
+        rating plus vote count on one line.
+      </p>
+    </main>
+  </body>
+</html>
