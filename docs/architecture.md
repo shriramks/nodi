@@ -416,6 +416,7 @@ For v1, online-first is fine. No offline mutation support is required.
 - `/to-watch`
 - `/stats`
   - `tag` scopes stats to movies with that tag
+  - `year` scopes stats to watch events in that watched year
   - genre, language, month, and year breakdowns link to `/movies` filters
 - `/search`
 - `/movie/[movieId]`

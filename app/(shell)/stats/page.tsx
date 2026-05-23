@@ -6,7 +6,7 @@ import type { LibraryStatsBreakdownItem, LibraryStatsRatingBucket } from "@/lib/
 import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { PageHeader, Section, SectionHeader } from "@/components/ui/section";
 import { MoviesOverTime } from "./movies-over-time";
-import { StatsTagFilter } from "./stats-tag-filter";
+import { StatsFilters } from "./stats-tag-filter";
 
 export const metadata: Metadata = {
   title: "Stats",
@@ -33,12 +33,13 @@ const GENRE_COLORS = [
 export default async function StatsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tag?: string }>;
+  searchParams: Promise<{ tag?: string; year?: string }>;
 }) {
-  const { tag: tagFilter } = await searchParams;
+  const { tag: tagFilter, year } = await searchParams;
+  const yearFilter = year && /^\d{4}$/.test(year) ? year : undefined;
 
   const [stats, tags] = await Promise.all([
-    getLibraryStats(tagFilter),
+    getLibraryStats(tagFilter, yearFilter),
     listTags(),
   ]);
 
@@ -47,7 +48,7 @@ export default async function StatsPage({
   const filteredLanguages = stats.languageBreakdown
     .filter((item) => item.key !== "unknown")
     .slice(0, 5);
-  const statsHref = tagFilter ? `/stats?tag=${encodeURIComponent(tagFilter)}` : "/stats";
+  const statsHref = statsFilterHref({ tag: tagFilter, year: yearFilter });
 
   return (
     <main>
@@ -55,8 +56,13 @@ export default async function StatsPage({
         title="Stats"
         className="pb-3"
         action={(
-          <div className="flex items-center gap-2">
-            {tags.length > 0 && <StatsTagFilter tags={tags} currentTag={tagFilter} />}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <StatsFilters
+              tags={tags}
+              years={stats.availableYearBuckets}
+              currentTag={tagFilter}
+              currentYear={yearFilter}
+            />
             <SettingsSheet />
           </div>
         )}
@@ -142,6 +148,7 @@ export default async function StatsPage({
             monthBuckets={stats.monthBuckets}
             yearBuckets={stats.yearBuckets}
             tagFilter={tagFilter}
+            yearFilter={yearFilter}
             returnTo={statsHref}
           />
 
@@ -154,7 +161,7 @@ export default async function StatsPage({
               <GenreTreemap
                 items={stats.genreBreakdown}
                 colors={GENRE_COLORS}
-                hrefForItem={(item) => moviesFilterHref({ genre: item.label, tag: tagFilter, returnTo: statsHref })}
+                hrefForItem={(item) => moviesFilterHref({ genre: item.label, tag: tagFilter, year: yearFilter, returnTo: statsHref })}
               />
             )}
           </StatsBreakdownSection>
@@ -173,7 +180,7 @@ export default async function StatsPage({
             ) : (
               <LanguageDonut
                 items={filteredLanguages}
-                hrefForItem={(item) => moviesFilterHref({ language: item.key, tag: tagFilter, returnTo: statsHref })}
+                hrefForItem={(item) => moviesFilterHref({ language: item.key, tag: tagFilter, year: yearFilter, returnTo: statsHref })}
               />
             )}
           </StatsBreakdownSection>
@@ -465,6 +472,20 @@ function moviesFilterHref({
   if (month) params.set("month", month);
   if (year) params.set("year", year);
   return `/movies?${params.toString()}`;
+}
+
+function statsFilterHref({
+  tag,
+  year,
+}: {
+  tag?: string;
+  year?: string;
+}) {
+  const params = new URLSearchParams();
+  if (tag) params.set("tag", tag);
+  if (year) params.set("year", year);
+  const query = params.toString();
+  return query ? `/stats?${query}` : "/stats";
 }
 
 function formatRuntime(minutes: number) {

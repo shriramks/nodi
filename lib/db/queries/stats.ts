@@ -14,7 +14,7 @@ import {
 
 const analyticsPageSize = 1000;
 
-export async function getLibraryStats(tagFilter?: string) {
+export async function getLibraryStats(tagFilter?: string, yearFilter?: string) {
   const user = await requireUser();
 
   const [watchRows, tagRows, ratingRows] = await Promise.all([
@@ -23,7 +23,7 @@ export async function getLibraryStats(tagFilter?: string) {
     listRatingAnalyticsRows(user.id),
   ]);
 
-  return buildLibraryStats(watchRows, tagRows, ratingRows, tagFilter);
+  return buildLibraryStats(watchRows, tagRows, ratingRows, tagFilter, yearFilter);
 }
 
 export async function getWatchedLibrarySummary() {

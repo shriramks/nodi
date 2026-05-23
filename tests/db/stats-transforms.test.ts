@@ -88,8 +88,91 @@ describe("stats transforms", () => {
     expect(stats.ratingBreakdown.find((b) => b.rating === 5)?.count).toBe(0);
   });
 
+  it("scopes library stats to a watched year while preserving available year options", () => {
+    const watchRows: WatchLogAnalyticsRow[] = [
+      {
+        id: "log-1",
+        movie_id: "movie-a",
+        watched_at: "2025-12-20T12:00:00.000Z",
+        movies: {
+          id: "movie-a",
+          original_language: "en",
+          primary_genre_name: "Drama",
+          runtime_minutes: 100,
+          release_year: 1999,
+        },
+      },
+      {
+        id: "log-2",
+        movie_id: "movie-a",
+        watched_at: "2026-01-10T12:00:00.000Z",
+        movies: {
+          id: "movie-a",
+          original_language: "en",
+          primary_genre_name: "Drama",
+          runtime_minutes: 100,
+          release_year: 1999,
+        },
+      },
+      {
+        id: "log-3",
+        movie_id: "movie-b",
+        watched_at: "2026-12-10T12:00:00.000Z",
+        movies: {
+          id: "movie-b",
+          original_language: "ko",
+          primary_genre_name: "Action",
+          runtime_minutes: 90,
+          release_year: 2010,
+        },
+      },
+    ];
+    const tagRows: TagAnalyticsRow[] = [
+      { movie_id: "movie-a", tags: { id: "tag-1", name: "Noir" } },
+      { movie_id: "movie-b", tags: { id: "tag-2", name: "Action" } },
+    ];
+    const ratingRows: RatingAnalyticsRow[] = [
+      { movie_id: "movie-a", personal_rating: 8 },
+      { movie_id: "movie-b", personal_rating: 6 },
+    ];
+
+    const stats = buildLibraryStats(watchRows, tagRows, ratingRows, undefined, "2026");
+
+    expect(stats.watchEventCount).toBe(2);
+    expect(stats.watchedCount).toBe(2);
+    expect(stats.runtimeMinutes).toBe(190);
+    expect(stats.avgRating).toBe(7);
+    expect(stats.availableYearBuckets.map((bucket) => [bucket.key, bucket.count])).toEqual([
+      ["2025", 1],
+      ["2026", 2],
+    ]);
+    expect(stats.monthBuckets).toHaveLength(12);
+    expect(stats.monthBuckets.map((bucket) => [bucket.key, bucket.count])).toEqual([
+      ["2026-01", 1],
+      ["2026-02", 0],
+      ["2026-03", 0],
+      ["2026-04", 0],
+      ["2026-05", 0],
+      ["2026-06", 0],
+      ["2026-07", 0],
+      ["2026-08", 0],
+      ["2026-09", 0],
+      ["2026-10", 0],
+      ["2026-11", 0],
+      ["2026-12", 1],
+    ]);
+
+    const taggedStats = buildLibraryStats(watchRows, tagRows, ratingRows, "Noir", "2026");
+    expect(taggedStats.watchEventCount).toBe(1);
+    expect(taggedStats.availableYearBuckets.map((bucket) => [bucket.key, bucket.count])).toEqual([
+      ["2025", 1],
+      ["2026", 1],
+    ]);
+  });
+
   it("returns empty collections when there are no watch events", () => {
     expect(buildLibraryStats([], [], [])).toMatchObject({
+      availableYearBuckets: [],
       genreBreakdown: [],
       languageBreakdown: [],
       monthBuckets: [],

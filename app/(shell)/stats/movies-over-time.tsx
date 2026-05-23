@@ -29,51 +29,58 @@ export function MoviesOverTime({
   monthBuckets,
   yearBuckets,
   tagFilter,
+  yearFilter,
   returnTo,
 }: {
   monthBuckets: LibraryStatsTimeBucket[];
   yearBuckets: LibraryStatsTimeBucket[];
   tagFilter?: string;
+  yearFilter?: string;
   returnTo: string;
 }) {
   const [view, setView] = useState<View>("month");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const buckets = view === "month" ? monthBuckets : yearBuckets;
-  const barWidth = view === "month" ? 32 : 52;
-  const barGap = view === "month" ? 4 : 8;
+  const activeView = yearFilter ? "month" : view;
+  const buckets = activeView === "month" ? monthBuckets : yearBuckets;
+  const barWidth = activeView === "month" ? 32 : 52;
+  const barGap = activeView === "month" ? 4 : 8;
   const scaleMax = detectOutlierScale(buckets);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
     }
-  }, [view]);
+  }, [activeView, yearFilter]);
 
   return (
     <Section className="py-4">
       <div className="flex items-center justify-between gap-3">
         <SectionHeader>Over time</SectionHeader>
-        <div
-          className="flex rounded-xl p-1 gap-0.5"
-          style={{ backgroundColor: "var(--bg-secondary)" }}
-          role="tablist"
-        >
-          {(["month", "year"] as View[]).map((v) => (
-            <button
-              key={v}
-              role="tab"
-              aria-selected={view === v}
-              onClick={() => setView(v)}
-              className={`rounded-lg px-3 text-[13px] font-semibold transition-colors ${
-                view === v ? "bg-accent/10 text-accent" : "text-text-2"
-              }`}
-              style={{ minHeight: 36 }}
-            >
-              {v === "month" ? "Month" : "Year"}
-            </button>
-          ))}
-        </div>
+        {yearFilter ? (
+          <span className="tabnum text-[13px] font-semibold text-accent">{yearFilter}</span>
+        ) : (
+          <div
+            className="flex gap-0.5 rounded-xl p-1"
+            style={{ backgroundColor: "var(--bg-secondary)" }}
+            role="tablist"
+          >
+            {(["month", "year"] as View[]).map((v) => (
+              <button
+                key={v}
+                role="tab"
+                aria-selected={view === v}
+                onClick={() => setView(v)}
+                className={`rounded-lg px-3 text-[13px] font-semibold transition-colors ${
+                  view === v ? "bg-accent/10 text-accent" : "text-text-2"
+                }`}
+                style={{ minHeight: 36 }}
+              >
+                {v === "month" ? "Month" : "Year"}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div
@@ -121,7 +128,7 @@ export function MoviesOverTime({
                   {bucket.count > 0 && (
                     <Link
                       href={moviesTimeHref({
-                        view,
+                        view: activeView,
                         key: bucket.key,
                         tagFilter,
                         returnTo,
@@ -143,7 +150,7 @@ export function MoviesOverTime({
                   className="tabnum text-[10px] text-text-faint truncate"
                   style={{ width: barWidth, textAlign: "center" }}
                 >
-                  {axisLabel(bucket.key, index)}
+                  {yearFilter ? bucket.label : axisLabel(bucket.key, index)}
                 </span>
               </div>
             );

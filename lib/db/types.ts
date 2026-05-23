@@ -724,6 +724,7 @@ export type LibraryStats = {
   favGenre: string | null;
   favGenreCount: number | null;
   favDecade: string | null;
+  availableYearBuckets: LibraryStatsTimeBucket[];
   monthBuckets: LibraryStatsTimeBucket[];
   yearBuckets: LibraryStatsTimeBucket[];
   genreBreakdown: LibraryStatsBreakdownItem[];

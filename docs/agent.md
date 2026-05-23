@@ -137,6 +137,7 @@ files, then inspect only direct imports, direct callers, or the relevant route b
   - The full-row `listUserMovies()` helper still resolves tag and watched year/month filters through
     movie-id prefilters; the paged grid path does not.
   - Month filter keys are `YYYY-MM`; year filter keys are `YYYY`; month takes precedence.
+  - Watched date stays in a compact filter-sheet row and opens a date subview so rating and tags remain near the top.
   - `getMovieDetail()` hydrates per-movie tags through `user_movie_tags` for tag-aware detail screens.
   - If a route-level library filter is needed, this is the server query to extend.
 - Shared movie/user/tag types: `lib/db/types.ts`
@@ -147,26 +148,30 @@ files, then inspect only direct imports, direct callers, or the relevant route b
 ### Stats
 
 - Stats route: `app/(shell)/stats/page.tsx`
-  - Reads optional `tag` search param for stats-level tag filtering.
-  - Loads `getLibraryStats(tagFilter)` and `listTags()`.
+  - Reads optional `tag` and `year` search params for stats-level filtering.
+  - Loads `getLibraryStats(tagFilter, yearFilter)` and `listTags()`.
   - Renders hero metrics, `MoviesOverTime`, genre breakdown, rating distribution, language breakdown, and tag breakdown.
   - Genre and language visual components currently live in this file.
-  - Genre and language breakdown items link to `/movies` with matching filters and `from=stats`.
+  - Genre and language breakdown items link to `/movies` with matching filters, the active watched year if present, and `from=stats`.
 - Time chart: `app/(shell)/stats/movies-over-time.tsx`
   - Client component.
-  - Toggles month/year view internally.
+  - Toggles month/year view internally for all-time stats.
+  - When stats are filtered to one watched year, renders month buckets for that year only and hides the month/year toggle.
   - Consumes `LibraryStatsTimeBucket[]` for month and year buckets.
   - Buckets have `key`, `label`, `count`, and `runtimeMinutes`.
   - Non-empty month/year bars link to `/movies` with `month` or `year` filters.
 - Stats tag selector: `app/(shell)/stats/stats-tag-filter.tsx`
   - Client component.
-  - Navigates to `/stats?tag=<tag name>` or `/stats`.
+  - Renders tag and year selector pills.
+  - Navigates to `/stats?tag=<tag name>`, `/stats?year=<YYYY>`, or both while preserving the other active filter.
 - Stats query owner: `lib/db/queries/stats.ts`
   - Loads watch-log analytics rows, tag analytics rows, and rating rows.
   - Delegates all aggregation to `buildLibraryStats()`.
 - Stats transforms: `lib/db/queries/stats-transforms.ts`
   - Builds watched movie summaries from watch-log rows.
   - Builds genre, language, tag, rating, month, and year stats.
+  - `availableYearBuckets` is computed after tag filtering but before year filtering so the stats year selector remains populated.
+  - Year-filtered stats use watched years from `watch_logs.watched_at`; month buckets are fixed to Jan-Dec for that selected year.
   - Month bucket keys are `YYYY-MM`.
   - Year bucket keys are `YYYY`.
   - Genre breakdown keys are lower-cased genre labels.

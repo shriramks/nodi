@@ -68,6 +68,7 @@ export function buildLibraryStats(
   tagRows: TagAnalyticsRow[],
   ratingRows: RatingAnalyticsRow[],
   tagFilter?: string,
+  yearFilter?: string,
 ): LibraryStats {
   let filteredWatchRows = watchRows;
   let filteredRatingRows = ratingRows;
@@ -81,6 +82,13 @@ export function buildLibraryStats(
     }
     filteredWatchRows = watchRows.filter((r) => taggedMovieIds.has(r.movie_id));
     filteredRatingRows = ratingRows.filter((r) => taggedMovieIds.has(r.movie_id));
+  }
+
+  const availableYearBuckets = buildYearBuckets(filteredWatchRows);
+  if (yearFilter) {
+    filteredWatchRows = filteredWatchRows.filter((row) => watchedYear(row) === yearFilter);
+    const filteredYearMovieIds = new Set(filteredWatchRows.map((row) => row.movie_id));
+    filteredRatingRows = filteredRatingRows.filter((row) => filteredYearMovieIds.has(row.movie_id));
   }
 
   const watchedMovies = buildWatchedMovies(filteredWatchRows);
@@ -109,7 +117,8 @@ export function buildLibraryStats(
     favGenre: favGenreItem?.label ?? null,
     favGenreCount: favGenreItem?.count ?? null,
     favDecade: buildFavDecade(watchedMovies),
-    monthBuckets: buildMonthBuckets(filteredWatchRows),
+    availableYearBuckets,
+    monthBuckets: yearFilter ? buildMonthBucketsForYear(filteredWatchRows, yearFilter) : buildMonthBuckets(filteredWatchRows),
     yearBuckets: buildYearBuckets(filteredWatchRows),
     genreBreakdown,
     languageBreakdown: buildMovieBreakdown(watchedMovies, (movie) => {
@@ -122,6 +131,11 @@ export function buildLibraryStats(
     tagBreakdown: buildTagBreakdown(tagRows, watchedMovieIds, watchedMovies.length),
     ratingBreakdown: buildRatingBreakdown(filteredRatingRows),
   };
+}
+
+function watchedYear(row: Pick<WatchLog, "watched_at">): string | null {
+  const ts = Date.parse(row.watched_at);
+  return Number.isNaN(ts) ? null : String(new Date(ts).getUTCFullYear());
 }
 
 export function buildWatchedLibrarySummary(
@@ -218,6 +232,34 @@ function buildMonthBuckets(rows: TimeBucketSourceRow[]): LibraryStatsTimeBucket[
       runtimeMinutes: 0,
     });
     current = addUtcMonths(current, 1);
+  }
+
+  for (const row of rows) {
+    const key = monthKey(new Date(row.watched_at));
+    const bucket = buckets.get(key);
+    if (bucket) {
+      bucket.count += 1;
+      bucket.runtimeMinutes += runtimeMinutes(row.movies);
+    }
+  }
+
+  return Array.from(buckets.values());
+}
+
+function buildMonthBucketsForYear(rows: TimeBucketSourceRow[], year: string): LibraryStatsTimeBucket[] {
+  const yearNumber = Number(year);
+  if (!Number.isInteger(yearNumber)) return [];
+
+  const buckets = new Map<string, LibraryStatsTimeBucket>();
+  for (let month = 0; month < 12; month++) {
+    const date = new Date(Date.UTC(yearNumber, month, 1));
+    const key = monthKey(date);
+    buckets.set(key, {
+      key,
+      label: monthLabels[month],
+      count: 0,
+      runtimeMinutes: 0,
+    });
   }
 
   for (const row of rows) {

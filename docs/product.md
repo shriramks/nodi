@@ -495,9 +495,11 @@ Reason:
 - sort by "recently watched" groups posters by month (e.g. "May 2026")
 - sort by "rating" groups posters by rating value (9, 8, 7, … Unrated)
 - sort by "title" renders a flat grid
-- filter options: tags (multi-select, OR within tags) + rating (operator ≥ > = < ≤ + value stepper); tag + rating combined with AND; watched page only
+- filter options: rating (operator ≥ > = < ≤ + value stepper), tags (multi-select, OR within tags),
+  genre, language, and watched date; filters combine with AND; watched page only
 - active sort (non-default) and active filter each show an indicator on the toolbar pill
-- sort/filter toolbar controls are 44px-high icon+label pills; active filters expose a separate 44x44 reset icon button
+- sort/filter toolbar controls are 44px-high icon+label pills; active filters expose a separate 44x44
+  reset icon button and removable active chips above the grid
 - filter-sheet changes are staged locally until `Apply filters`; `Clear filters` resets the staged
   values before apply
 - default presentation: poster-only watched grid
@@ -510,6 +512,7 @@ Reason:
 - filters are URL-backed on `/movies` so direct navigation, clear, and stats drill-downs share the
   same behavior
 - filter dimensions: genre, language, watched year, watched month, tag, and personal rating
+- watched date filtering opens from a compact row in the filter sheet so rating and tags stay near the top
 - watched date filters stop at year/month granularity only; no day picker, calendar range, week, or
   custom date range
 - month/year filters use `watch_logs.watched_at`; the grid still shows unique movie posters
@@ -533,6 +536,8 @@ Reason:
 - genre breakdown
 - monthly summary
 - yearly summary
+- stats can be scoped by watched year while retaining all-time as the default
+- when scoped to one year, the over-time chart shows months within that year instead of the all-time month/year toggle
 - genre, language, month, and year breakdown items link into `/movies` with the matching filters
 - stats drill-down links include an explicit return path so the filtered Movies view can return to
   the originating Stats screen

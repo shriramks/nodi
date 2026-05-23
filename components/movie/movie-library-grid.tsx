@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowUpDown, ChevronDown, ListFilter, LoaderCircle, X } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, ChevronDown, ChevronRight, ListFilter, LoaderCircle, X } from "lucide-react";
 import { PosterCard } from "@/components/movie/poster-card";
 import { BulkActionsBar } from "@/components/movie/bulk-actions-bar";
 import { TmdbImagePrefetcher } from "@/components/media/tmdb-image-prefetcher";
@@ -28,6 +28,7 @@ type SortKey = "watched_date" | "added_date" | "rating" | "title";
 type SortDir = "asc" | "desc";
 type RatingOp = ">=" | ">" | "=" | "<" | "<=";
 type TimeMode = "year" | "month";
+type FilterSheetView = "main" | "date";
 
 interface SortOption {
   key: SortKey;
@@ -132,6 +133,7 @@ export function MovieLibraryGrid({
   const [sortSheetOpen, setSortSheetOpen] = useState(false);
   const [draftSortState, setDraftSortState] = useState(() => initialSortState(sortOptions));
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [filterSheetView, setFilterSheetView] = useState<FilterSheetView>("main");
   const [draftGenre, setDraftGenre] = useState<string | undefined>(activeFilters.genre);
   const [draftLanguage, setDraftLanguage] = useState<string | undefined>(activeFilters.language);
   const [draftTags, setDraftTags] = useState<Set<string>>(new Set(activeFilters.tags));
@@ -292,12 +294,40 @@ export function MovieLibraryGrid({
     router.push(pathname);
   }
 
+  function removeActiveFilter(kind: "genre" | "language" | "tag" | "rating" | "date", value?: string) {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (kind === "tag") {
+      params.delete("tag");
+      for (const tag of activeFilters.tags.filter((tag) => tag !== value)) {
+        params.append("tag", tag);
+      }
+    } else if (kind === "rating") {
+      params.delete("ratingOp");
+      params.delete("rating");
+    } else if (kind === "date") {
+      params.delete("year");
+      params.delete("month");
+    } else {
+      params.delete(kind);
+    }
+
+    const query = params.toString();
+    router.push(query ? `${pathname}?${query}` : pathname);
+  }
+
   function clearDraftFilters() {
     setDraftGenre(undefined);
     setDraftLanguage(undefined);
     setDraftTags(new Set());
     setDraftRatingOp(">=");
     setDraftRatingVal(null);
+    setDraftTimeMode("year");
+    setDraftYear(undefined);
+    setDraftMonth(undefined);
+  }
+
+  function clearDraftDateFilter() {
     setDraftTimeMode("year");
     setDraftYear(undefined);
     setDraftMonth(undefined);
@@ -312,6 +342,7 @@ export function MovieLibraryGrid({
     setDraftTimeMode(activeFilters.month ? "month" : "year");
     setDraftYear(activeFilters.year ?? yearFromMonth(activeFilters.month));
     setDraftMonth(activeFilters.month);
+    setFilterSheetView("main");
     setFilterSheetOpen(true);
   }
 
@@ -337,6 +368,7 @@ export function MovieLibraryGrid({
     const query = params.toString();
     router.push(query ? `${pathname}?${query}` : pathname);
     setFilterSheetOpen(false);
+    setFilterSheetView("main");
   }
 
   const handleToggle = useCallback((movieId: string) => {
@@ -379,10 +411,21 @@ export function MovieLibraryGrid({
   };
   const hasDraftFilter = countActiveFilters(draftFilters) > 0;
   const selectedDraftSortOption = sortOptions.find((option) => option.key === draftSortState.key)!;
-  const selectedYearForMonths = draftYear ?? yearFromMonth(draftMonth) ?? filterOptions.years[0]?.key;
+  const filterYearOptions = [...filterOptions.years].reverse();
+  const selectedYearForMonths = draftYear
+    ?? yearFromMonth(draftMonth)
+    ?? filterOptions.years[filterOptions.years.length - 1]?.key;
   const visibleMonths = selectedYearForMonths
     ? filterOptions.months.filter((bucket) => bucket.key.startsWith(`${selectedYearForMonths}-`))
     : [];
+  const draftDateLabel = draftTimeMode === "month"
+    ? draftMonth
+      ? monthLabel(draftMonth)
+      : "All time"
+    : draftYear
+      ? `Year: ${draftYear}`
+      : "All time";
+  const activeFilterChips = activeFilterChipItems(activeFilters);
 
   // ─── Processed movies ─────────────────────────────────────────────────────
 
@@ -533,6 +576,22 @@ export function MovieLibraryGrid({
             {isSelecting ? "Done" : "Select"}
           </button>
         </div>
+
+        {isWatched && hasActiveFilter && !isSelecting && (
+          <div className="flex flex-wrap gap-2">
+            {activeFilterChips.map((chip) => (
+              <button
+                key={`${chip.kind}:${chip.value ?? chip.label}`}
+                type="button"
+                onClick={() => removeActiveFilter(chip.kind, chip.value)}
+                className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-accent/10 px-3 text-[13px] font-medium text-accent active:bg-accent/15"
+              >
+                <span>{chip.label}</span>
+                <X aria-hidden="true" className="h-3 w-3" strokeWidth={2.4} />
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Grid */}
         {processed.length === 0 ? (
@@ -702,252 +761,319 @@ export function MovieLibraryGrid({
           dismissButtonLabel="Close filters"
           onClose={() => setFilterSheetOpen(false)}
         >
-          <div className="px-5 pb-3">
-            <p className="text-[17px] font-semibold">Filter</p>
-          </div>
-
-          {filterOptions.genres.length > 0 && (
+          {filterSheetView === "date" ? (
             <>
-              <SheetSection className="pt-0">
-                <SheetSectionHeader>Genre</SheetSectionHeader>
-                <div className="flex flex-wrap gap-2">
-                  {filterOptions.genres.slice(0, 12).map((genre) => (
-                    <FilterChip
-                      key={genre.key}
-                      active={draftGenre === genre.label}
-                      label={genre.label}
-                      count={genre.count}
-                      onClick={() => setDraftGenre((current) => current === genre.label ? undefined : genre.label)}
-                    />
-                  ))}
-                </div>
-              </SheetSection>
-              <SheetSectionDivider />
-            </>
-          )}
-
-          {filterOptions.languages.length > 0 && (
-            <>
-              <SheetSection>
-                <SheetSectionHeader>Language</SheetSectionHeader>
-                <div className="flex flex-wrap gap-2">
-                  {filterOptions.languages.slice(0, 12).map((language) => (
-                    <FilterChip
-                      key={language.key}
-                      active={draftLanguage === language.key}
-                      label={language.label}
-                      count={language.count}
-                      onClick={() => setDraftLanguage((current) => current === language.key ? undefined : language.key)}
-                    />
-                  ))}
-                </div>
-              </SheetSection>
-              <SheetSectionDivider />
-            </>
-          )}
-
-          <SheetSection className="pb-3">
-            <SheetSectionHeader>Watched date</SheetSectionHeader>
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-muted p-1">
-              {(["year", "month"] as TimeMode[]).map((mode) => (
+              <div className="flex items-center justify-between gap-3 px-5 pb-3">
                 <button
-                  key={mode}
                   type="button"
-                  aria-pressed={draftTimeMode === mode}
-                  onClick={() => setDraftTimeMode(mode)}
-                  className={[
-                    "min-h-10 rounded-lg text-[13px] font-semibold",
-                    draftTimeMode === mode ? "bg-accent/10 text-accent" : "text-text-2",
-                  ].join(" ")}
+                  onClick={() => setFilterSheetView("main")}
+                  className="inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-text-2 active:text-foreground"
                 >
-                  {mode === "year" ? "Year" : "Month"}
+                  <ArrowLeft aria-hidden="true" className="h-4 w-4" strokeWidth={2.2} />
+                  Back
                 </button>
-              ))}
-            </div>
-          </SheetSection>
+                <p className="text-[17px] font-semibold">Watched date</p>
+                <button
+                  type="button"
+                  onClick={() => setFilterSheetView("main")}
+                  className="min-h-11 text-[15px] font-semibold text-accent"
+                >
+                  Done
+                </button>
+              </div>
 
-          {filterOptions.years.length > 0 && (
-            <div className="px-5 pb-4">
-              {draftTimeMode === "year" ? (
-                <div className="grid gap-2">
-                  {filterOptions.years.map((year) => (
+              <SheetSection className="pt-0">
+                <SheetSectionHeader>Mode</SheetSectionHeader>
+                <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-muted p-1">
+                  {(["year", "month"] as TimeMode[]).map((mode) => (
                     <button
-                      key={year.key}
+                      key={mode}
                       type="button"
-                      aria-pressed={draftYear === year.key}
-                      onClick={() => {
-                        setDraftYear((current) => current === year.key ? undefined : year.key);
-                        setDraftMonth(undefined);
-                      }}
+                      aria-pressed={draftTimeMode === mode}
+                      onClick={() => setDraftTimeMode(mode)}
                       className={[
-                        "flex min-h-11 items-center justify-between rounded-xl border px-3 text-left",
-                        draftYear === year.key
-                          ? "border-accent/30 bg-accent/15 text-accent"
-                          : "border-border text-text-2",
+                        "min-h-10 rounded-lg text-[13px] font-semibold",
+                        draftTimeMode === mode ? "bg-accent/10 text-accent" : "text-text-2",
                       ].join(" ")}
                     >
-                      <span className="text-[15px] font-semibold">{year.label}</span>
-                      <span className="tabnum text-[13px] opacity-70">{year.count}</span>
+                      {mode === "year" ? "Year" : "Month"}
                     </button>
                   ))}
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <SheetScrollBleed className="flex gap-2 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    {filterOptions.years.map((year) => (
-                      <button
-                        key={year.key}
-                        type="button"
-                        aria-pressed={selectedYearForMonths === year.key}
-                        onClick={() => {
-                          setDraftYear(year.key);
-                          setDraftMonth(undefined);
-                        }}
-                        className={[
-                          "min-h-9 shrink-0 rounded-full border px-3 text-[13px]",
-                          selectedYearForMonths === year.key
-                            ? "border-accent/30 bg-accent/15 font-semibold text-accent"
-                            : "border-border text-text-2",
-                        ].join(" ")}
-                      >
-                        {year.label}
-                      </button>
-                    ))}
-                  </SheetScrollBleed>
-                  <div className="grid grid-cols-3 gap-2">
-                    {visibleMonths.map((month) => (
-                      <button
-                        key={month.key}
-                        type="button"
-                        aria-pressed={draftMonth === month.key}
-                        onClick={() => {
-                          setDraftMonth((current) => current === month.key ? undefined : month.key);
-                          setDraftYear(yearFromMonth(month.key));
-                        }}
-                        className={[
-                          "flex min-h-12 flex-col items-center justify-center rounded-xl border text-[13px]",
-                          draftMonth === month.key
-                            ? "border-accent/30 bg-accent/15 font-semibold text-accent"
-                            : "border-border text-text-2",
-                        ].join(" ")}
-                      >
-                        <span>{shortMonthLabel(month.key)}</span>
-                        <span className="tabnum text-[11px] opacity-60">{month.count}</span>
-                      </button>
-                    ))}
-                  </div>
+              </SheetSection>
+
+              {filterOptions.years.length > 0 && (
+                <div className="px-5 pb-4">
+                  {draftTimeMode === "year" ? (
+                    <div className="grid gap-2">
+                      {filterYearOptions.map((year) => (
+                        <button
+                          key={year.key}
+                          type="button"
+                          aria-pressed={draftYear === year.key}
+                          onClick={() => {
+                            setDraftYear((current) => current === year.key ? undefined : year.key);
+                            setDraftMonth(undefined);
+                          }}
+                          className={[
+                            "flex min-h-11 items-center justify-between rounded-xl border px-3 text-left",
+                            draftYear === year.key
+                              ? "border-accent/30 bg-accent/15 text-accent"
+                              : "border-border text-text-2",
+                          ].join(" ")}
+                        >
+                          <span className="text-[15px] font-semibold">{year.label}</span>
+                          <span className="tabnum text-[13px] opacity-70">{year.count}</span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <SheetScrollBleed className="flex gap-2 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        {filterYearOptions.map((year) => (
+                          <button
+                            key={year.key}
+                            type="button"
+                            aria-pressed={selectedYearForMonths === year.key}
+                            onClick={() => {
+                              setDraftYear(year.key);
+                              setDraftMonth(undefined);
+                            }}
+                            className={[
+                              "min-h-9 shrink-0 rounded-full border px-3 text-[13px]",
+                              selectedYearForMonths === year.key
+                                ? "border-accent/30 bg-accent/15 font-semibold text-accent"
+                                : "border-border text-text-2",
+                            ].join(" ")}
+                          >
+                            {year.label}
+                          </button>
+                        ))}
+                      </SheetScrollBleed>
+                      <div className="grid grid-cols-3 gap-2">
+                        {visibleMonths.map((month) => (
+                          <button
+                            key={month.key}
+                            type="button"
+                            aria-pressed={draftMonth === month.key}
+                            onClick={() => {
+                              setDraftMonth((current) => current === month.key ? undefined : month.key);
+                              setDraftYear(yearFromMonth(month.key));
+                            }}
+                            className={[
+                              "flex min-h-12 flex-col items-center justify-center rounded-xl border text-[13px]",
+                              draftMonth === month.key
+                                ? "border-accent/30 bg-accent/15 font-semibold text-accent"
+                                : "border-border text-text-2",
+                            ].join(" ")}
+                          >
+                            <span>{shortMonthLabel(month.key)}</span>
+                            <span className="tabnum text-[11px] opacity-60">{month.count}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
 
-          <SheetSectionDivider />
-
-          {availableTags.length > 0 && (
-            <>
-              <SheetSection>
-                <SheetSectionHeader>Tags</SheetSectionHeader>
-                <SheetScrollBleed className="flex gap-2 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {availableTags.map((tag) => {
-                    const active = draftTags.has(tag.name);
-                    return (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => toggleDraftTag(tag.name)}
-                        className={[
-                          "min-h-9 shrink-0 rounded-full border px-3 text-[13px]",
-                          active
-                            ? "border-accent/30 bg-accent/15 font-semibold text-accent"
-                            : "border-border text-text-2",
-                        ].join(" ")}
-                      >
-                        {tag.name}
-                      </button>
-                    );
-                  })}
-                </SheetScrollBleed>
-              </SheetSection>
-              <SheetSectionDivider />
-            </>
-          )}
-
-          <SheetSection className="pb-1">
-            <SheetSectionHeader>Rating</SheetSectionHeader>
-            <div className="flex gap-1.5 pb-3">
-              {RATING_OPS.map((op) => (
+              <div
+                className="mx-5 mt-2 flex gap-3 pt-4"
+                style={{ borderTop: "1px solid var(--divider)" }}
+              >
                 <button
-                  key={op}
                   type="button"
-                  aria-pressed={draftRatingOp === op}
-                  onClick={() => setDraftRatingOp(op)}
-                  className={[
-                    "flex min-h-9 w-9 items-center justify-center rounded-xl border text-[14px]",
-                    draftRatingOp === op
-                      ? "border-accent/30 bg-accent/15 font-semibold text-accent"
-                      : "border-border text-text-2",
-                  ].join(" ")}
+                  onClick={clearDraftDateFilter}
+                  disabled={!draftYear && !draftMonth}
+                  className="flex h-11 flex-1 items-center justify-center rounded-xl border border-border text-[15px] font-medium text-text-2 disabled:opacity-40"
                 >
-                  {OP_SYMBOL[op]}
+                  Clear date
                 </button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-4 rounded-xl bg-surface-muted px-4 py-2">
                 <button
                   type="button"
-                  className="text-[20px] font-light text-text-2 active:text-foreground"
-                  onClick={() =>
-                    setDraftRatingVal((v) => (v === null || v <= 1 ? null : v - 1))
-                  }
+                  onClick={() => setFilterSheetView("main")}
+                  className="flex h-11 flex-[1.4] items-center justify-center rounded-xl bg-accent text-[15px] font-semibold text-black"
                 >
-                  −
-                </button>
-                <span className="tabnum min-w-[20px] text-center text-[20px] font-semibold text-accent">
-                  {draftRatingVal ?? "—"}
-                </span>
-                <button
-                  type="button"
-                  className="text-[20px] font-light text-text-2 active:text-foreground"
-                  onClick={() =>
-                    setDraftRatingVal((v) => (v === null ? 7 : Math.min(v + 1, 10)))
-                  }
-                >
-                  +
+                  Done
                 </button>
               </div>
-              {draftRatingVal !== null ? (
-                <span className="text-[12px] text-text-faint">
-                  rated {OP_SYMBOL[draftRatingOp]} {draftRatingVal}
-                </span>
-              ) : (
-                <span className="text-[12px] text-text-faint">tap + to set a rating filter</span>
-              )}
-            </div>
-          </SheetSection>
+            </>
+          ) : (
+            <>
+              <div className="px-5 pb-3">
+                <p className="text-[17px] font-semibold">Filter</p>
+              </div>
 
-          <div
-            className="mx-5 mt-4 flex gap-3 pt-4"
-            style={{ borderTop: "1px solid var(--divider)" }}
-          >
-            <button
-              type="button"
-              onClick={clearDraftFilters}
-              disabled={!hasDraftFilter}
-              className="flex h-11 flex-1 items-center justify-center rounded-xl border border-border text-[15px] font-medium text-text-2 disabled:opacity-40"
-            >
-              Clear filters
-            </button>
-            <button
-              type="button"
-              onClick={applyFilters}
-              className="flex h-11 flex-[1.6] items-center justify-center rounded-xl bg-accent text-[15px] font-semibold text-black"
-            >
-              Apply filters
-            </button>
-          </div>
+              <SheetSection className="pb-1 pt-0">
+                <SheetSectionHeader>Rating</SheetSectionHeader>
+                <div className="flex gap-1.5 pb-3">
+                  {RATING_OPS.map((op) => (
+                    <button
+                      key={op}
+                      type="button"
+                      aria-pressed={draftRatingOp === op}
+                      onClick={() => setDraftRatingOp(op)}
+                      className={[
+                        "flex min-h-9 w-9 items-center justify-center rounded-xl border text-[14px]",
+                        draftRatingOp === op
+                          ? "border-accent/30 bg-accent/15 font-semibold text-accent"
+                          : "border-border text-text-2",
+                      ].join(" ")}
+                    >
+                      {OP_SYMBOL[op]}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-4 rounded-xl bg-surface-muted px-4 py-2">
+                    <button
+                      type="button"
+                      className="text-[20px] font-light text-text-2 active:text-foreground"
+                      onClick={() =>
+                        setDraftRatingVal((v) => (v === null || v <= 1 ? null : v - 1))
+                      }
+                    >
+                      −
+                    </button>
+                    <span className="tabnum min-w-[20px] text-center text-[20px] font-semibold text-accent">
+                      {draftRatingVal ?? "—"}
+                    </span>
+                    <button
+                      type="button"
+                      className="text-[20px] font-light text-text-2 active:text-foreground"
+                      onClick={() =>
+                        setDraftRatingVal((v) => (v === null ? 7 : Math.min(v + 1, 10)))
+                      }
+                    >
+                      +
+                    </button>
+                  </div>
+                  {draftRatingVal !== null ? (
+                    <span className="text-[12px] text-text-faint">
+                      rated {OP_SYMBOL[draftRatingOp]} {draftRatingVal}
+                    </span>
+                  ) : (
+                    <span className="text-[12px] text-text-faint">tap + to set a rating filter</span>
+                  )}
+                </div>
+              </SheetSection>
+
+              <SheetSectionDivider />
+
+              {availableTags.length > 0 && (
+                <>
+                  <SheetSection>
+                    <SheetSectionHeader>Tags</SheetSectionHeader>
+                    <SheetScrollBleed className="flex gap-2 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      {availableTags.map((tag) => {
+                        const active = draftTags.has(tag.name);
+                        return (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => toggleDraftTag(tag.name)}
+                            className={[
+                              "min-h-9 shrink-0 rounded-full border px-3 text-[13px]",
+                              active
+                                ? "border-accent/30 bg-accent/15 font-semibold text-accent"
+                                : "border-border text-text-2",
+                            ].join(" ")}
+                          >
+                            {tag.name}
+                          </button>
+                        );
+                      })}
+                    </SheetScrollBleed>
+                  </SheetSection>
+                  <SheetSectionDivider />
+                </>
+              )}
+
+              {filterOptions.genres.length > 0 && (
+                <>
+                  <SheetSection>
+                    <SheetSectionHeader>Genre</SheetSectionHeader>
+                    <div className="flex flex-wrap gap-2">
+                      {filterOptions.genres.slice(0, 12).map((genre) => (
+                        <FilterChip
+                          key={genre.key}
+                          active={draftGenre === genre.label}
+                          label={genre.label}
+                          count={genre.count}
+                          onClick={() => setDraftGenre((current) => current === genre.label ? undefined : genre.label)}
+                        />
+                      ))}
+                    </div>
+                  </SheetSection>
+                  <SheetSectionDivider />
+                </>
+              )}
+
+              {filterOptions.languages.length > 0 && (
+                <>
+                  <SheetSection>
+                    <SheetSectionHeader>Language</SheetSectionHeader>
+                    <div className="flex flex-wrap gap-2">
+                      {filterOptions.languages.slice(0, 12).map((language) => (
+                        <FilterChip
+                          key={language.key}
+                          active={draftLanguage === language.key}
+                          label={language.label}
+                          count={language.count}
+                          onClick={() => setDraftLanguage((current) => current === language.key ? undefined : language.key)}
+                        />
+                      ))}
+                    </div>
+                  </SheetSection>
+                  <SheetSectionDivider />
+                </>
+              )}
+
+              {filterOptions.years.length > 0 && (
+                <>
+                  <SheetSection>
+                    <SheetSectionHeader>Watched date</SheetSectionHeader>
+                    <button
+                      type="button"
+                      onClick={() => setFilterSheetView("date")}
+                      className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-border px-3 text-left active:bg-tap-active"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-[15px] font-semibold text-foreground">
+                          {draftDateLabel}
+                        </span>
+                        <span className="block text-[12px] text-text-faint">
+                          Change watched date
+                        </span>
+                      </span>
+                      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-text-faint" strokeWidth={2.2} />
+                    </button>
+                  </SheetSection>
+                  <SheetSectionDivider />
+                </>
+              )}
+
+              <div className="mx-5 mt-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={clearDraftFilters}
+                  disabled={!hasDraftFilter}
+                  className="flex h-11 flex-1 items-center justify-center rounded-xl border border-border text-[15px] font-medium text-text-2 disabled:opacity-40"
+                >
+                  Clear filters
+                </button>
+                <button
+                  type="button"
+                  onClick={applyFilters}
+                  className="flex h-11 flex-[1.6] items-center justify-center rounded-xl bg-accent text-[15px] font-semibold text-black"
+                >
+                  Apply filters
+                </button>
+              </div>
+            </>
+          )}
         </BottomSheet>
       )}
     </>
@@ -1038,6 +1164,38 @@ function countActiveFilters(filters: MovieLibraryActiveFilters) {
   if (filters.ratingVal !== null) count += 1;
   if (filters.month || filters.year) count += 1;
   return count;
+}
+
+function activeFilterChipItems(filters: MovieLibraryActiveFilters): Array<{
+  kind: "genre" | "language" | "tag" | "rating" | "date";
+  label: string;
+  value?: string;
+}> {
+  const chips: Array<{
+    kind: "genre" | "language" | "tag" | "rating" | "date";
+    label: string;
+    value?: string;
+  }> = [];
+
+  if (filters.month) {
+    chips.push({ kind: "date", label: monthLabel(filters.month) });
+  } else if (filters.year) {
+    chips.push({ kind: "date", label: filters.year });
+  }
+  if (filters.ratingVal !== null) {
+    chips.push({ kind: "rating", label: `Rating ${OP_SYMBOL[filters.ratingOp]} ${filters.ratingVal}` });
+  }
+  for (const tag of filters.tags) {
+    chips.push({ kind: "tag", label: tag, value: tag });
+  }
+  if (filters.genre) {
+    chips.push({ kind: "genre", label: filters.genre });
+  }
+  if (filters.language) {
+    chips.push({ kind: "language", label: languageLabel(filters.language) });
+  }
+
+  return chips;
 }
 
 function summarizeFilters(filters: MovieLibraryActiveFilters) {

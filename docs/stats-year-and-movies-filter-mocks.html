@@ -1,0 +1,770 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nodi Stats Year and Movies Filter Mocks</title>
+  <style>
+    :root {
+      --bg: #f7f3ee;
+      --surface: #fffaf4;
+      --ink: #171717;
+      --muted: #7b736a;
+      --faint: #aaa198;
+      --line: #e5ddd3;
+      --accent: #0f766e;
+      --accent-soft: #d9f0ec;
+      --watched: #1d4ed8;
+      --danger: #b91c1c;
+      --shadow: 0 18px 60px rgba(28, 24, 20, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(320px, 430px));
+      gap: 28px;
+      align-items: start;
+      justify-content: center;
+      padding: 32px 20px;
+    }
+
+    .mock {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .phone {
+      min-height: 760px;
+      padding: 20px 16px 24px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      padding-bottom: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 32px;
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .select-pill,
+    .button-pill,
+    .icon-button {
+      min-height: 32px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .select-pill {
+      max-width: 142px;
+      padding: 0 28px 0 10px;
+      appearance: none;
+      background-image:
+        linear-gradient(45deg, transparent 50%, currentColor 50%),
+        linear-gradient(135deg, currentColor 50%, transparent 50%);
+      background-position:
+        calc(100% - 14px) 14px,
+        calc(100% - 9px) 14px;
+      background-size: 5px 5px, 5px 5px;
+      background-repeat: no-repeat;
+    }
+
+    .select-pill.active,
+    .button-pill.active {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .icon-button {
+      width: 32px;
+      padding: 0;
+      color: var(--ink);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1.4fr 1fr;
+      row-gap: 18px;
+      padding-bottom: 18px;
+    }
+
+    .metric {
+      min-width: 0;
+      padding-right: 10px;
+    }
+
+    .metric + .metric {
+      border-left: 1px solid var(--line);
+      padding-left: 12px;
+    }
+
+    .metric:nth-child(4) {
+      border-left: 0;
+      padding-left: 0;
+    }
+
+    .metric-value {
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 22px;
+      font-weight: 750;
+      line-height: 1.12;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric.secondary .metric-value {
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    .metric-label {
+      margin-top: 3px;
+      overflow: hidden;
+      color: var(--faint);
+      font-size: 11px;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--line);
+    }
+
+    .section {
+      padding: 16px 0;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 36px;
+      margin-bottom: 10px;
+    }
+
+    .segmented {
+      display: flex;
+      gap: 2px;
+      border-radius: 12px;
+      background: #efe7dd;
+      padding: 4px;
+    }
+
+    .segmented button {
+      min-height: 32px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      padding: 0 12px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .segmented button.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .chart {
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .chart::-webkit-scrollbar {
+      display: none;
+    }
+
+    .bars {
+      display: flex;
+      align-items: end;
+      gap: 5px;
+      height: 132px;
+      min-width: 100%;
+      padding: 18px 0 18px;
+    }
+
+    .bar-col {
+      display: flex;
+      flex: 0 0 33px;
+      height: 100%;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .bar-col.year {
+      flex-basis: 52px;
+    }
+
+    .count {
+      min-height: 14px;
+      color: var(--faint);
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bar {
+      width: 100%;
+      min-height: 2px;
+      border-radius: 6px 6px 2px 2px;
+      background: var(--watched);
+      opacity: 0.95;
+    }
+
+    .label {
+      width: 100%;
+      overflow: hidden;
+      color: var(--faint);
+      font-size: 10px;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .year-context {
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 750;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .treemap {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr 0.8fr;
+      gap: 3px;
+      height: 130px;
+    }
+
+    .tile {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      justify-content: flex-end;
+      border-radius: 6px;
+      padding: 7px;
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.15;
+    }
+
+    .tile span:last-child {
+      margin-top: 2px;
+      opacity: 0.75;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    .filter-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 4px 0 16px;
+    }
+
+    .active-filters {
+      display: flex;
+      min-width: 0;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      border-radius: 8px;
+      background: #efe7dd;
+      color: var(--muted);
+      padding: 0 9px;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .chip.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .poster {
+      aspect-ratio: 2 / 3;
+      border-radius: 8px;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.12), rgba(0,0,0,0.18)),
+        var(--poster);
+    }
+
+    .sheet {
+      margin-top: 18px;
+      border-top: 1px solid var(--line);
+      background: #fffdf9;
+      padding: 16px 0 0;
+    }
+
+    .sheet-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .sheet-title strong {
+      font-size: 19px;
+      line-height: 1.2;
+    }
+
+    .filter-section {
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .filter-section:first-of-type {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .field {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .stepper,
+    .mini-select {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: transparent;
+      padding: 0 10px;
+      color: var(--ink);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .tag-list,
+    .option-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .nav-row {
+      min-height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0 12px;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    .nav-row span {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .sheet-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding-top: 14px;
+    }
+
+    .primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: white;
+    }
+
+    .date-panel {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface);
+      padding: 14px;
+    }
+
+    .date-panel.hidden {
+      display: none;
+    }
+
+    .back-button {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      padding: 0;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .hint {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    @media (max-width: 860px) {
+      main {
+        grid-template-columns: minmax(320px, 430px);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <article class="mock phone" aria-labelledby="stats-title">
+      <div class="topbar">
+        <h1 id="stats-title">Stats</h1>
+        <div class="actions">
+          <select id="tag-filter" class="select-pill">
+            <option>All movies</option>
+            <option>Noir</option>
+            <option>Comfort</option>
+            <option>With Anu</option>
+          </select>
+          <select id="year-filter" class="select-pill">
+            <option value="">All time</option>
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+            <option value="2024">2024</option>
+          </select>
+          <button class="icon-button" aria-label="Settings">...</button>
+        </div>
+      </div>
+
+      <div class="metrics" id="stats-metrics"></div>
+      <div class="divider"></div>
+
+      <section class="section">
+        <div class="section-head">
+          <h2>Over time</h2>
+          <div id="time-control"></div>
+        </div>
+        <div class="chart">
+          <div class="bars" id="bars"></div>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+      <section class="section">
+        <div class="section-head">
+          <h2>By genre</h2>
+        </div>
+        <div class="treemap">
+          <div class="tile" style="background:#1d4ed8"><span>Drama</span><span id="genre-a">32</span></div>
+          <div class="tile" style="background:#0f766e"><span>Thriller</span><span id="genre-b">21</span></div>
+          <div class="tile" style="background:#be123c"><span>Comedy</span><span id="genre-c">14</span></div>
+        </div>
+      </section>
+    </article>
+
+    <article class="mock phone" aria-labelledby="movies-title">
+      <div class="topbar">
+        <div>
+          <h1 id="movies-title">Movies</h1>
+          <p class="hint">From Stats</p>
+        </div>
+        <button class="icon-button" aria-label="Select">+</button>
+      </div>
+
+      <div class="filter-toolbar">
+        <div class="active-filters">
+          <span class="chip active">2026 x</span>
+          <span class="chip active">Noir x</span>
+        </div>
+        <div class="actions">
+          <button class="button-pill">Sort</button>
+          <button class="button-pill active">Filter</button>
+        </div>
+      </div>
+
+      <div class="grid" aria-label="Movie poster grid">
+        <div class="poster" style="--poster:#1f2937"></div>
+        <div class="poster" style="--poster:#7f1d1d"></div>
+        <div class="poster" style="--poster:#0f3d3e"></div>
+        <div class="poster" style="--poster:#4c1d95"></div>
+        <div class="poster" style="--poster:#78350f"></div>
+        <div class="poster" style="--poster:#164e63"></div>
+      </div>
+
+      <section class="sheet" aria-label="Filter sheet mock">
+        <div class="sheet-title">
+          <strong>Filter</strong>
+          <button class="button-pill">Close</button>
+        </div>
+
+        <div class="filter-section">
+          <h2>Rating</h2>
+          <div class="row" style="margin-top:10px">
+            <div class="field">
+              <select class="mini-select" aria-label="Rating operator">
+                <option>Greater than or equal</option>
+                <option>Equals</option>
+                <option>Less than</option>
+              </select>
+              <input class="stepper" type="number" min="1" max="10" step="0.5" value="7.0" aria-label="Rating">
+            </div>
+          </div>
+        </div>
+
+        <div class="filter-section">
+          <h2>Tags</h2>
+          <div class="tag-list">
+            <span class="chip active">Noir</span>
+            <span class="chip">Comfort</span>
+            <span class="chip">Sci-fi</span>
+            <span class="chip">Festival</span>
+            <span class="chip">Rewatch</span>
+          </div>
+        </div>
+
+        <div class="filter-section">
+          <h2>Genre and language</h2>
+          <div class="field" style="margin-top:10px">
+            <select class="mini-select" aria-label="Genre">
+              <option>Any genre</option>
+              <option>Drama</option>
+              <option>Thriller</option>
+            </select>
+            <select class="mini-select" aria-label="Language">
+              <option>Any language</option>
+              <option>Japanese</option>
+              <option>Korean</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="filter-section">
+          <h2>Watched date</h2>
+          <button id="date-open" class="row nav-row" style="width:100%; margin-top:10px">
+            <strong>2026</strong>
+            <span>Change date filter ></span>
+          </button>
+
+          <div id="date-panel" class="date-panel hidden">
+            <div class="sheet-title">
+              <button id="date-back" class="back-button">&lt; Back</button>
+              <strong>Watched date</strong>
+            </div>
+            <div class="filter-section">
+              <h2>Quick</h2>
+              <div class="option-grid">
+                <span class="chip">All time</span>
+                <span class="chip active">This year</span>
+                <span class="chip">Last year</span>
+              </div>
+            </div>
+            <div class="filter-section">
+              <h2>Year</h2>
+              <div class="option-grid">
+                <span class="chip active">2026</span>
+                <span class="chip">2025</span>
+                <span class="chip">2024</span>
+                <span class="chip">2023</span>
+              </div>
+            </div>
+            <div class="filter-section">
+              <h2>Month</h2>
+              <div class="option-grid">
+                <span class="chip">Jan</span>
+                <span class="chip">Feb</span>
+                <span class="chip">Mar</span>
+                <span class="chip">Apr</span>
+                <span class="chip">May</span>
+                <span class="chip">Jun</span>
+                <span class="chip">Jul</span>
+                <span class="chip">Aug</span>
+                <span class="chip">Sep</span>
+                <span class="chip">Oct</span>
+                <span class="chip">Nov</span>
+                <span class="chip">Dec</span>
+              </div>
+            </div>
+            <div class="sheet-actions">
+              <button class="button-pill">Clear date</button>
+              <button class="button-pill primary">Done</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sheet-actions">
+          <button class="button-pill">Clear</button>
+          <button class="button-pill primary">Apply</button>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <script>
+    const metrics = document.getElementById("stats-metrics");
+    const bars = document.getElementById("bars");
+    const timeControl = document.getElementById("time-control");
+    const yearFilter = document.getElementById("year-filter");
+    const tagFilter = document.getElementById("tag-filter");
+    const dateOpen = document.getElementById("date-open");
+    const dateBack = document.getElementById("date-back");
+    const datePanel = document.getElementById("date-panel");
+
+    const allTimeMonths = [
+      ["Jan '24", 3], ["Feb", 5], ["Mar", 2], ["Apr", 8], ["May", 7], ["Jun", 4],
+      ["Jul", 9], ["Aug", 3], ["Sep", 5], ["Oct", 10], ["Nov", 6], ["Dec", 4],
+      ["Jan '25", 6], ["Feb", 8], ["Mar", 11], ["Apr", 7], ["May", 9], ["Jun", 3],
+      ["Jul", 6], ["Aug", 12], ["Sep", 5], ["Oct", 7], ["Nov", 8], ["Dec", 6],
+      ["Jan '26", 7], ["Feb", 9], ["Mar", 4], ["Apr", 12], ["May", 10]
+    ];
+
+    const allTimeYears = [["2024", 66], ["2025", 88], ["2026", 42]];
+    const yearMonths = [
+      ["Jan", 7], ["Feb", 9], ["Mar", 4], ["Apr", 12], ["May", 10], ["Jun", 0],
+      ["Jul", 0], ["Aug", 0], ["Sep", 0], ["Oct", 0], ["Nov", 0], ["Dec", 0]
+    ];
+
+    let timeView = "month";
+
+    function metricHtml(value, label, secondary) {
+      return `
+        <div class="metric ${secondary ? "secondary" : ""}">
+          <div class="metric-value">${value}</div>
+          <div class="metric-label">${label}</div>
+        </div>
+      `;
+    }
+
+    function renderStats() {
+      const year = yearFilter.value;
+      const tag = tagFilter.value;
+      const isTagged = tag !== "All movies";
+
+      tagFilter.classList.toggle("active", isTagged);
+      yearFilter.classList.toggle("active", Boolean(year));
+
+      if (year) {
+        metrics.innerHTML = [
+          metricHtml(isTagged ? "9" : "42", "Movies", false),
+          metricHtml(isTagged ? "16h 40m" : "3d 6h", "Time watched", false),
+          metricHtml(isTagged ? "8.7" : "8.4", "Avg rating", false),
+          metricHtml(isTagged ? "Noir 9" : "Thriller 11", "Fav genre", true),
+          metricHtml("1h 49m", "Avg runtime", true),
+          metricHtml("2000s", "Fav decade", true)
+        ].join("");
+        timeControl.innerHTML = `<span class="year-context">${year}</span>`;
+        renderBars(yearMonths, "month");
+      } else {
+        metrics.innerHTML = [
+          metricHtml(isTagged ? "31" : "128", "Movies", false),
+          metricHtml(isTagged ? "2d 18h" : "10d 4h", "Time watched", false),
+          metricHtml(isTagged ? "8.5" : "8.1", "Avg rating", false),
+          metricHtml(isTagged ? "Noir 31" : "Drama 32", "Fav genre", true),
+          metricHtml("1h 52m", "Avg runtime", true),
+          metricHtml("1990s", "Fav decade", true)
+        ].join("");
+        timeControl.innerHTML = `
+          <div class="segmented">
+            <button type="button" data-view="month" class="${timeView === "month" ? "active" : ""}">Month</button>
+            <button type="button" data-view="year" class="${timeView === "year" ? "active" : ""}">Year</button>
+          </div>
+        `;
+        renderBars(timeView === "month" ? allTimeMonths : allTimeYears, timeView);
+        timeControl.querySelectorAll("button").forEach((button) => {
+          button.addEventListener("click", () => {
+            timeView = button.dataset.view;
+            renderStats();
+          });
+        });
+      }
+    }
+
+    function renderBars(items, view) {
+      const max = Math.max(...items.map((item) => item[1]), 1);
+      bars.innerHTML = items.map(([label, count]) => {
+        const height = count > 0 ? Math.max((count / max) * 66, 5) : 2;
+        return `
+          <div class="bar-col ${view === "year" ? "year" : ""}">
+            <span class="count">${count || ""}</span>
+            <span class="bar" style="height:${height}px; opacity:${count ? 0.95 : 0.16}"></span>
+            <span class="label">${label}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    yearFilter.addEventListener("change", renderStats);
+    tagFilter.addEventListener("change", renderStats);
+    dateOpen.addEventListener("click", () => datePanel.classList.remove("hidden"));
+    dateBack.addEventListener("click", () => datePanel.classList.add("hidden"));
+
+    renderStats();
+  </script>
+</body>
+</html>
