@@ -127,8 +127,8 @@ export function MovieDetailView({
       ? {
           label: "TMDB rating",
           value: tmdbRating.voteCount
-            ? `${tmdbRating.value} / 10 · ${tmdbRating.voteCount.toLocaleString()} votes`
-            : `${tmdbRating.value} / 10`,
+            ? `${tmdbRating.value} · ${tmdbRating.voteCount.toLocaleString()} votes`
+            : `${tmdbRating.value}`,
         }
       : null,
   ].filter((row): row is { label: string; value: string } => row !== null);
@@ -344,14 +344,14 @@ function TmdbRatingBadge({ rating }: { rating: TmdbRating }) {
 
   return (
     <span
-      className="inline-flex h-7 max-w-full shrink-0 items-center overflow-hidden rounded-lg border border-border bg-surface align-middle text-[12px] font-semibold text-text-2"
+      className="inline-flex h-6 max-w-full shrink-0 items-center gap-1.5 overflow-hidden rounded-md border border-border bg-background px-2 align-middle text-[11px] font-medium leading-none text-text-muted"
       title={`TMDB rating: ${rating.value}${voteLabel}`}
       aria-label={`TMDB rating ${rating.value}${voteLabel}`}
     >
-      <span className="flex h-full items-center bg-tmdb-brand px-1.5 text-[10px] font-black tracking-normal text-white">
+      <span className="text-[9px] font-semibold uppercase tracking-normal text-text-faint">
         TMDB
       </span>
-      <span className="tabnum px-1.5">{rating.value}</span>
+      <span className="tabnum text-text-2">{rating.value}</span>
     </span>
   );
 }
