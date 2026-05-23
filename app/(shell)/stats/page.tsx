@@ -169,7 +169,16 @@ export default async function StatsPage({
           <div className="h-px bg-divider" />
 
           <StatsBreakdownSection title="By rating">
-            <RatingDistribution breakdown={stats.ratingBreakdown} />
+            <RatingDistribution
+              breakdown={stats.ratingBreakdown}
+              hrefForRating={(rating) => moviesFilterHref({
+                rating,
+                ratingOp: "=",
+                tag: tagFilter,
+                year: yearFilter,
+                returnTo: statsHref,
+              })}
+            />
           </StatsBreakdownSection>
 
           <div className="h-px bg-divider" />
@@ -422,7 +431,13 @@ function LanguageDonut({
   );
 }
 
-function RatingDistribution({ breakdown }: { breakdown: LibraryStatsRatingBucket[] }) {
+function RatingDistribution({
+  breakdown,
+  hrefForRating,
+}: {
+  breakdown: LibraryStatsRatingBucket[];
+  hrefForRating: (rating: number) => string;
+}) {
   const hasRatings = breakdown.some((b) => b.count > 0);
   const maxCount = Math.max(...breakdown.map((b) => b.count), 1);
 
@@ -432,18 +447,35 @@ function RatingDistribution({ breakdown }: { breakdown: LibraryStatsRatingBucket
 
   return (
     <div className="flex items-end gap-1.5" style={{ height: 80, paddingTop: 16 }}>
-      {breakdown.map(({ rating, count }) => (
-        <div key={rating} className="flex flex-1 flex-col items-center gap-1">
-          <div
-            className="w-full rounded-t-sm bg-accent transition-all"
-            style={{
-              height: count > 0 ? `${Math.max((count / maxCount) * 44, 3)}px` : "2px",
-              opacity: count > 0 ? 1 : 0.12,
-            }}
-          />
-          <span className="tabnum text-[10px] text-text-faint">{rating}</span>
-        </div>
-      ))}
+      {breakdown.map(({ rating, count }) => {
+        const content = (
+          <>
+            <div
+              className="w-full rounded-t-sm bg-accent transition-all"
+              style={{
+                height: count > 0 ? `${Math.max((count / maxCount) * 44, 3)}px` : "2px",
+                opacity: count > 0 ? 1 : 0.12,
+              }}
+            />
+            <span className="tabnum text-[10px] text-text-faint">{rating}</span>
+          </>
+        );
+
+        return count > 0 ? (
+          <Link
+            key={rating}
+            href={hrefForRating(rating)}
+            className="flex flex-1 flex-col items-center gap-1"
+            aria-label={`View ${rating} rated movies`}
+          >
+            {content}
+          </Link>
+        ) : (
+          <div key={rating} className="flex flex-1 flex-col items-center gap-1">
+            {content}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -454,6 +486,8 @@ function moviesFilterHref({
   tag,
   month,
   year,
+  rating,
+  ratingOp,
   returnTo,
 }: {
   genre?: string;
@@ -461,6 +495,8 @@ function moviesFilterHref({
   tag?: string;
   month?: string;
   year?: string;
+  rating?: number;
+  ratingOp?: "=";
   returnTo: string;
 }) {
   const params = new URLSearchParams();
@@ -471,6 +507,10 @@ function moviesFilterHref({
   if (language) params.set("language", language);
   if (month) params.set("month", month);
   if (year) params.set("year", year);
+  if (rating !== undefined) {
+    params.set("ratingOp", ratingOp ?? "=");
+    params.set("rating", String(rating));
+  }
   return `/movies?${params.toString()}`;
 }
 

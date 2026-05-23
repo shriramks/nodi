@@ -104,12 +104,8 @@ export function MoviesOverTime({
             const barHeight = bucket.count > 0
               ? `${Math.max((Math.min(bucket.count, scaleMax) / scaleMax) * 64, 5)}px`
               : "2px";
-            return (
-              <div
-                key={bucket.key}
-                className="flex flex-col items-center justify-end gap-1"
-                style={{ width: barWidth, flexShrink: 0, height: "100%" }}
-              >
+            const bucketContent = (
+              <>
                 <span
                   className={`tabnum text-[10px] ${isOutlier ? "text-accent font-semibold" : "text-text-faint"}`}
                   style={{ minHeight: 14 }}
@@ -125,18 +121,6 @@ export function MoviesOverTime({
                   }}
                   aria-label={`${bucket.label}: ${bucket.count}`}
                 >
-                  {bucket.count > 0 && (
-                    <Link
-                      href={moviesTimeHref({
-                        view: activeView,
-                        key: bucket.key,
-                        tagFilter,
-                        returnTo,
-                      })}
-                      className="absolute inset-0"
-                      aria-label={`View ${bucket.label} movies`}
-                    />
-                  )}
                   {isOutlier && (
                     <span
                       className="absolute text-[9px] text-accent font-bold"
@@ -152,6 +136,31 @@ export function MoviesOverTime({
                 >
                   {yearFilter ? bucket.label : axisLabel(bucket.key, index)}
                 </span>
+              </>
+            );
+
+            return bucket.count > 0 ? (
+              <Link
+                key={bucket.key}
+                href={moviesTimeHref({
+                  view: activeView,
+                  key: bucket.key,
+                  tagFilter,
+                  returnTo,
+                })}
+                className="flex flex-col items-center justify-end gap-1"
+                style={{ width: barWidth, flexShrink: 0, height: "100%" }}
+                aria-label={`View ${bucket.label} movies`}
+              >
+                {bucketContent}
+              </Link>
+            ) : (
+              <div
+                key={bucket.key}
+                className="flex flex-col items-center justify-end gap-1"
+                style={{ width: barWidth, flexShrink: 0, height: "100%" }}
+              >
+                {bucketContent}
               </div>
             );
           })}
