@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  createSupabaseAdminClient: vi.fn(),
   createSupabaseServerClient: vi.fn(),
   createSyncEvent: vi.fn(),
   requireUser: vi.fn(),
@@ -12,6 +13,7 @@ vi.mock("@/lib/auth/server", () => ({
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseAdminClient: mocks.createSupabaseAdminClient,
   createSupabaseServerClient: mocks.createSupabaseServerClient,
 }));
 
@@ -27,6 +29,7 @@ import {
   addMediaMovieWatchDate,
   createAndAttachTagToMediaMovie,
   detachTagFromMediaMovie,
+  ingestPreparedTmdbShow,
   removeUserMediaMovie,
   setMediaMovieWatchStatus,
   updateMediaMovieRating,
@@ -71,6 +74,7 @@ function createQuery(result: unknown) {
     delete: vi.fn(),
     eq: vi.fn(),
     insert: vi.fn(),
+    in: vi.fn(),
     limit: vi.fn(),
     maybeSingle: vi.fn(),
     order: vi.fn(),
@@ -85,6 +89,7 @@ function createQuery(result: unknown) {
   query.delete.mockReturnValue(query);
   query.eq.mockReturnValue(query);
   query.insert.mockReturnValue(query);
+  query.in.mockReturnValue(query);
   query.limit.mockReturnValue(query);
   query.order.mockReturnValue(query);
   query.select.mockReturnValue(query);
@@ -115,6 +120,24 @@ function createSupabaseWithQueues(queriesByTable: Record<string, ReturnType<type
   return { from };
 }
 
+function createSupabaseAdminWithQueues(
+  queriesByTable: Record<string, ReturnType<typeof createQuery>[]>,
+) {
+  const from = vi.fn((table: string) => {
+    const query = queriesByTable[table]?.shift();
+
+    if (!query) {
+      throw new Error(`Unexpected admin table query: ${table}`);
+    }
+
+    return query;
+  });
+
+  mocks.createSupabaseAdminClient.mockReturnValue({ from });
+
+  return { from };
+}
+
 describe("media movie mutations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -127,6 +150,197 @@ describe("media movie mutations", () => {
       normalized_name: "noir",
       user_id: userId,
     });
+  });
+
+  it("ingests TMDB show metadata, episodes, and provider mappings", async () => {
+    const show = {
+      backdrop_path: "/backdrop.jpg",
+      created_at: "2026-05-26T00:00:00.000Z",
+      episode_count: 2,
+      first_air_date: "2008-01-20",
+      id: "50000000-0000-4000-8000-000000000000",
+      metadata_updated_at: "2026-05-26T00:00:00.000Z",
+      network: "AMC",
+      original_language: "en",
+      original_title: "Example Show",
+      overview: "Overview",
+      popularity: 100,
+      poster_path: "/poster.jpg",
+      primary_genre_id: 18,
+      primary_genre_name: "Drama",
+      release_date: null,
+      release_year: 2008,
+      runtime_minutes: 47,
+      season_count: 1,
+      studio: "High Bridge",
+      title: "Example Show",
+      tmdb_enriched_at: "2026-05-26T00:00:00.000Z",
+      tmdb_vote_average: 8.9,
+      tmdb_vote_count: 1000,
+      type: "show" as const,
+    };
+    const episodes = [
+      {
+        air_date: "2008-01-20",
+        created_at: "2026-05-26T00:00:00.000Z",
+        episode_number: 1,
+        id: "60000000-0000-4000-8000-000000000000",
+        metadata_updated_at: "2026-05-26T00:00:00.000Z",
+        overview: "Pilot overview",
+        poster_path: "/season.jpg",
+        runtime_minutes: 47,
+        season_number: 1,
+        show_id: show.id,
+        still_path: "/pilot.jpg",
+        title: "Pilot",
+      },
+      {
+        air_date: "2008-01-27",
+        created_at: "2026-05-26T00:00:00.000Z",
+        episode_number: 2,
+        id: "60000000-0000-4000-8000-000000000001",
+        metadata_updated_at: "2026-05-26T00:00:00.000Z",
+        overview: null,
+        poster_path: "/season.jpg",
+        runtime_minutes: 48,
+        season_number: 1,
+        show_id: show.id,
+        still_path: "/second.jpg",
+        title: "Second",
+      },
+    ];
+    const existingShowMapping = createQuery({ data: null, error: null });
+    const showUpsert = createQuery({ data: show, error: null });
+    const showMappingUpsert = createQuery({ data: null, error: null });
+    const existingEpisodeMappings = createQuery({ data: [], error: null });
+    const episodesUpsert = createQuery({ data: episodes, error: null });
+    const episodeMappingsUpsert = createQuery({ data: null, error: null });
+    const { from } = createSupabaseAdminWithQueues({
+      episodes: [episodesUpsert],
+      media_items: [showUpsert],
+      media_provider_mappings: [
+        existingShowMapping,
+        showMappingUpsert,
+        existingEpisodeMappings,
+        episodeMappingsUpsert,
+      ],
+    });
+
+    await expect(
+      ingestPreparedTmdbShow({
+        show: {
+          tmdbId: 1396,
+          title: "Example Show",
+          originalTitle: "Example Show",
+          firstAirDate: "2008-01-20",
+          primaryGenreId: 18,
+          primaryGenreName: "Drama",
+          originalLanguage: "en",
+          overview: "Overview",
+          posterPath: "/poster.jpg",
+          backdropPath: "/backdrop.jpg",
+          runtimeMinutes: 47,
+          tmdbVoteAverage: 8.9,
+          tmdbVoteCount: 1000,
+          popularity: 100,
+          studio: "High Bridge",
+          network: "AMC",
+          seasonCount: 1,
+          episodeCount: 2,
+        },
+        episodes: [
+          {
+            tmdbId: 62085,
+            seasonNumber: 1,
+            episodeNumber: 1,
+            title: "Pilot",
+            airDate: "2008-01-20",
+            runtimeMinutes: 47,
+            overview: "Pilot overview",
+            posterPath: "/season.jpg",
+            stillPath: "/pilot.jpg",
+          },
+          {
+            tmdbId: 62086,
+            seasonNumber: 1,
+            episodeNumber: 2,
+            title: "Second",
+            airDate: "2008-01-27",
+            runtimeMinutes: 48,
+            overview: null,
+            posterPath: "/season.jpg",
+            stillPath: "/second.jpg",
+          },
+        ],
+      }),
+    ).resolves.toEqual(show);
+
+    expect(from).toHaveBeenCalledWith("media_items");
+    expect(from).toHaveBeenCalledWith("episodes");
+    expect(existingShowMapping.eq).toHaveBeenCalledWith("provider_media_type", "show");
+    expect(existingShowMapping.eq).toHaveBeenCalledWith("provider_id", "1396");
+    expect(showUpsert.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        first_air_date: "2008-01-20",
+        network: "AMC",
+        release_date: null,
+        studio: "High Bridge",
+        title: "Example Show",
+        tmdb_vote_average: 8.9,
+        tmdb_vote_count: 1000,
+        type: "show",
+      }),
+      { onConflict: "id" },
+    );
+    expect(showMappingUpsert.upsert).toHaveBeenCalledWith(
+      {
+        episode_id: null,
+        media_id: show.id,
+        provider: "tmdb",
+        provider_id: "1396",
+        provider_media_type: "show",
+      },
+      { onConflict: "provider,provider_media_type,provider_id" },
+    );
+    expect(existingEpisodeMappings.in).toHaveBeenCalledWith("provider_id", ["62085", "62086"]);
+    expect(episodesUpsert.upsert).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          episode_number: 1,
+          season_number: 1,
+          show_id: show.id,
+          still_path: "/pilot.jpg",
+          title: "Pilot",
+        }),
+        expect.objectContaining({
+          episode_number: 2,
+          season_number: 1,
+          show_id: show.id,
+          still_path: "/second.jpg",
+          title: "Second",
+        }),
+      ],
+      { onConflict: "show_id,season_number,episode_number" },
+    );
+    expect(episodeMappingsUpsert.upsert).toHaveBeenCalledWith(
+      [
+        {
+          episode_id: episodes[0].id,
+          media_id: null,
+          provider: "tmdb",
+          provider_id: "62085",
+          provider_media_type: "episode",
+        },
+        {
+          episode_id: episodes[1].id,
+          media_id: null,
+          provider: "tmdb",
+          provider_id: "62086",
+          provider_media_type: "episode",
+        },
+      ],
+      { onConflict: "provider,provider_media_type,provider_id" },
+    );
   });
 
   it("marks watched through media tables and queues the current movie push event", async () => {

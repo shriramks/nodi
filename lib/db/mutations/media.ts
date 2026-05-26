@@ -6,7 +6,12 @@ import {
   shouldQueueOutboundSync,
 } from "@/lib/db/mutations/movie-state";
 import type {
+  Episode,
+  EpisodeInsert,
   Json,
+  MediaItem,
+  MediaItemInsert,
+  MediaProviderMappingInsert,
   MediaWatchActivity,
   UserMedia,
   UserMediaInsert,
@@ -16,7 +21,14 @@ import {
   validateUuid,
   validateWatchActionPayload,
 } from "@/lib/db/validation";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type {
+  TmdbShowIngestPayload,
+} from "@/lib/providers/tmdb/adapters";
+import {
+  toTmdbShowIngestPayload,
+} from "@/lib/providers/tmdb/adapters";
+import type { TmdbTvDetails, TmdbTvSeasonDetails } from "@/lib/providers/tmdb/client";
+import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSyncEvent } from "./sync";
 import { upsertTag } from "./tags";
 
@@ -25,6 +37,15 @@ type TraktSyncPayload = Record<string, Json>;
 type MediaMovieWatchStatusResult = {
   userMedia: UserMedia;
   watchActivity: MediaWatchActivity | null;
+};
+
+type ExistingMediaMappingRow = {
+  media_id: string | null;
+};
+
+type ExistingEpisodeMappingRow = {
+  episode_id: string | null;
+  provider_id: string;
 };
 
 function objectPayload(payload: unknown): Record<string, unknown> {
@@ -85,6 +106,193 @@ function requireWatchedAt(action: ReturnType<typeof validateWatchActionPayload>)
   }
 
   return action.watchedAt;
+}
+
+function showMediaItemInsert(
+  payload: TmdbShowIngestPayload["show"],
+  existingMediaId: string | null,
+  metadataTimestamp: string,
+): MediaItemInsert {
+  return {
+    id: existingMediaId ?? undefined,
+    type: "show",
+    title: payload.title,
+    original_title: payload.originalTitle,
+    release_date: null,
+    first_air_date: payload.firstAirDate,
+    primary_genre_id: payload.primaryGenreId,
+    primary_genre_name: payload.primaryGenreName,
+    original_language: payload.originalLanguage,
+    overview: payload.overview,
+    poster_path: payload.posterPath,
+    backdrop_path: payload.backdropPath,
+    runtime_minutes: payload.runtimeMinutes,
+    tmdb_vote_average: payload.tmdbVoteAverage,
+    tmdb_vote_count: payload.tmdbVoteCount,
+    popularity: payload.popularity,
+    studio: payload.studio,
+    network: payload.network,
+    season_count: payload.seasonCount,
+    episode_count: payload.episodeCount,
+    metadata_updated_at: metadataTimestamp,
+    tmdb_enriched_at: metadataTimestamp,
+  };
+}
+
+function episodeInsert(
+  showId: string,
+  episode: TmdbShowIngestPayload["episodes"][number],
+  existingEpisodeId: string | null,
+  metadataTimestamp: string,
+): EpisodeInsert {
+  return {
+    id: existingEpisodeId ?? undefined,
+    show_id: showId,
+    season_number: episode.seasonNumber,
+    episode_number: episode.episodeNumber,
+    title: episode.title,
+    air_date: episode.airDate,
+    runtime_minutes: episode.runtimeMinutes,
+    overview: episode.overview,
+    poster_path: episode.posterPath,
+    still_path: episode.stillPath,
+    metadata_updated_at: metadataTimestamp,
+  };
+}
+
+function episodeKey(episode: Pick<Episode, "season_number" | "episode_number">) {
+  return `${episode.season_number}:${episode.episode_number}`;
+}
+
+function payloadEpisodeKey(episode: TmdbShowIngestPayload["episodes"][number]) {
+  return `${episode.seasonNumber}:${episode.episodeNumber}`;
+}
+
+export async function ingestTmdbShow(
+  detail: TmdbTvDetails,
+  seasons: TmdbTvSeasonDetails[] = [],
+): Promise<MediaItem> {
+  return ingestPreparedTmdbShow(toTmdbShowIngestPayload(detail, seasons));
+}
+
+export async function ingestPreparedTmdbShow(
+  payload: TmdbShowIngestPayload,
+): Promise<MediaItem> {
+  const supabase = createSupabaseAdminClient();
+  const metadataTimestamp = new Date().toISOString();
+  const tmdbShowId = String(payload.show.tmdbId);
+
+  const { data: existingMapping, error: existingMappingError } = await supabase
+    .from("media_provider_mappings")
+    .select("media_id")
+    .eq("provider", "tmdb")
+    .eq("provider_media_type", "show")
+    .eq("provider_id", tmdbShowId)
+    .maybeSingle();
+
+  if (existingMappingError) {
+    throwDatabaseError("Failed to resolve existing TMDB show mapping.", existingMappingError);
+  }
+
+  const existingMediaId = (existingMapping as ExistingMediaMappingRow | null)?.media_id ?? null;
+  const { data: show, error: showError } = await supabase
+    .from("media_items")
+    .upsert(showMediaItemInsert(payload.show, existingMediaId, metadataTimestamp), {
+      onConflict: "id",
+    })
+    .select("*")
+    .single();
+
+  if (showError) {
+    throwDatabaseError("Failed to ingest TMDB show metadata.", showError);
+  }
+
+  const showMapping: MediaProviderMappingInsert = {
+    media_id: show.id,
+    episode_id: null,
+    provider: "tmdb",
+    provider_media_type: "show",
+    provider_id: tmdbShowId,
+  };
+  const { error: showMappingError } = await supabase
+    .from("media_provider_mappings")
+    .upsert(showMapping, { onConflict: "provider,provider_media_type,provider_id" });
+
+  if (showMappingError) {
+    throwDatabaseError("Failed to upsert TMDB show provider mapping.", showMappingError);
+  }
+
+  if (payload.episodes.length === 0) {
+    return show as MediaItem;
+  }
+
+  const episodeProviderIds = payload.episodes.map((episode) => String(episode.tmdbId));
+  const { data: existingEpisodeMappings, error: existingEpisodeMappingsError } = await supabase
+    .from("media_provider_mappings")
+    .select("episode_id, provider_id")
+    .eq("provider", "tmdb")
+    .eq("provider_media_type", "episode")
+    .in("provider_id", episodeProviderIds);
+
+  if (existingEpisodeMappingsError) {
+    throwDatabaseError("Failed to resolve existing TMDB episode mappings.", existingEpisodeMappingsError);
+  }
+
+  const existingEpisodeIdByTmdbId = new Map(
+    ((existingEpisodeMappings ?? []) as ExistingEpisodeMappingRow[])
+      .filter((mapping) => mapping.episode_id)
+      .map((mapping) => [mapping.provider_id, mapping.episode_id as string]),
+  );
+  const episodeRows = payload.episodes.map((episode) =>
+    episodeInsert(
+      show.id,
+      episode,
+      existingEpisodeIdByTmdbId.get(String(episode.tmdbId)) ?? null,
+      metadataTimestamp,
+    ),
+  );
+  const { data: episodes, error: episodesError } = await supabase
+    .from("episodes")
+    .upsert(episodeRows, { onConflict: "show_id,season_number,episode_number" })
+    .select("*");
+
+  if (episodesError) {
+    throwDatabaseError("Failed to ingest TMDB episode metadata.", episodesError);
+  }
+
+  const episodeProviderIdByKey = new Map(
+    payload.episodes.map((episode) => [payloadEpisodeKey(episode), String(episode.tmdbId)]),
+  );
+  const episodeMappingRows: MediaProviderMappingInsert[] = ((episodes ?? []) as Episode[])
+    .flatMap((episode) => {
+      const providerId = episodeProviderIdByKey.get(episodeKey(episode));
+
+      if (!providerId) {
+        return [];
+      }
+
+      return [
+        {
+          media_id: null,
+          episode_id: episode.id,
+          provider: "tmdb",
+          provider_media_type: "episode",
+          provider_id: providerId,
+        } satisfies MediaProviderMappingInsert,
+      ];
+    });
+
+  if (episodeMappingRows.length > 0) {
+    const { error: episodeMappingError } = await supabase
+      .from("media_provider_mappings")
+      .upsert(episodeMappingRows, { onConflict: "provider,provider_media_type,provider_id" });
+
+    if (episodeMappingError) {
+      throwDatabaseError("Failed to upsert TMDB episode provider mappings.", episodeMappingError);
+    }
+  }
+
+  return show as MediaItem;
 }
 
 async function refreshMovieMediaLastWatchedAt({

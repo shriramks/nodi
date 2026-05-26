@@ -5,6 +5,11 @@ import type {
   TmdbMovieDetails,
   TmdbMovieSearchResponse,
   TmdbMovieSearchResult,
+  TmdbTvDetails,
+  TmdbTvEpisodeDetails,
+  TmdbTvSearchResponse,
+  TmdbTvSearchResult,
+  TmdbTvSeasonDetails,
 } from "@/lib/providers/tmdb/client";
 
 export type LocalMovieSearchState = {
@@ -39,6 +44,29 @@ export type MovieSearchResponse = {
   results: MovieSearchResult[];
 };
 
+export type TvSearchResult = {
+  tmdbId: number;
+  title: string;
+  originalTitle: string | null;
+  firstAirDate: string | null;
+  firstAirYear: number | null;
+  originalLanguage: string | null;
+  posterPath: string | null;
+  backdropPath: string | null;
+  overviewSnippet: string | null;
+  genreIds: number[];
+  tmdbVoteAverage: number | null;
+  tmdbVoteCount: number | null;
+};
+
+export type TvSearchResponse = {
+  query: string;
+  page: number;
+  totalPages: number;
+  totalResults: number;
+  results: TvSearchResult[];
+};
+
 export type MovieCastPayload = {
   tmdb_person_id: number;
   name: string;
@@ -50,6 +78,44 @@ export type MovieCastPayload = {
 export type TmdbMovieIngestPayload = {
   movie: MoviePayload;
   cast: MovieCastPayload[];
+};
+
+export type TmdbShowPayload = {
+  tmdbId: number;
+  title: string;
+  originalTitle: string | null;
+  firstAirDate: string | null;
+  primaryGenreId: number | null;
+  primaryGenreName: string | null;
+  originalLanguage: string | null;
+  overview: string | null;
+  posterPath: string | null;
+  backdropPath: string | null;
+  runtimeMinutes: number | null;
+  tmdbVoteAverage: number | null;
+  tmdbVoteCount: number | null;
+  popularity: number | null;
+  studio: string | null;
+  network: string | null;
+  seasonCount: number | null;
+  episodeCount: number | null;
+};
+
+export type TmdbEpisodePayload = {
+  tmdbId: number;
+  seasonNumber: number;
+  episodeNumber: number;
+  title: string;
+  airDate: string | null;
+  runtimeMinutes: number | null;
+  overview: string | null;
+  posterPath: string | null;
+  stillPath: string | null;
+};
+
+export type TmdbShowIngestPayload = {
+  show: TmdbShowPayload;
+  episodes: TmdbEpisodePayload[];
 };
 
 function releaseYear(releaseDate: string | null | undefined) {
@@ -129,6 +195,38 @@ export function toMovieSearchResult(
   };
 }
 
+export function toTvSearchResponse(
+  query: string,
+  response: TmdbTvSearchResponse,
+): TvSearchResponse {
+  return {
+    query,
+    page: response.page,
+    totalPages: response.total_pages,
+    totalResults: response.total_results,
+    results: response.results.map(toTvSearchResult),
+  };
+}
+
+export function toTvSearchResult(result: TmdbTvSearchResult): TvSearchResult {
+  const firstAirDate = normalizeDate(result.first_air_date);
+
+  return {
+    tmdbId: result.id,
+    title: normalizeText(result.name) ?? "Untitled show",
+    originalTitle: normalizeText(result.original_name),
+    firstAirDate,
+    firstAirYear: releaseYear(firstAirDate),
+    originalLanguage: normalizeText(result.original_language),
+    posterPath: result.poster_path ?? null,
+    backdropPath: result.backdrop_path ?? null,
+    overviewSnippet: overviewSnippet(result.overview),
+    genreIds: result.genre_ids ?? [],
+    tmdbVoteAverage: oneDecimal(result.vote_average),
+    tmdbVoteCount: result.vote_count ?? null,
+  };
+}
+
 export function toMoviePayload(detail: TmdbMovieDetails): MoviePayload {
   const primaryGenre = detail.genres?.[0] ?? null;
 
@@ -149,6 +247,62 @@ export function toMoviePayload(detail: TmdbMovieDetails): MoviePayload {
     tmdbVoteCount: detail.vote_count ?? null,
     popularity: detail.popularity ?? null,
   };
+}
+
+export function toShowPayload(detail: TmdbTvDetails): TmdbShowPayload {
+  const primaryGenre = detail.genres?.[0] ?? null;
+  const runtime = detail.episode_run_time?.find((value) => value > 0) ?? null;
+
+  return {
+    tmdbId: detail.id,
+    title: normalizeText(detail.name) ?? "Untitled show",
+    originalTitle: normalizeText(detail.original_name),
+    firstAirDate: normalizeDate(detail.first_air_date),
+    primaryGenreId: primaryGenre?.id ?? null,
+    primaryGenreName: normalizeText(primaryGenre?.name),
+    originalLanguage: normalizeText(detail.original_language),
+    overview: normalizeText(detail.overview),
+    posterPath: detail.poster_path ?? null,
+    backdropPath: detail.backdrop_path ?? null,
+    runtimeMinutes: runtime,
+    tmdbVoteAverage: oneDecimal(detail.vote_average),
+    tmdbVoteCount: detail.vote_count ?? null,
+    popularity: detail.popularity ?? null,
+    studio: normalizeText(detail.production_companies?.[0]?.name),
+    network: normalizeText(detail.networks?.[0]?.name),
+    seasonCount: detail.number_of_seasons ?? null,
+    episodeCount: detail.number_of_episodes ?? null,
+  };
+}
+
+export function toEpisodePayload(
+  episode: TmdbTvEpisodeDetails,
+  seasonPosterPath: string | null = null,
+): TmdbEpisodePayload {
+  return {
+    tmdbId: episode.id,
+    seasonNumber: episode.season_number,
+    episodeNumber: episode.episode_number,
+    title: normalizeText(episode.name) ?? `Episode ${episode.episode_number}`,
+    airDate: normalizeDate(episode.air_date),
+    runtimeMinutes: episode.runtime && episode.runtime > 0 ? episode.runtime : null,
+    overview: normalizeText(episode.overview),
+    posterPath: seasonPosterPath,
+    stillPath: episode.still_path ?? null,
+  };
+}
+
+export function toSeasonEpisodePayloads(season: TmdbTvSeasonDetails): TmdbEpisodePayload[] {
+  return (season.episodes ?? [])
+    .filter((episode) => episode.id > 0 && episode.season_number >= 0 && episode.episode_number > 0)
+    .sort((a, b) => {
+      if (a.season_number !== b.season_number) {
+        return a.season_number - b.season_number;
+      }
+
+      return a.episode_number - b.episode_number;
+    })
+    .map((episode) => toEpisodePayload(episode, season.poster_path ?? null));
 }
 
 export function toMovieCastPayloads(credits: TmdbMovieCredits, limit = 12): MovieCastPayload[] {
@@ -172,5 +326,21 @@ export function toTmdbMovieIngestPayload(
   return {
     movie: toMoviePayload(detail),
     cast: toMovieCastPayloads(credits),
+  };
+}
+
+export function toTmdbShowIngestPayload(
+  detail: TmdbTvDetails,
+  seasons: TmdbTvSeasonDetails[] = [],
+): TmdbShowIngestPayload {
+  const episodesByKey = new Map<string, TmdbEpisodePayload>();
+
+  seasons.flatMap(toSeasonEpisodePayloads).forEach((episode) => {
+    episodesByKey.set(`${episode.seasonNumber}:${episode.episodeNumber}`, episode);
+  });
+
+  return {
+    show: toShowPayload(detail),
+    episodes: Array.from(episodesByKey.values()),
   };
 }

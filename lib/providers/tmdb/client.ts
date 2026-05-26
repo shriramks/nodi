@@ -34,6 +34,30 @@ export type TmdbMovieSearchResponse = {
 
 export type TmdbMovieListResponse = TmdbMovieSearchResponse;
 
+export type TmdbTvSearchResult = {
+  adult?: boolean;
+  backdrop_path?: string | null;
+  first_air_date?: string;
+  genre_ids?: number[];
+  id: number;
+  name: string;
+  origin_country?: string[];
+  original_language?: string;
+  original_name: string;
+  overview?: string;
+  popularity?: number;
+  poster_path?: string | null;
+  vote_average?: number;
+  vote_count?: number;
+};
+
+export type TmdbTvSearchResponse = {
+  page: number;
+  results: TmdbTvSearchResult[];
+  total_pages: number;
+  total_results: number;
+};
+
 export type TmdbMovieDetails = {
   id: number;
   imdb_id?: string | null;
@@ -58,6 +82,106 @@ export type TmdbMovieDetails = {
     id: number;
     name: string;
   }>;
+};
+
+export type TmdbTvNetwork = {
+  id: number;
+  name: string;
+  logo_path?: string | null;
+  origin_country?: string | null;
+};
+
+export type TmdbTvProductionCompany = {
+  id: number;
+  name: string;
+  logo_path?: string | null;
+  origin_country?: string | null;
+};
+
+export type TmdbTvSeasonSummary = {
+  air_date?: string | null;
+  episode_count?: number | null;
+  id: number;
+  name?: string | null;
+  overview?: string | null;
+  poster_path?: string | null;
+  season_number: number;
+  vote_average?: number | null;
+};
+
+export type TmdbTvDetails = {
+  adult?: boolean;
+  backdrop_path?: string | null;
+  episode_run_time?: number[];
+  first_air_date?: string | null;
+  genres?: Array<{
+    id: number;
+    name: string;
+  }>;
+  homepage?: string | null;
+  id: number;
+  in_production?: boolean;
+  languages?: string[];
+  last_air_date?: string | null;
+  name: string;
+  networks?: TmdbTvNetwork[];
+  number_of_episodes?: number | null;
+  number_of_seasons?: number | null;
+  origin_country?: string[];
+  original_language?: string | null;
+  original_name?: string | null;
+  overview?: string | null;
+  popularity?: number | null;
+  poster_path?: string | null;
+  production_companies?: TmdbTvProductionCompany[];
+  seasons?: TmdbTvSeasonSummary[];
+  status?: string | null;
+  tagline?: string | null;
+  type?: string | null;
+  vote_average?: number | null;
+  vote_count?: number | null;
+};
+
+export type TmdbTvEpisodeDetails = {
+  air_date?: string | null;
+  crew?: Array<{
+    id: number;
+    name: string;
+    job?: string | null;
+    department?: string | null;
+    profile_path?: string | null;
+  }>;
+  episode_number: number;
+  episode_type?: string | null;
+  guest_stars?: Array<{
+    id: number;
+    name: string;
+    character?: string | null;
+    profile_path?: string | null;
+    order?: number | null;
+  }>;
+  id: number;
+  name?: string | null;
+  overview?: string | null;
+  production_code?: string | null;
+  runtime?: number | null;
+  season_number: number;
+  show_id?: number;
+  still_path?: string | null;
+  vote_average?: number | null;
+  vote_count?: number | null;
+};
+
+export type TmdbTvSeasonDetails = {
+  _id?: string;
+  air_date?: string | null;
+  episodes?: TmdbTvEpisodeDetails[];
+  id: number;
+  name?: string | null;
+  overview?: string | null;
+  poster_path?: string | null;
+  season_number: number;
+  vote_average?: number | null;
 };
 
 export type TmdbMovieAppendToResponse =
@@ -165,6 +289,8 @@ type SearchTmdbMoviesOptions = {
   language?: string | null;
 };
 
+type SearchTmdbTvOptions = SearchTmdbMoviesOptions;
+
 type DiscoverTmdbMoviesOptions = {
   language?: string | null;
   page?: number;
@@ -253,6 +379,19 @@ export function searchTmdbMovies({
   });
 }
 
+export function searchTmdbTv({
+  query,
+  page = 1,
+  language,
+}: SearchTmdbTvOptions) {
+  return fetchTmdbJson<TmdbTvSearchResponse>("/search/tv", {
+    query,
+    page,
+    language,
+    include_adult: false,
+  });
+}
+
 export function getTmdbMovieDetails(tmdbId: number, language?: string | null) {
   return fetchTmdbJson<TmdbMovieDetails>(`/movie/${tmdbId}`, {
     language,
@@ -267,6 +406,77 @@ export function getTmdbMovieDetailsWithAuth(
   return fetchTmdbJsonWithAuth<TmdbMovieDetails>(auth, `/movie/${tmdbId}`, {
     language,
   });
+}
+
+export function getTmdbTvDetails(tmdbId: number, language?: string | null) {
+  return fetchTmdbJson<TmdbTvDetails>(`/tv/${tmdbId}`, {
+    language,
+  });
+}
+
+export function getTmdbTvDetailsWithAuth(
+  auth: TmdbAuth,
+  tmdbId: number,
+  language?: string | null,
+) {
+  return fetchTmdbJsonWithAuth<TmdbTvDetails>(auth, `/tv/${tmdbId}`, {
+    language,
+  });
+}
+
+export function getTmdbTvSeasonDetails(
+  tmdbId: number,
+  seasonNumber: number,
+  language?: string | null,
+) {
+  return fetchTmdbJson<TmdbTvSeasonDetails>(`/tv/${tmdbId}/season/${seasonNumber}`, {
+    language,
+  });
+}
+
+export function getTmdbTvSeasonDetailsWithAuth(
+  auth: TmdbAuth,
+  tmdbId: number,
+  seasonNumber: number,
+  language?: string | null,
+) {
+  return fetchTmdbJsonWithAuth<TmdbTvSeasonDetails>(
+    auth,
+    `/tv/${tmdbId}/season/${seasonNumber}`,
+    {
+      language,
+    },
+  );
+}
+
+export function getTmdbTvEpisodeDetails(
+  tmdbId: number,
+  seasonNumber: number,
+  episodeNumber: number,
+  language?: string | null,
+) {
+  return fetchTmdbJson<TmdbTvEpisodeDetails>(
+    `/tv/${tmdbId}/season/${seasonNumber}/episode/${episodeNumber}`,
+    {
+      language,
+    },
+  );
+}
+
+export function getTmdbTvEpisodeDetailsWithAuth(
+  auth: TmdbAuth,
+  tmdbId: number,
+  seasonNumber: number,
+  episodeNumber: number,
+  language?: string | null,
+) {
+  return fetchTmdbJsonWithAuth<TmdbTvEpisodeDetails>(
+    auth,
+    `/tv/${tmdbId}/season/${seasonNumber}/episode/${episodeNumber}`,
+    {
+      language,
+    },
+  );
 }
 
 export function getTmdbMovieDetailsWithAppendedResponses(
