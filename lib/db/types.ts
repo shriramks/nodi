@@ -3,9 +3,13 @@ import type { JsonValue } from "@/lib/fetch";
 export type Json = JsonValue;
 
 export type MovieStatus = "watched" | "to_watch";
+export type MediaType = "movie" | "show";
+export type MediaStatus = "watching" | "watched" | "wishlist";
+export type MediaCompletionMode = "manual" | "auto_all_aired";
 export type WatchLogSource = "manual" | "trakt_sync" | "tmdb_sync" | "import";
 export type Provider = "trakt" | "tmdb";
 export type ProviderMappingProvider = Provider | "imdb";
+export type ProviderMediaType = MediaType | "episode";
 export type ProviderConnectionStatus = "active" | "revoked" | "error";
 export type SyncDirection = "push" | "pull";
 export type SyncEventStatus = "pending" | "success" | "error";
@@ -112,6 +116,138 @@ export type Database = {
         };
         Relationships: [];
       };
+      media_items: {
+        Row: {
+          id: string;
+          type: MediaType;
+          title: string;
+          original_title: string | null;
+          release_date: string | null;
+          first_air_date: string | null;
+          release_year: number | null;
+          primary_genre_id: number | null;
+          primary_genre_name: string | null;
+          original_language: string | null;
+          overview: string | null;
+          poster_path: string | null;
+          backdrop_path: string | null;
+          runtime_minutes: number | null;
+          tmdb_vote_average: number | null;
+          tmdb_vote_count: number | null;
+          popularity: number | null;
+          studio: string | null;
+          network: string | null;
+          season_count: number | null;
+          episode_count: number | null;
+          metadata_updated_at: string;
+          tmdb_enriched_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          type: MediaType;
+          title: string;
+          original_title?: string | null;
+          release_date?: string | null;
+          first_air_date?: string | null;
+          primary_genre_id?: number | null;
+          primary_genre_name?: string | null;
+          original_language?: string | null;
+          overview?: string | null;
+          poster_path?: string | null;
+          backdrop_path?: string | null;
+          runtime_minutes?: number | null;
+          tmdb_vote_average?: number | null;
+          tmdb_vote_count?: number | null;
+          popularity?: number | null;
+          studio?: string | null;
+          network?: string | null;
+          season_count?: number | null;
+          episode_count?: number | null;
+          metadata_updated_at?: string;
+          tmdb_enriched_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          type?: MediaType;
+          title?: string;
+          original_title?: string | null;
+          release_date?: string | null;
+          first_air_date?: string | null;
+          primary_genre_id?: number | null;
+          primary_genre_name?: string | null;
+          original_language?: string | null;
+          overview?: string | null;
+          poster_path?: string | null;
+          backdrop_path?: string | null;
+          runtime_minutes?: number | null;
+          tmdb_vote_average?: number | null;
+          tmdb_vote_count?: number | null;
+          popularity?: number | null;
+          studio?: string | null;
+          network?: string | null;
+          season_count?: number | null;
+          episode_count?: number | null;
+          metadata_updated_at?: string;
+          tmdb_enriched_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      episodes: {
+        Row: {
+          id: string;
+          show_id: string;
+          season_number: number;
+          episode_number: number;
+          title: string;
+          air_date: string | null;
+          runtime_minutes: number | null;
+          overview: string | null;
+          poster_path: string | null;
+          still_path: string | null;
+          metadata_updated_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          show_id: string;
+          season_number: number;
+          episode_number: number;
+          title: string;
+          air_date?: string | null;
+          runtime_minutes?: number | null;
+          overview?: string | null;
+          poster_path?: string | null;
+          still_path?: string | null;
+          metadata_updated_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          show_id?: string;
+          season_number?: number;
+          episode_number?: number;
+          title?: string;
+          air_date?: string | null;
+          runtime_minutes?: number | null;
+          overview?: string | null;
+          poster_path?: string | null;
+          still_path?: string | null;
+          metadata_updated_at?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "episodes_show_id_fkey";
+            columns: ["show_id"];
+            isOneToOne: false;
+            referencedRelation: "media_items";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       user_movies: {
         Row: {
           id: string;
@@ -152,6 +288,56 @@ export type Database = {
             columns: ["movie_id"];
             isOneToOne: false;
             referencedRelation: "movies";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      user_media: {
+        Row: {
+          id: string;
+          user_id: string;
+          media_id: string;
+          status: MediaStatus;
+          personal_rating: number | null;
+          added_at: string;
+          watchlisted_at: string | null;
+          last_watched_at: string | null;
+          completed_at: string | null;
+          completion_mode: MediaCompletionMode | null;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          media_id: string;
+          status: MediaStatus;
+          personal_rating?: number | null;
+          added_at?: string;
+          watchlisted_at?: string | null;
+          last_watched_at?: string | null;
+          completed_at?: string | null;
+          completion_mode?: MediaCompletionMode | null;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          media_id?: string;
+          status?: MediaStatus;
+          personal_rating?: number | null;
+          added_at?: string;
+          watchlisted_at?: string | null;
+          last_watched_at?: string | null;
+          completed_at?: string | null;
+          completion_mode?: MediaCompletionMode | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_media_media_id_fkey";
+            columns: ["media_id"];
+            isOneToOne: false;
+            referencedRelation: "media_items";
             referencedColumns: ["id"];
           },
         ];
@@ -250,6 +436,42 @@ export type Database = {
           },
           {
             foreignKeyName: "user_movie_tags_tag_id_user_id_fkey";
+            columns: ["tag_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "tags";
+            referencedColumns: ["id", "user_id"];
+          },
+        ];
+      };
+      user_media_tags: {
+        Row: {
+          user_id: string;
+          media_id: string;
+          tag_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          media_id: string;
+          tag_id: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          media_id?: string;
+          tag_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "user_media_tags_media_id_fkey";
+            columns: ["media_id"];
+            isOneToOne: false;
+            referencedRelation: "media_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "user_media_tags_tag_id_user_id_fkey";
             columns: ["tag_id", "user_id"];
             isOneToOne: false;
             referencedRelation: "tags";
@@ -377,6 +599,48 @@ export type Database = {
             columns: ["movie_id"];
             isOneToOne: false;
             referencedRelation: "movies";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      media_provider_mappings: {
+        Row: {
+          media_id: string | null;
+          episode_id: string | null;
+          provider: ProviderMappingProvider;
+          provider_media_type: ProviderMediaType;
+          provider_id: string;
+          created_at: string;
+        };
+        Insert: {
+          media_id?: string | null;
+          episode_id?: string | null;
+          provider: ProviderMappingProvider;
+          provider_media_type: ProviderMediaType;
+          provider_id: string;
+          created_at?: string;
+        };
+        Update: {
+          media_id?: string | null;
+          episode_id?: string | null;
+          provider?: ProviderMappingProvider;
+          provider_media_type?: ProviderMediaType;
+          provider_id?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "media_provider_mappings_media_id_fkey";
+            columns: ["media_id"];
+            isOneToOne: false;
+            referencedRelation: "media_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "media_provider_mappings_episode_id_fkey";
+            columns: ["episode_id"];
+            isOneToOne: false;
+            referencedRelation: "episodes";
             referencedColumns: ["id"];
           },
         ];
@@ -660,18 +924,30 @@ export type MovieInsert = TableInsert<"movies">;
 export type MovieUpdate = TableUpdate<"movies">;
 export type MovieCastMember = TableRow<"movie_cast">;
 export type MovieCastMemberInsert = TableInsert<"movie_cast">;
+export type MediaItem = TableRow<"media_items">;
+export type MediaItemInsert = TableInsert<"media_items">;
+export type MediaItemUpdate = TableUpdate<"media_items">;
+export type Episode = TableRow<"episodes">;
+export type EpisodeInsert = TableInsert<"episodes">;
+export type EpisodeUpdate = TableUpdate<"episodes">;
 export type UserMovie = TableRow<"user_movies">;
 export type UserMovieInsert = TableInsert<"user_movies">;
 export type UserMovieUpdate = TableUpdate<"user_movies">;
+export type UserMedia = TableRow<"user_media">;
+export type UserMediaInsert = TableInsert<"user_media">;
+export type UserMediaUpdate = TableUpdate<"user_media">;
 export type WatchLog = TableRow<"watch_logs">;
 export type WatchLogInsert = TableInsert<"watch_logs">;
 export type Tag = TableRow<"tags">;
 export type TagInsert = TableInsert<"tags">;
 export type UserMovieTag = TableRow<"user_movie_tags">;
+export type UserMediaTag = TableRow<"user_media_tags">;
 export type ProviderConnection = TableRow<"provider_connections">;
 export type ProviderConnectionSecret = TableRow<"provider_connection_secrets">;
 export type ProviderMapping = TableRow<"provider_mappings">;
 export type ProviderMappingInsert = TableInsert<"provider_mappings">;
+export type MediaProviderMapping = TableRow<"media_provider_mappings">;
+export type MediaProviderMappingInsert = TableInsert<"media_provider_mappings">;
 export type SyncCursor = TableRow<"sync_cursors">;
 export type SyncEvent = TableRow<"sync_events">;
 export type SyncEventUpdate = TableUpdate<"sync_events">;

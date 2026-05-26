@@ -241,6 +241,11 @@ Icon assignments (lucide-react):
 - Stats → `BarChart2`
 - Search → `Search`
 
+Planned media expansion:
+- Movies becomes Media and may keep the `Film` icon unless a better combined media icon is chosen.
+- To Watch becomes Wishlist and keeps `Bookmark`.
+- Bottom nav should remain one app-level nav, not split into separate movie and TV navs.
+
 Active state: `bg-accent/10 text-accent` on the individual pill. Icon and label share the same
 `text-accent` colour — no separate fill behind the icon. Never invert the whole pill.
 
@@ -258,11 +263,29 @@ Caption: none in watched-grid default
 
 Rules:
 - Movies and To Watch use the same poster grid system.
+- Planned Media and Wishlist views use the same poster grid system for movies and shows.
 - In `Movies`, the default watched view shows **posters only** for maximum scan density.
 - Grid column count should adapt to available width rather than being hard-coded to 3.
 - Target the current iPhone 16 / iPhone 17 class first, then let the layout scale down cleanly.
 - Rating should appear in detail or alternate list contexts, not in the watched poster grid.
 - Poster placeholders should preserve aspect ratio to avoid layout shift.
+
+### Media Type Filter
+```text
+[All] [Movies] [Shows]
+```
+
+Use for:
+- Media library
+- Wishlist
+- Stats
+
+Rules:
+- Default selection is `All`.
+- Use segmented control styling when the filter is central to the page; use compact filter-bar
+  styling when combined with tag/year/rating filters.
+- The type filter should propagate through stats drill-down links into Media.
+- Do not create separate movie and show apps or separate nav structures.
 
 ### MovieDetailHero
 ```text
@@ -280,6 +303,93 @@ Rules:
   cast, tags, and details.
 - If a movie has no backdrop, render a quiet `bg-surface-muted` fallback with the standard film icon
   and keep the same poster/title layout so the page does not jump between states.
+
+### ShowEpisodeList
+```text
+←  Daredevil: Born Again                         Show
+
+Watched · 9/18 episodes
+Action · Crime · English
+[heart rating] [TMDB rating · votes] [tags...]
+
+Season 1                                      9/9
+Heaven's Half Hour
+S01E01 · 48m
+5 Mar 2025                                  [✓]
+```
+
+Rules:
+- The show episode list is a dense list, closer to a watch-history checklist than a marketing
+  detail page.
+- The `Show` button opens the show overview/detail screen.
+- Season headers are structural and may stick below the top bar.
+- Row tap opens episode detail.
+- The trailing check target toggles that episode's watched state without navigating.
+- Show-level personal rating uses the same heart treatment as movie detail. Do not label it "Mine"
+  when the heart treatment already implies personal rating.
+- TMDB show rating and vote count appear on the show screen, matching movie detail's source-labeled
+  rating pattern.
+- Tags are shown and edited at the show level, not episode level.
+- Avoid helper copy that explains obvious behavior such as skipped episodes or manual completion.
+  The user is assumed to understand their tracking choices.
+
+### ShowDetail
+```text
+[edge-to-edge backdrop banner]
+    [poster overlaps lower edge] [title / metadata / watched state / rating / tags]
+
+[primary show-state action] [Episodes]
+
+Plot
+Cast
+Tags
+Details
+```
+
+Rules:
+- Show detail follows MovieDetailHero as closely as possible: backdrop banner, overlapping poster,
+  title metadata, watched/wishlist state, heart personal rating, TMDB rating/vote count, and visible
+  show tags in the hero area.
+- Primary actions sit immediately below the hero.
+- The `Episodes` action opens the dense season/episode list.
+- Plot, cast, tags, and details follow the same section order and density as movie detail where the
+  data exists.
+- Details should include first aired, studio, network, seasons, episodes, language, and TMDB rating
+  when available.
+- Show detail owns show-level controls: tags, personal rating, wishlist/watching/watched state, and
+  manual completion.
+
+### EpisodeDetail
+```text
+←                                               Show
+
+[episode poster]
+Daredevil: Born Again
+Heaven's Half Hour
+S01E01
+
+[Mark unwatched] [Add watch date]
+
+Plot
+...
+
+Details
+Airdate       5 Mar 2025
+Studio        Marvel Television
+Duration      48m
+Rating        ♥ 8.5
+TMDB          7.7 · 4.2k votes
+
+Show tags
+Marvel · With friends · Crime
+```
+
+Rules:
+- Episode detail is not a stats page.
+- Show poster/episode still should be visually present.
+- Show tags and show ratings may be displayed, but editing them routes to show-level controls.
+- Do not add episode-level tags or episode-level personal ratings unless product direction changes.
+- Keep copy direct; no instructional notes about where data lives.
 
 ### TagFilterRow
 ```text

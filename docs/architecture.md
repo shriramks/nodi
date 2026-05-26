@@ -13,6 +13,10 @@ Nodi should use a simple three-layer model:
    - `TMDB` for search and metadata
    - `Trakt` for watched/rating/watchlist sync and list imports as Nodi tags
 
+Planned TV support should keep the same three-layer shape, but promote the domain from movies to
+typed media. Movies and shows share library, wishlist, tag, rating, sync, and stats infrastructure;
+episodes are TV-specific watch units loaded only when a show or episode screen needs them.
+
 ### System roles
 
 **Client**
@@ -36,12 +40,177 @@ Nodi should use a simple three-layer model:
 - movie details
 - credits
 - poster/backdrop metadata
+- planned: TV search, show details, season details, episode details, and show-level TMDB rating/vote
+  metadata
 
 **Trakt**
 - watch history sync
 - watchlist sync
 - ratings sync
 - list imports into local tags
+- planned: show ratings, show watchlist, episode watch history, and show/list imports as local tags
+
+## Planned Media Architecture
+
+### One app, typed media
+
+Nodi should stay one app with typed media, not split into separate movie and TV apps. The user-facing
+combined surfaces should be:
+
+```text
+/media?type=all|movie|show
+/wishlist?type=all|movie|show
+/stats?type=all|movie|show
+```
+
+Internally, shared behavior belongs in `media` modules while domain-specific detail screens remain
+separate:
+
+```text
+components/media/   shared cards, grids, rating badges, tag controls
+components/movie/   movie detail only
+components/show/    show detail, episode list, episode detail
+```
+
+Avoid a single polymorphic detail component full of `type === "show"` branches. Reuse the small
+shared pieces and keep movie/show detail flows explicit.
+
+### Data ownership
+
+Recommended target entities:
+
+```text
+media_items
+  id
+  type: movie | show
+  tmdb_id / trakt_id / imdb_id
+  title
+  release_date / first_air_date
+  release_year
+  primary_genre
+  original_language
+  studio / network nullable
+  season_count nullable
+  episode_count nullable
+  poster_path / backdrop_path
+  runtime_minutes nullable
+  tmdb_vote_average
+  tmdb_vote_count
+
+episodes
+  id
+  show_id -> media_items.id
+  season_number
+  episode_number
+  title
+  airdate
+  runtime_minutes
+  overview
+  poster_path / still_path
+
+user_media
+  user_id
+  media_id
+  status: watching | watched | wishlist
+  personal_rating
+  watchlisted_at
+  last_watched_at
+  completed_at
+  completion_mode: manual | auto_all_aired
+
+watch_activity
+  user_id
+  media_id nullable
+  episode_id nullable
+  watched_at
+  runtime_minutes_snapshot
+
+user_media_tags
+  user_id
+  media_id
+  tag_id
+```
+
+Movies log watch activity against `media_id`. TV logs watch activity against `episode_id`; the show
+is derived from the episode row. This keeps episode counts and TV duration factual while preserving
+show-level tags, ratings, and watched state.
+
+### Show watched semantics
+
+There are two separate facts:
+
+```text
+episode watched = factual episode watch log exists
+show watched    = user_media.status is watched for the show
+```
+
+The app may automatically mark a show watched when all aired episodes are watched, but the user can
+also manually mark a show watched with skipped episodes. Skipped episodes remain unwatched and do
+not contribute to episode count or TV time watched.
+
+### Stats analytics rows
+
+Stats should consume normalized analytics rows, not full hydrated media objects:
+
+```ts
+type WatchAnalyticsRow = {
+  type: "movie" | "show";
+  mediaId: string;
+  episodeId: string | null;
+  watchedAt: string;
+  runtimeMinutes: number;
+  genre: string | null;
+  language: string | null;
+  releaseYear: number | null;
+  personalRating: number | null;
+};
+```
+
+This lets `type=all`, `type=movie`, and `type=show` share chart components while keeping metric
+definitions clear:
+
+- `all`: combined duration over time, movie time, TV time, movie count, episode count, fav decade
+- `movie`: current movie stats
+- `show`: watched shows from `user_media.status`, watched episodes from episode activity, TV time
+  from episode activity, and rating from show-level personal ratings
+
+### Performance boundary
+
+The media expansion should not make ordinary pages slower:
+
+- `/media`: one indexed paged query with poster-card fields only
+- `/wishlist`: one indexed paged query with poster-card fields only
+- `/movie/[id]`: movie detail only, no episode/show hydration
+- `/show/[id]`: show metadata plus seasons/episodes
+- `/show/[id]/episode/[episodeId]`: episode detail plus inherited show tags/ratings
+- `/stats`: normalized analytics rows or view-backed aggregates, not full detail hydration
+
+### TV sync and metadata backfill
+
+Keep provider responsibilities separate:
+
+```text
+Trakt = user state
+TMDB  = metadata and backfill
+```
+
+Trakt pull should import show ratings, show watchlist state, and watched episode history. TMDB should
+fill show and episode metadata: titles, posters, genre, language, TMDB rating/vote count, season and
+episode structure, episode airdate, runtime, plot, and still/poster assets.
+
+Stats must not depend on a user opening the show detail page. When Trakt imports watched episodes,
+Nodi should store the watch events immediately and prioritize TMDB metadata backfill for those
+watched episodes. Episode counts can be reliable from watch history alone; TV duration becomes fully
+accurate once episode runtime metadata is present.
+
+Recommended enrichment order:
+
+1. Store show-level metadata on save/import when available.
+2. For imported watched episodes, resolve enough episode metadata for stats: season, episode,
+   airdate, runtime, and show id.
+3. Load full season/episode lists lazily when the user opens a show.
+4. Use a background/batched TMDB backfill path to fill missing watched-episode metadata before
+   unwatched episode-list metadata.
 
 ## 2. Why This Split Makes Sense
 
@@ -102,6 +271,10 @@ Client Search Input
     -> Next.js route merges remote + local state
     -> returns normalized search results
 ```
+
+Planned media search should use the same server-route pattern. The route can search movies, shows,
+or both, but the client should receive a normalized `mediaType` plus local `mediaId`/status/rating
+state. Provider-specific TMDB movie and TV shapes should stay in adapters.
 
 ### Detail hydration flow
 
@@ -418,6 +591,25 @@ For v1, online-first is fine. No offline mutation support is required.
   - `tag` scopes stats to movies with that tag
   - `year` scopes stats to watch events in that watched year
   - genre, language, month, and year breakdowns link to `/movies` filters
+
+### Planned media routes
+
+- `/media`
+  - replaces `/movies`
+  - `type=all|movie|show`, default `all`
+  - keeps existing genre, language, tag, rating, year, and month filters where meaningful
+- `/wishlist`
+  - replaces `/to-watch`
+  - `type=all|movie|show`, default `all`
+- `/show/[showId]`
+  - show overview and/or dense episode list
+  - show-level tags, personal rating, TMDB rating, TMDB vote count, and watched state
+- `/show/[showId]/episode/[episodeId]`
+  - episode detail with poster, plot, airdate, studio, duration, show rating, TMDB rating/vote
+    context, and show tags
+- `/stats`
+  - `type=all|movie|show`, default `all`
+  - type filter propagates to `/media` drill-down links
 - `/search`
 - `/movie/[movieId]`
 - `/movie/tmdb/[tmdbId]`

@@ -62,12 +62,16 @@ The important operational rule is:
 These are app-readable shared tables:
 - `movies`
 - `movie_cast`
+- `media_items`
+- `episodes`
 - `provider_mappings`
+- `media_provider_mappings`
 
 They support:
 - TMDB metadata ingestion
 - local movie detail hydration
 - provider ID resolution during sync
+- planned media and TV metadata reads alongside the existing movie path
 
 Writes to these tables should happen through trusted server-side paths using privileged credentials.
 
@@ -78,6 +82,8 @@ These tables are scoped per authenticated user:
 - `watch_logs`
 - `tags`
 - `user_movie_tags`
+- `user_media`
+- `user_media_tags`
 - `provider_connections`
 - `sync_cursors`
 - `sync_runs`
@@ -146,6 +152,12 @@ retaining the existing coarse phase progress for the overall run.
 index on `user_movies (user_id, status, watchlisted_at desc nulls last)` and moves paged library
 reads into `list_library_movies_page(...)` so watched-date and tag filters execute in Postgres
 instead of materializing intermediate movie-id sets in the app process.
+
+`supabase/migrations/20260526100000_add_media_schema_foundation.sql` adds the additive media schema
+foundation for planned TV support. `media_items`, `episodes`, `user_media`, `user_media_tags`, and
+`media_provider_mappings` sit beside the current movie tables; existing `movies`, `user_movies`,
+`watch_logs`, `user_movie_tags`, `provider_mappings`, and movie RPC/query paths remain unchanged
+until later backfill and read-path migrations intentionally switch traffic.
 
 ## 8. Operational Notes
 

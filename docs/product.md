@@ -16,6 +16,35 @@ places. If you want reliable stats plus sync, a movie needs:
 
 A single `watched: true/false` field is not enough.
 
+### Planned media expansion
+
+Nodi should become one media-tracking app rather than two separate movie and TV apps. The default
+experience should be combined because the core behavior is shared: track what was watched, rate it,
+tag it, sync it, and understand personal viewing habits.
+
+Planned route direction:
+- `/media`: replaces `/movies`, showing movies and shows together by default
+- `/wishlist`: replaces `/to-watch`, showing queued movies and shows together by default
+- `/stats?type=all|movie|show`: filters analytics by media type, defaulting to `all`
+- old `/movies` and `/to-watch` routes should redirect during the transition
+
+The UI should still allow narrowing by type. Combined should be the default, but `movie` and `show`
+filters should be available on library, wishlist, and stats surfaces.
+
+TV-specific product rules:
+- tags live at the show level, not episode level
+- personal ratings live at the show level, not episode level
+- TMDB rating and vote count should flow into show detail the same way they flow into movie detail
+- episode pages may display inherited show tags/ratings, but editing those controls opens show-level
+  controls
+- watched episodes drive episode count and TV time watched
+- watched show state lives at the show level and can be manual, so skipped filler episodes do not
+  prevent a show from counting as watched
+- automatic show completion can still happen when all aired episodes are watched
+
+The app should not add explanatory helper copy for obvious tracking behavior. The user is assumed to
+understand deliberate actions such as manually marking a show watched or skipping episodes.
+
 ## 2. Product Decisions I Recommend
 
 ### Canonical data model
@@ -220,6 +249,41 @@ docs/
 
 `sync_events`
 - audit log of push/pull operations, failures, and conflicts
+
+### Planned media model
+
+The TV expansion should move the app toward a shared media model instead of creating a parallel TV
+app beside the movie app.
+
+`media_items`
+- shared metadata for movies and shows
+- fields include `type` (`movie` or `show`), provider ids, title, release/first-air date, decade,
+  genre, language, poster/backdrop, network/studio where applicable, season/episode totals where
+  applicable, TMDB rating, TMDB vote count, and metadata timestamps
+
+`episodes`
+- TV watch units
+- belongs to a show `media_items` row
+- fields include season number, episode number, title, airdate, runtime, overview, poster/still, and
+  provider ids
+
+`user_media`
+- per-user state for movies and shows
+- fields include status (`watching`, `watched`, `wishlist`), personal rating, watchlisted date,
+  last watched date, completed date, and completion mode (`manual` or `auto_all_aired`)
+
+`watch_activity`
+- normalized watch events
+- movie watches point to `media_id`
+- TV watches point to `episode_id`, deriving show context through `episodes.show_id`
+- runtime snapshots should be stored or derivable so stats do not need full metadata hydration
+
+`user_media_tags`
+- many-to-many tags between users and media rows
+- show tags apply to the show as a whole, not individual episodes
+
+The old movie-specific tables may remain as compatibility paths during migration, but new feature
+work should read/write through the shared media concepts once they exist.
 
 ### Suggested Supabase schema
 
