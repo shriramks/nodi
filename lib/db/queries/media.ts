@@ -3,17 +3,25 @@ import "server-only";
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError, throwNotFound } from "@/lib/db/errors";
 import type {
+  LibraryMovie,
   MediaItem,
   MediaProviderMapping,
   MediaStatus,
   MediaType,
+  MovieStatus,
   MediaWatchActivity,
   Tag,
   UserMedia,
   UserMediaTag,
+  WatchedLibrarySummary,
 } from "@/lib/db/types";
 import { validateUuid } from "@/lib/db/validation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { LibraryMoviePage, LibraryMoviePageOptions } from "./movies";
+import {
+  buildWatchedLibrarySummary,
+  type WatchedLibrarySummaryRow,
+} from "./stats-transforms";
 
 const mediaPageSize = 1000;
 export type MediaTypeFilter = MediaType | "all";
@@ -24,6 +32,13 @@ type MediaJoinRow = UserMedia & {
 
 type MediaTagJoinRow = {
   tags: Tag | null;
+};
+
+type MediaLibraryMoviePageRow = Omit<UserMedia, "status"> & {
+  movie_id: string;
+  status: MovieStatus;
+  movie: Pick<MediaItem, "id" | "poster_path" | "title">;
+  total_count: number;
 };
 
 export type MediaLibraryItem = UserMedia & {
@@ -103,6 +118,69 @@ export async function listMediaWishlistPage(
   });
 }
 
+export async function listMediaLibraryMoviesPage(
+  options: LibraryMoviePageOptions,
+): Promise<LibraryMoviePage> {
+  await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const limit = Math.min(Math.max(options.limit ?? 48, 1), 100);
+  const offset = Math.max(options.offset ?? 0, 0);
+  const sort = normalizeMediaMovieLibrarySort(options.status, options.sort);
+  const watchedRange = watchedFilterRange(options.filters);
+  const { data, error } = await supabase.rpc("list_media_library_movies_page", {
+    p_status: options.status,
+    p_limit: limit,
+    p_offset: offset,
+    p_sort_key: sort.key,
+    p_sort_direction: sort.direction,
+    p_genre: options.filters?.genre ?? null,
+    p_language: options.filters?.language?.toLowerCase() ?? null,
+    p_tag_names: normalizeTagNames(options.filters?.tagNames),
+    p_rating_op: options.filters?.rating?.op ?? null,
+    p_rating_value: options.filters?.rating?.value ?? null,
+    p_watched_start: watchedRange?.start ?? null,
+    p_watched_end: watchedRange?.end ?? null,
+  });
+
+  if (error) {
+    throwDatabaseError("Failed to load media-backed library movies.", error);
+  }
+
+  const rows = (data ?? []) as unknown as MediaLibraryMoviePageRow[];
+  const movies = rows.map((row) => ({
+    id: row.id,
+    user_id: row.user_id,
+    movie_id: row.movie_id,
+    status: row.status,
+    personal_rating: row.personal_rating,
+    added_at: row.added_at,
+    watchlisted_at: row.watchlisted_at,
+    last_watched_at: row.last_watched_at,
+    updated_at: row.updated_at,
+    movie: row.movie,
+  } satisfies LibraryMovie));
+  const totalCount = rows[0]?.total_count ?? 0;
+  const nextOffset = offset + movies.length;
+  const hasMore = nextOffset < totalCount;
+
+  return {
+    movies,
+    totalCount,
+    hasMore,
+    nextOffset: hasMore ? nextOffset : null,
+  };
+}
+
+export async function getMediaWatchedMovieLibrarySummary(): Promise<WatchedLibrarySummary> {
+  const rows = await listMediaWatchedLibrarySummaryRows("movie");
+
+  return buildWatchedLibrarySummary(rows.map((row) => ({
+    movie_id: row.media_id,
+    watched_at: row.watched_at,
+    movies: row.media_items,
+  } satisfies WatchedLibrarySummaryRow)));
+}
+
 async function listMediaCollectionPage(
   status: Extract<MediaStatus, "watched" | "wishlist">,
   options: MediaLibraryPageOptions,
@@ -151,6 +229,65 @@ async function listMediaCollectionPage(
     totalCount,
     hasMore,
     nextOffset: hasMore ? nextOffset : null,
+  };
+}
+
+function watchedFilterRange(filters: LibraryMoviePageOptions["filters"]) {
+  if (filters?.watchedMonth) {
+    return monthRange(filters.watchedMonth);
+  }
+
+  if (filters?.watchedYear) {
+    return yearRange(filters.watchedYear);
+  }
+
+  return null;
+}
+
+function normalizeMediaMovieLibrarySort(
+  status: MovieStatus,
+  sort: LibraryMoviePageOptions["sort"],
+) {
+  if (sort) {
+    return sort;
+  }
+
+  return status === "to_watch"
+    ? { key: "added_date" as const, direction: "desc" as const }
+    : { key: "watched_date" as const, direction: "desc" as const };
+}
+
+function normalizeTagNames(values: string[] | undefined) {
+  return [...new Set((values ?? []).map((value) => value.trim()).filter(Boolean))];
+}
+
+function yearRange(value: string) {
+  if (!/^\d{4}$/.test(value)) {
+    return null;
+  }
+
+  const year = Number(value);
+  return {
+    start: new Date(Date.UTC(year, 0, 1)).toISOString(),
+    end: new Date(Date.UTC(year + 1, 0, 1)).toISOString(),
+  };
+}
+
+function monthRange(value: string) {
+  const match = /^(\d{4})-(\d{2})$/.exec(value);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (month < 1 || month > 12) {
+    return null;
+  }
+
+  return {
+    start: new Date(Date.UTC(year, month - 1, 1)).toISOString(),
+    end: new Date(Date.UTC(year, month, 1)).toISOString(),
   };
 }
 

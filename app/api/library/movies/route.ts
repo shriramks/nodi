@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import {
-  listLibraryMoviesPage,
+  listMediaLibraryMoviesPage,
   type LibraryMovieSortDirection,
   type LibraryMovieSortKey,
 } from "@/lib/db/queries";
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "A valid library status is required." }, { status: 400 });
     }
 
-    const page = await listLibraryMoviesPage({
+    const page = await listMediaLibraryMoviesPage({
       status,
       limit: pageSize,
       offset: parseOffset(params.get("offset")),

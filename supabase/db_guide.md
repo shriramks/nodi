@@ -173,6 +173,12 @@ events using the movie `media_items.id`, keeps a `legacy_watch_log_id` link for 
 adds user/date plus media/date indexes for future media stats and detail reads. Current movie watch
 flows still use `watch_logs` until later media mutations intentionally switch traffic.
 
+`supabase/migrations/20260526130000_add_media_library_movies_page_rpc.sql` adds
+`list_media_library_movies_page(...)`, a route-compatible paged movie library read backed by
+`user_media`, `media_items`, `user_media_tags`, and `media_watch_activity`. It preserves the
+existing `/movies`, `/to-watch`, and `/api/library/movies` payload shape while mapping
+`user_media.status = 'wishlist'` back to the legacy `to_watch` route status.
+
 ## 8. Operational Notes
 
 Keep these server-side only:

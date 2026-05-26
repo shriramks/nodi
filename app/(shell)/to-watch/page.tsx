@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import { MovieLibraryGrid } from "@/components/movie/movie-library-grid";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { PageHeader } from "@/components/ui/section";
-import { listLibraryMoviesPage } from "@/lib/db/queries";
+import { listMediaLibraryMoviesPage } from "@/lib/db/queries";
 
 export const metadata: Metadata = {
   title: "To Watch",
 };
 
 export default async function ToWatchPage() {
-  const queuePage = await listLibraryMoviesPage({ status: "to_watch" });
+  const queuePage = await listMediaLibraryMoviesPage({ status: "to_watch" });
 
   return (
     <main className="space-y-6">

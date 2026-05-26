@@ -16,7 +16,9 @@ vi.mock("@/lib/supabase/server", () => ({
 import {
   getMediaDetail,
   getMediaStatsInput,
+  getMediaWatchedMovieLibrarySummary,
   listMediaLibraryPage,
+  listMediaLibraryMoviesPage,
   listMediaWatchedLibrarySummaryRows,
   listMediaWishlistPage,
   listTagsForMedia,
@@ -149,6 +151,69 @@ describe("media queries", () => {
       "watchlisted_at",
       { ascending: false, nullsFirst: false },
     );
+  });
+
+  it("loads route-compatible movie library pages through the media RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        {
+          added_at: "2026-05-01T00:00:00.000Z",
+          completed_at: "2026-05-02T00:00:00.000Z",
+          completion_mode: "manual",
+          id: "20000000-0000-4000-8000-000000000000",
+          last_watched_at: "2026-05-02T00:00:00.000Z",
+          movie: {
+            id: mediaId,
+            poster_path: "/poster.jpg",
+            title: "Nodi",
+          },
+          movie_id: mediaId,
+          personal_rating: 8,
+          status: "watched",
+          total_count: 2,
+          updated_at: "2026-05-02T00:00:00.000Z",
+          user_id: userId,
+          watchlisted_at: null,
+        },
+      ],
+      error: null,
+    });
+    mocks.createSupabaseServerClient.mockResolvedValue({ rpc });
+
+    await expect(
+      listMediaLibraryMoviesPage({
+        status: "watched",
+        filters: {
+          tagNames: [" Noir ", "noir"],
+          watchedMonth: "2026-05",
+          watchedYear: "2025",
+        },
+      }),
+    ).resolves.toEqual({
+      movies: [
+        expect.objectContaining({
+          movie: expect.objectContaining({ title: "Nodi" }),
+        }),
+      ],
+      totalCount: 2,
+      hasMore: true,
+      nextOffset: 1,
+    });
+
+    expect(rpc).toHaveBeenCalledWith("list_media_library_movies_page", {
+      p_status: "watched",
+      p_limit: 48,
+      p_offset: 0,
+      p_sort_key: "watched_date",
+      p_sort_direction: "desc",
+      p_genre: null,
+      p_language: null,
+      p_tag_names: ["Noir", "noir"],
+      p_rating_op: null,
+      p_rating_value: null,
+      p_watched_start: "2026-05-01T00:00:00.000Z",
+      p_watched_end: "2026-06-01T00:00:00.000Z",
+    });
   });
 
   it("loads media detail state, activity, tags, and provider mappings", async () => {
@@ -313,5 +378,48 @@ describe("media queries", () => {
     expect(activityQuery.select).toHaveBeenCalledWith(
       "media_id, watched_at, media_items!inner(id, type, original_language, primary_genre_name)",
     );
+  });
+
+  it("builds the route movie summary from media watch activity rows", async () => {
+    const activityQuery = chainQuery(createQuery({
+      data: [
+        {
+          media_id: mediaId,
+          watched_at: "2026-05-02T00:00:00.000Z",
+          media_items: {
+            id: mediaId,
+            type: "movie",
+            original_language: "en",
+            primary_genre_name: "Drama",
+          },
+        },
+        {
+          media_id: mediaId,
+          watched_at: "2026-05-03T00:00:00.000Z",
+          media_items: {
+            id: mediaId,
+            type: "movie",
+            original_language: "en",
+            primary_genre_name: "Drama",
+          },
+        },
+      ],
+      error: null,
+    }));
+    mocks.createSupabaseServerClient.mockResolvedValue({
+      from: vi.fn((table: string) => {
+        if (table !== "media_watch_activity") {
+          throw new Error(`Unexpected table query: ${table}`);
+        }
+
+        return activityQuery;
+      }),
+    });
+
+    await expect(getMediaWatchedMovieLibrarySummary()).resolves.toMatchObject({
+      watchedCount: 1,
+      genreBreakdown: [{ key: "drama", label: "Drama", count: 1 }],
+      languageBreakdown: [{ key: "en", label: "English", count: 1 }],
+    });
   });
 });

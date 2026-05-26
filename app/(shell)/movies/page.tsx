@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { MovieLibraryGrid } from "@/components/movie/movie-library-grid";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { PageHeader } from "@/components/ui/section";
-import { getWatchedLibrarySummary, listLibraryMoviesPage, listTags } from "@/lib/db/queries";
+import { getMediaWatchedMovieLibrarySummary, listMediaLibraryMoviesPage, listTags } from "@/lib/db/queries";
 import type { LibraryStatsBreakdownItem } from "@/lib/db/types";
 
 export const metadata: Metadata = {
@@ -22,7 +22,7 @@ export default async function MoviesPage({
   const params = await searchParams;
   const filters = parseMovieFilters(params);
   const [watchedPage, summary, allTags] = await Promise.all([
-    listLibraryMoviesPage({
+    listMediaLibraryMoviesPage({
       status: "watched",
       filters: {
         genre: filters.genre,
@@ -36,7 +36,7 @@ export default async function MoviesPage({
         watchedMonth: filters.month,
       },
     }),
-    getWatchedLibrarySummary(),
+    getMediaWatchedMovieLibrarySummary(),
     listTags(),
   ]);
   const activeLabels = filterLabels(filters, allTags);
