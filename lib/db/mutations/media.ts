@@ -39,6 +39,8 @@ type MediaMovieWatchStatusResult = {
   watchActivity: MediaWatchActivity | null;
 };
 
+type ShowSaveStatus = Extract<UserMedia["status"], "watching" | "wishlist">;
+
 type ExistingMediaMappingRow = {
   media_id: string | null;
 };
@@ -293,6 +295,54 @@ export async function ingestPreparedTmdbShow(
   }
 
   return show as MediaItem;
+}
+
+export async function setMediaShowStatus(
+  showId: string,
+  status: ShowSaveStatus,
+): Promise<UserMedia> {
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const id = validateUuid(showId, "showId");
+  const now = new Date().toISOString();
+
+  const { data: show, error: showError } = await supabase
+    .from("media_items")
+    .select("id, type")
+    .eq("id", id)
+    .eq("type", "show")
+    .maybeSingle();
+
+  if (showError) {
+    throwDatabaseError("Failed to load show media item.", showError);
+  }
+
+  if (!show) {
+    throwNotFound("Show was not found.");
+  }
+
+  const { data, error } = await supabase
+    .from("user_media")
+    .upsert(
+      {
+        user_id: user.id,
+        media_id: id,
+        status,
+        watchlisted_at: status === "wishlist" ? now : null,
+        last_watched_at: null,
+        completed_at: null,
+        completion_mode: null,
+      },
+      { onConflict: "user_id,media_id" },
+    )
+    .select("*")
+    .single();
+
+  if (error) {
+    throwDatabaseError("Failed to save show state.", error);
+  }
+
+  return data as UserMedia;
 }
 
 async function refreshMovieMediaLastWatchedAt({

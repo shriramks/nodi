@@ -1,5 +1,5 @@
 import type { MoviePayload } from "@/lib/db/validation";
-import type { MovieStatus } from "@/lib/db/types";
+import type { MediaStatus, MovieStatus } from "@/lib/db/types";
 import type {
   TmdbMovieCredits,
   TmdbMovieDetails,
@@ -18,18 +18,29 @@ export type LocalMovieSearchState = {
   personalRating: number | null;
 };
 
+export type LocalMediaSearchState = {
+  localMediaId: string;
+  currentStatus: MediaStatus | null;
+  personalRating: number | null;
+};
+
 export type MovieSearchResult = {
+  mediaType: "movie";
   tmdbId: number;
   localMovieId: string | null;
+  localMediaId: string | null;
   title: string;
   originalTitle: string | null;
   releaseDate: string | null;
   releaseYear: number | null;
+  firstAirDate: null;
+  firstAirYear: null;
   originalLanguage: string | null;
   posterPath: string | null;
   backdropPath: string | null;
   overviewSnippet: string | null;
   genreIds: number[];
+  popularity: number | null;
   alreadyInLibrary: boolean;
   currentStatus: MovieStatus | null;
   personalRating: number | null;
@@ -41,13 +52,17 @@ export type MovieSearchResponse = {
   page: number;
   totalPages: number;
   totalResults: number;
-  results: MovieSearchResult[];
+  results: MediaSearchResult[];
 };
 
 export type TvSearchResult = {
+  mediaType: "show";
   tmdbId: number;
+  localMediaId: string | null;
   title: string;
   originalTitle: string | null;
+  releaseDate: null;
+  releaseYear: null;
   firstAirDate: string | null;
   firstAirYear: number | null;
   originalLanguage: string | null;
@@ -55,9 +70,16 @@ export type TvSearchResult = {
   backdropPath: string | null;
   overviewSnippet: string | null;
   genreIds: number[];
+  popularity: number | null;
+  alreadyInLibrary: boolean;
+  currentStatus: MediaStatus | null;
+  personalRating: number | null;
+  detailUrl: string;
   tmdbVoteAverage: number | null;
   tmdbVoteCount: number | null;
 };
+
+export type MediaSearchResult = MovieSearchResult | TvSearchResult;
 
 export type TvSearchResponse = {
   query: string;
@@ -177,17 +199,22 @@ export function toMovieSearchResult(
   const releaseDate = normalizeDate(result.release_date);
 
   return {
+    mediaType: "movie",
     tmdbId: result.id,
     localMovieId: localState?.localMovieId ?? null,
+    localMediaId: localState?.localMovieId ?? null,
     title: result.title,
     originalTitle: normalizeText(result.original_title),
     releaseDate,
     releaseYear: releaseYear(releaseDate),
+    firstAirDate: null,
+    firstAirYear: null,
     originalLanguage: normalizeText(result.original_language),
     posterPath: result.poster_path ?? null,
     backdropPath: result.backdrop_path ?? null,
     overviewSnippet: overviewSnippet(result.overview),
     genreIds: result.genre_ids ?? [],
+    popularity: result.popularity ?? null,
     alreadyInLibrary: Boolean(localState?.currentStatus),
     currentStatus: localState?.currentStatus ?? null,
     personalRating: localState?.personalRating ?? null,
@@ -198,23 +225,33 @@ export function toMovieSearchResult(
 export function toTvSearchResponse(
   query: string,
   response: TmdbTvSearchResponse,
+  localStateByTmdbId: Map<number, LocalMediaSearchState> = new Map(),
 ): TvSearchResponse {
   return {
     query,
     page: response.page,
     totalPages: response.total_pages,
     totalResults: response.total_results,
-    results: response.results.map(toTvSearchResult),
+    results: response.results.map((result) =>
+      toTvSearchResult(result, localStateByTmdbId.get(result.id) ?? null),
+    ),
   };
 }
 
-export function toTvSearchResult(result: TmdbTvSearchResult): TvSearchResult {
+export function toTvSearchResult(
+  result: TmdbTvSearchResult,
+  localState: LocalMediaSearchState | null = null,
+): TvSearchResult {
   const firstAirDate = normalizeDate(result.first_air_date);
 
   return {
+    mediaType: "show",
     tmdbId: result.id,
+    localMediaId: localState?.localMediaId ?? null,
     title: normalizeText(result.name) ?? "Untitled show",
     originalTitle: normalizeText(result.original_name),
+    releaseDate: null,
+    releaseYear: null,
     firstAirDate,
     firstAirYear: releaseYear(firstAirDate),
     originalLanguage: normalizeText(result.original_language),
@@ -222,6 +259,11 @@ export function toTvSearchResult(result: TmdbTvSearchResult): TvSearchResult {
     backdropPath: result.backdrop_path ?? null,
     overviewSnippet: overviewSnippet(result.overview),
     genreIds: result.genre_ids ?? [],
+    popularity: result.popularity ?? null,
+    alreadyInLibrary: Boolean(localState?.currentStatus),
+    currentStatus: localState?.currentStatus ?? null,
+    personalRating: localState?.personalRating ?? null,
+    detailUrl: `/show/tmdb/${result.id}`,
     tmdbVoteAverage: oneDecimal(result.vote_average),
     tmdbVoteCount: result.vote_count ?? null,
   };

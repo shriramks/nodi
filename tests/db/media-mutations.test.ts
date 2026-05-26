@@ -31,11 +31,13 @@ import {
   detachTagFromMediaMovie,
   ingestPreparedTmdbShow,
   removeUserMediaMovie,
+  setMediaShowStatus,
   setMediaMovieWatchStatus,
   updateMediaMovieRating,
 } from "@/lib/db/mutations/media";
 
 const movieId = "00000000-0000-4000-8000-000000000000";
+const showId = "00000000-0000-4000-8000-000000000001";
 const userId = "10000000-0000-4000-8000-000000000000";
 const userMediaId = "20000000-0000-4000-8000-000000000000";
 const watchActivityId = "30000000-0000-4000-8000-000000000000";
@@ -400,6 +402,44 @@ describe("media movie mutations", () => {
       provider: "trakt",
       status: "pending",
     });
+  });
+
+  it("saves a show wishlist state without queueing a movie sync event", async () => {
+    const userShowMedia = {
+      ...watchedUserMedia,
+      completed_at: null,
+      completion_mode: null,
+      id: "20000000-0000-4000-8000-000000000001",
+      last_watched_at: null,
+      media_id: showId,
+      status: "wishlist" as const,
+      watchlisted_at: "2026-05-01T00:00:00.000Z",
+    };
+    const showLookup = createQuery({ data: { id: showId, type: "show" }, error: null });
+    const userMediaUpsert = createQuery({ data: userShowMedia, error: null });
+    const { from } = createSupabaseWithQueues({
+      media_items: [showLookup],
+      user_media: [userMediaUpsert],
+    });
+
+    await expect(setMediaShowStatus(showId, "wishlist")).resolves.toEqual(userShowMedia);
+
+    expect(from).toHaveBeenCalledWith("media_items");
+    expect(from).toHaveBeenCalledWith("user_media");
+    expect(showLookup.eq).toHaveBeenCalledWith("id", showId);
+    expect(showLookup.eq).toHaveBeenCalledWith("type", "show");
+    expect(userMediaUpsert.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        completed_at: null,
+        completion_mode: null,
+        last_watched_at: null,
+        media_id: showId,
+        status: "wishlist",
+        user_id: userId,
+      }),
+      { onConflict: "user_id,media_id" },
+    );
+    expect(mocks.createSyncEvent).not.toHaveBeenCalled();
   });
 
   it("moves a movie to the media wishlist without writing watch activity", async () => {

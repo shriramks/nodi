@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError, throwNotFound } from "@/lib/db/errors";
 import type {
   LibraryMovie,
+  Episode,
   MediaItem,
   MediaProviderMapping,
   MediaStatus,
@@ -62,6 +63,15 @@ export type MediaDetail = MediaItem & {
   watchActivity: MediaWatchActivity[];
   tags: Tag[];
   providerMappings: MediaProviderMapping[];
+};
+
+export type ShowSeason = {
+  seasonNumber: number;
+  episodes: Episode[];
+};
+
+export type ShowDetail = MediaDetail & {
+  seasons: ShowSeason[];
 };
 
 export type MediaWatchActivityAnalyticsRow = Pick<
@@ -368,6 +378,46 @@ export async function getMediaDetail(mediaId: string): Promise<MediaDetail> {
     ),
     providerMappings: (providerMappings ?? []) as MediaProviderMapping[],
   };
+}
+
+export async function getShowDetail(showId: string): Promise<ShowDetail> {
+  const detail = await getMediaDetail(showId);
+
+  if (detail.type !== "show") {
+    throwNotFound("Show was not found.");
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("episodes")
+    .select("*")
+    .eq("show_id", detail.id)
+    .order("season_number", { ascending: true })
+    .order("episode_number", { ascending: true });
+
+  if (error) {
+    throwDatabaseError("Failed to load show episodes.", error);
+  }
+
+  return {
+    ...detail,
+    seasons: groupEpisodesBySeason((data ?? []) as Episode[]),
+  };
+}
+
+function groupEpisodesBySeason(episodes: Episode[]): ShowSeason[] {
+  const seasonsByNumber = new Map<number, Episode[]>();
+
+  episodes.forEach((episode) => {
+    const season = seasonsByNumber.get(episode.season_number) ?? [];
+    season.push(episode);
+    seasonsByNumber.set(episode.season_number, season);
+  });
+
+  return Array.from(seasonsByNumber.entries()).map(([seasonNumber, seasonEpisodes]) => ({
+    seasonNumber,
+    episodes: seasonEpisodes,
+  }));
 }
 
 export async function listTagsForMedia(mediaId: string) {

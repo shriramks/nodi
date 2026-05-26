@@ -45,6 +45,8 @@ describe("TMDB adapters", () => {
       currentStatus: "watched",
       detailUrl: "/movie/tmdb/437",
       localMovieId: "movie-1",
+      localMediaId: "movie-1",
+      mediaType: "movie",
       originalTitle: null,
       overviewSnippet: "A pop singer moves into acting.",
       personalRating: 9,
@@ -75,6 +77,8 @@ describe("TMDB adapters", () => {
       results: [
         {
           localMovieId: null,
+          localMediaId: null,
+          mediaType: "movie",
           releaseDate: null,
           releaseYear: null,
         },
@@ -204,16 +208,29 @@ describe("TMDB adapters", () => {
       total_results: 21,
     };
 
-    expect(toTvSearchResponse("bad", response)).toEqual({
+    expect(toTvSearchResponse("bad", response, new Map([
+      [
+        1396,
+        {
+          currentStatus: "wishlist",
+          localMediaId: "show-1",
+          personalRating: 8,
+        },
+      ],
+    ]))).toEqual({
       query: "bad",
       page: 1,
       totalPages: 2,
       totalResults: 21,
       results: [
         {
+          mediaType: "show",
           tmdbId: 1396,
+          localMediaId: "show-1",
           title: "Breaking Bad",
           originalTitle: "Breaking Bad",
+          releaseDate: null,
+          releaseYear: null,
           firstAirDate: "2008-01-20",
           firstAirYear: 2008,
           originalLanguage: "en",
@@ -221,6 +238,11 @@ describe("TMDB adapters", () => {
           backdropPath: "/backdrop.jpg",
           overviewSnippet: "A chemistry teacher turns to crime.",
           genreIds: [18, 80],
+          popularity: null,
+          alreadyInLibrary: true,
+          currentStatus: "wishlist",
+          detailUrl: "/show/tmdb/1396",
+          personalRating: 8,
           tmdbVoteAverage: 8.9,
           tmdbVoteCount: 15000,
         },

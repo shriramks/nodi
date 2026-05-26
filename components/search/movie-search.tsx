@@ -1,14 +1,14 @@
 "use client";
 
-import { Film, LoaderCircle, Search, X } from "lucide-react";
+import { Film, LoaderCircle, Search, Tv, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { TmdbImagePrefetcher } from "@/components/media/tmdb-image-prefetcher";
 import type {
+  MediaSearchResult,
   MovieSearchResponse,
-  MovieSearchResult,
 } from "@/lib/providers/tmdb/adapters";
 import { tmdbImage, tmdbImagePrefetchUrls } from "@/lib/providers/tmdb/images";
 
@@ -22,7 +22,7 @@ export function MovieSearch() {
   const [response, setResponse] = useState<MovieSearchResponse | null>(null);
   const [status, setStatus] = useState<SearchStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [openingTmdbId, setOpeningTmdbId] = useState<number | null>(null);
+  const [openingResultKey, setOpeningResultKey] = useState<string | null>(null);
   const normalizedQuery = useMemo(() => query.replace(/\s+/g, " ").trim(), [query]);
 
   useEffect(() => {
@@ -99,14 +99,24 @@ export function MovieSearch() {
     handleQueryChange("");
   }
 
-  async function openMovie(result: MovieSearchResult) {
-    if (openingTmdbId !== null) {
+  async function openResult(result: MediaSearchResult) {
+    if (openingResultKey !== null) {
       return;
     }
 
-    setOpeningTmdbId(result.tmdbId);
+    setOpeningResultKey(searchResultKey(result));
 
-    router.push(result.localMovieId ? `/movie/${result.localMovieId}` : result.detailUrl);
+    if (result.mediaType === "movie" && result.localMovieId) {
+      router.push(`/movie/${result.localMovieId}`);
+      return;
+    }
+
+    if (result.mediaType === "show" && result.localMediaId) {
+      router.push(`/show/${result.localMediaId}`);
+      return;
+    }
+
+    router.push(result.detailUrl);
   }
 
   return (
@@ -115,10 +125,10 @@ export function MovieSearch() {
       <section className="flex h-[50px] items-center gap-3 rounded-xl border border-border bg-surface-muted pl-4 pr-1">
         <Search aria-hidden="true" className="h-5 w-5 shrink-0 text-text-muted" />
         <input
-          aria-label="Search movies"
+          aria-label="Search movies and shows"
           className="min-w-0 flex-1 appearance-none bg-transparent text-[17px] text-foreground outline-none placeholder:text-text-muted [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
           onChange={(event) => handleQueryChange(event.target.value)}
-          placeholder="Search movies"
+          placeholder="Search movies and shows"
           type="search"
           value={query}
         />
@@ -148,17 +158,17 @@ export function MovieSearch() {
       ) : null}
 
       {activeStatus === "success" && results.length === 0 ? (
-        <p className="px-1 text-[13px] text-text-2">No movies found.</p>
+        <p className="px-1 text-[13px] text-text-2">No movies or shows found.</p>
       ) : null}
 
       {results.length > 0 ? (
         <section className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-3">
           {results.map((result) => (
             <SearchResultPoster
-              key={result.tmdbId}
-              isDisabled={openingTmdbId !== null}
-              isOpening={openingTmdbId === result.tmdbId}
-              onOpen={openMovie}
+              key={`${result.mediaType}:${result.tmdbId}`}
+              isDisabled={openingResultKey !== null}
+              isOpening={openingResultKey === searchResultKey(result)}
+              onOpen={openResult}
               result={result}
             />
           ))}
@@ -176,18 +186,21 @@ function SearchResultPoster({
 }: {
   isDisabled: boolean;
   isOpening: boolean;
-  onOpen: (result: MovieSearchResult) => void;
-  result: MovieSearchResult;
+  onOpen: (result: MediaSearchResult) => void;
+  result: MediaSearchResult;
 }) {
   const localStateLabel =
     result.currentStatus === "watched"
       ? "Already watched"
-      : result.currentStatus === "to_watch"
-        ? "To watch"
-        : "Not saved";
+      : result.currentStatus === "to_watch" || result.currentStatus === "wishlist"
+        ? "Wishlist"
+        : result.currentStatus === "watching"
+          ? "In library"
+          : "Not saved";
   const ariaLabel = [
     result.title,
-    result.releaseYear,
+    result.releaseYear ?? result.firstAirYear,
+    result.mediaType === "show" ? "Show" : "Movie",
     localStateLabel,
     result.personalRating !== null ? `${result.personalRating}/10` : null,
   ]
@@ -214,6 +227,8 @@ function SearchResultPoster({
             className="h-full w-full object-cover"
             {...tmdbImage(result.posterPath, "searchPoster")}
           />
+        ) : result.mediaType === "show" ? (
+          <Tv className="h-5 w-5 text-text-faint" strokeWidth={1.8} />
         ) : (
           <Film className="h-5 w-5 text-text-faint" strokeWidth={1.8} />
         )}
@@ -228,4 +243,8 @@ function SearchResultPoster({
       </p>
     </button>
   );
+}
+
+function searchResultKey(result: MediaSearchResult) {
+  return `${result.mediaType}:${result.tmdbId}`;
 }
