@@ -159,6 +159,13 @@ foundation for planned TV support. `media_items`, `episodes`, `user_media`, `use
 `watch_logs`, `user_movie_tags`, `provider_mappings`, and movie RPC/query paths remain unchanged
 until later backfill and read-path migrations intentionally switch traffic.
 
+`supabase/migrations/20260526110000_backfill_movie_media_tables.sql` backfills current movie data
+into the additive media tables without changing live movie paths. It preserves existing movie UUIDs
+as movie `media_items.id` values, maps `user_movies.status = 'to_watch'` to
+`user_media.status = 'wishlist'`, copies movie tags to `user_media_tags`, and backfills movie
+provider ids into `media_provider_mappings`. The migration raises exceptions if copied row counts
+or key relationships do not match the legacy movie tables.
+
 ## 8. Operational Notes
 
 Keep these server-side only:
