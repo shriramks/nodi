@@ -80,6 +80,7 @@ Writes to these tables should happen through trusted server-side paths using pri
 These tables are scoped per authenticated user:
 - `user_movies`
 - `watch_logs`
+- `media_watch_activity`
 - `tags`
 - `user_movie_tags`
 - `user_media`
@@ -165,6 +166,12 @@ as movie `media_items.id` values, maps `user_movies.status = 'to_watch'` to
 `user_media.status = 'wishlist'`, copies movie tags to `user_media_tags`, and backfills movie
 provider ids into `media_provider_mappings`. The migration raises exceptions if copied row counts
 or key relationships do not match the legacy movie tables.
+
+`supabase/migrations/20260526120000_add_media_watch_activity.sql` adds the generalized
+`media_watch_activity` table beside existing `watch_logs`. It backfills current movie watch log
+events using the movie `media_items.id`, keeps a `legacy_watch_log_id` link for parity checks, and
+adds user/date plus media/date indexes for future media stats and detail reads. Current movie watch
+flows still use `watch_logs` until later media mutations intentionally switch traffic.
 
 ## 8. Operational Notes
 

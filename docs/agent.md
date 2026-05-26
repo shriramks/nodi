@@ -63,6 +63,9 @@ product direction.
 - For substantial UI exploration, use local mockups inside the `mocks/` folder only — never place mock files in the repo root or elsewhere. Generated UI previews shown during repo work count as mockups: copy them into `mocks/` before presenting or referencing them. The `mocks/` folder is gitignored and must never be committed.
 - Before changing schema behavior, check `supabase/db_guide.md` and the existing migration files first.
 - Schema changes must be additive through new files in `supabase/migrations/`; do not rewrite an applied migration.
+- Supabase migrations for this project are applied manually through the Supabase SQL Editor. Whenever
+  a task adds a migration file, explicitly tell the user which migration SQL to run in the Supabase
+  SQL Editor before considering the database change applied.
 
 ## Fast lookup map
 

@@ -342,6 +342,67 @@ export type Database = {
           },
         ];
       };
+      media_watch_activity: {
+        Row: {
+          id: string;
+          user_id: string;
+          media_id: string;
+          episode_id: string | null;
+          watched_at: string;
+          source: WatchLogSource;
+          provider_event_id: string | null;
+          notes: string | null;
+          legacy_watch_log_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          media_id: string;
+          episode_id?: string | null;
+          watched_at: string;
+          source: WatchLogSource;
+          provider_event_id?: string | null;
+          notes?: string | null;
+          legacy_watch_log_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          media_id?: string;
+          episode_id?: string | null;
+          watched_at?: string;
+          source?: WatchLogSource;
+          provider_event_id?: string | null;
+          notes?: string | null;
+          legacy_watch_log_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "media_watch_activity_media_id_fkey";
+            columns: ["media_id"];
+            isOneToOne: false;
+            referencedRelation: "media_items";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "media_watch_activity_episode_id_fkey";
+            columns: ["episode_id"];
+            isOneToOne: false;
+            referencedRelation: "episodes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "media_watch_activity_legacy_watch_log_id_fkey";
+            columns: ["legacy_watch_log_id"];
+            isOneToOne: true;
+            referencedRelation: "watch_logs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       watch_logs: {
         Row: {
           id: string;
@@ -936,6 +997,8 @@ export type UserMovieUpdate = TableUpdate<"user_movies">;
 export type UserMedia = TableRow<"user_media">;
 export type UserMediaInsert = TableInsert<"user_media">;
 export type UserMediaUpdate = TableUpdate<"user_media">;
+export type MediaWatchActivity = TableRow<"media_watch_activity">;
+export type MediaWatchActivityInsert = TableInsert<"media_watch_activity">;
 export type WatchLog = TableRow<"watch_logs">;
 export type WatchLogInsert = TableInsert<"watch_logs">;
 export type Tag = TableRow<"tags">;
