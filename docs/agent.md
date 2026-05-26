@@ -90,9 +90,9 @@ start with the listed files and only expand outward if those files point elsewhe
 | Local movie detail | `app/(shell)/movie/[movieId]/page.tsx` | `app/(shell)/movie/[movieId]/movie-detail-client.tsx`, `components/movie/movie-detail-view.tsx`, `app/(shell)/movie/[movieId]/actions.ts` |
 | Shared detail presentation | `components/ui/detail.tsx`, `components/movie/movie-detail-view.tsx` | `components/movie/overview-text.tsx`, `components/media/credit-poster-card.tsx` |
 | TMDB person detail | `app/(shell)/person/tmdb/[personId]/page.tsx` | `components/person/person-detail-view.tsx`, `components/media/credit-poster-card.tsx`, `components/ui/detail.tsx` |
-| Watched Movies page | `app/(shell)/movies/page.tsx` | `components/movie/movie-library-grid.tsx`, `components/movie/poster-card.tsx` |
+| Library page | `app/(shell)/library/page.tsx` | `components/library/library-grid.tsx`, `components/movie/poster-card.tsx` |
 | To Watch page | `app/(shell)/to-watch/page.tsx` | `components/movie/poster-card.tsx` |
-| Poster grid/card behavior | `components/movie/poster-card.tsx`, `components/movie/movie-library-grid.tsx` | `components/search/movie-search.tsx` if search posters are involved |
+| Poster grid/card behavior | `components/movie/poster-card.tsx`, `components/library/library-grid.tsx` | `components/search/movie-search.tsx` if search posters are involved |
 | Stats page | `app/(shell)/stats/page.tsx` | `lib/db/queries/movies.ts` |
 | PWA manifest and icons | `app/manifest.ts`, `public/` | `app/layout.tsx` |
 | Design decisions | `docs/design.md` | the component being changed |
@@ -104,25 +104,26 @@ start with the listed files and only expand outward if those files point elsewhe
 Use this section for common repo questions before scanning. The goal is to start from the known owner
 files, then inspect only direct imports, direct callers, or the relevant route boundary.
 
-### Movies library
+### Library
 
-- Watched movies route: `app/(shell)/movies/page.tsx`
-  - Loads watched user movies with `listLibraryMoviesPage({ status: "watched" })`.
+- Library route: `app/(shell)/library/page.tsx`
+  - Loads watched user titles with `listLibraryMoviesPage({ status: "watched" })`.
   - Loads the lightweight watched summary with `getWatchedLibrarySummary()` for header and filter options.
   - Loads `listTags()` because the watched filter sheet renders tag options immediately.
-  - Renders `MovieLibraryGrid`.
+  - Renders `LibraryGrid`.
 - To Watch route: `app/(shell)/to-watch/page.tsx`
   - Loads queued movies with `listLibraryMoviesPage({ status: "to_watch" })`.
   - Defers `listTags()` until the user opens the bulk tag sheet.
-  - Reuses `MovieLibraryGrid` with `pageStatus="to_watch"`.
-- Grid UI, sorting, local filter sheet, grouping, selection: `components/movie/movie-library-grid.tsx`
+  - Reuses `LibraryGrid` with `pageStatus="to_watch"`.
+- Grid UI, sorting, local filter sheet, grouping, selection: `components/library/library-grid.tsx`
   - Client component.
   - Sorts watched by watched date, rating, or title.
   - Sorts to-watch by added date or title.
   - Watched filters are URL-backed and applied by the server query.
   - Filter sheet exposes genre, language, watched year/month, tags, and rating.
   - Sort-sheet selection and direction are explicit; filter-sheet draft changes use explicit clear/apply actions.
-  - Sort/Filter toolbar uses 44px icon+label pills; the active-filter reset action is a separate 44x44 icon button.
+  - Type, Filter, and Sort use 44px icon+label pills; the active-filter reset action is a separate 44x44 icon button.
+  - Select uses a separate 44x44 icon button with a circular check affordance.
   - Watched date filters intentionally stop at year/month granularity.
   - Groups by month/year label when sorting by watched or added date.
 - Poster card navigation/selection: `components/movie/poster-card.tsx`
@@ -144,7 +145,7 @@ files, then inspect only direct imports, direct callers, or the relevant route b
   - `getMovieDetail()` hydrates per-movie tags through `user_movie_tags` for tag-aware detail screens.
   - If a route-level library filter is needed, this is the server query to extend.
 - Shared movie/user/tag types: `lib/db/types.ts`
-  - `LibraryMovie` is the shape passed to `MovieLibraryGrid`.
+  - `LibraryMovie` is the shape passed to `LibraryGrid`.
   - `Movie` includes `primary_genre_name`, `original_language`, `release_year`, and poster metadata.
 - Tags query owner: `lib/db/queries/tags.ts`
 

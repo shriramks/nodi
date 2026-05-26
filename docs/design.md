@@ -242,7 +242,7 @@ Icon assignments (lucide-react):
 - Search → `Search`
 
 Planned media expansion:
-- Movies becomes Media and may keep the `Film` icon unless a better combined media icon is chosen.
+- Movies becomes Library and may keep the `Film` icon unless a better combined library icon is chosen.
 - To Watch becomes Wishlist and keeps `Bookmark`.
 - Bottom nav should remain one app-level nav, not split into separate movie and TV navs.
 
@@ -263,20 +263,20 @@ Caption: none in watched-grid default
 
 Rules:
 - Movies and To Watch use the same poster grid system.
-- Planned Media and Wishlist views use the same poster grid system for movies and shows.
+- Planned Library and Wishlist views use the same poster grid system for movies and shows.
 - In `Movies`, the default watched view shows **posters only** for maximum scan density.
 - Grid column count should adapt to available width rather than being hard-coded to 3.
 - Target the current iPhone 16 / iPhone 17 class first, then let the layout scale down cleanly.
 - Rating should appear in detail or alternate list contexts, not in the watched poster grid.
 - Poster placeholders should preserve aspect ratio to avoid layout shift.
 
-### Media Type Filter
+### Library Type Filter
 ```text
 [All] [Movies] [Shows]
 ```
 
 Use for:
-- Media library
+- Library
 - Wishlist
 - Stats
 
@@ -284,7 +284,7 @@ Rules:
 - Default selection is `All`.
 - Use segmented control styling when the filter is central to the page; use compact filter-bar
   styling when combined with tag/year/rating filters.
-- The type filter should propagate through stats drill-down links into Media.
+- The type filter should propagate through stats drill-down links into Library.
 - Do not create separate movie and show apps or separate nav structures.
 
 ### MovieDetailHero
@@ -408,7 +408,7 @@ Use for:
 
 ### MovieLibraryToolbar
 ```text
-[sort icon  Sort  chevron] [filter icon  Filter  dot  chevron] [x]
+[type icon  All  chevron] [filter icon  Filter  dot  chevron] [sort icon  Sort  chevron] [x] [select icon]
 
 Pill height: 44px
 Pill radius: rounded-full
@@ -417,11 +417,14 @@ Icon size: 14px inside pills
 Reset filter button: 44x44px icon button
 ```
 
-Active sort/filter pill: `border-accent/30 bg-accent/10 font-semibold text-accent`.
-Inactive pill: `border-border bg-surface text-text-2`.
+Active toolbar pill: `border-accent/40 font-semibold text-accent`.
+Inactive toolbar pill: `border-border text-text-2`.
 
 Rules:
-- Sort and Filter controls use lucide icons plus text labels; do not use standalone text-only pills here.
+- Type, Filter, and Sort controls use lucide icons plus text labels; do not use standalone text-only
+  pills here.
+- Select uses a plain 44x44 icon button so it does not compete visually with the filter controls.
+- Toolbar pills stay unfilled so the row stays quiet when several controls are visible together.
 - The reset filter affordance is a separate 44x44 icon button, not a narrow text glyph.
 - Active filters may show a small accent dot inside the Filter pill; the tap target still comes from the pill.
 

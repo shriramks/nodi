@@ -53,8 +53,8 @@ function watchDateToTimestamp(value: string) {
 
 function revalidateMovieState(movieId: string) {
   revalidatePath(`/movie/${movieId}`);
-  revalidatePath("/movies");
-  revalidatePath("/to-watch");
+  revalidatePath("/library");
+  revalidatePath("/wishlist");
   revalidatePath("/search");
   revalidatePath("/stats");
 }
@@ -82,7 +82,7 @@ export async function markTmdbWatchedAction(
   payload: TmdbMovieIngestPayload,
 ): Promise<string> {
   const movie = await saveTmdbMovie(payload, "watched");
-  revalidatePath("/movies");
+  revalidatePath("/library");
   revalidatePath("/search");
   return `/movie/${movie.id}`;
 }
@@ -91,7 +91,7 @@ export async function addTmdbToWatchlistAction(
   payload: TmdbMovieIngestPayload,
 ): Promise<string> {
   const movie = await saveTmdbMovie(payload, "to_watch");
-  revalidatePath("/to-watch");
+  revalidatePath("/wishlist");
   revalidatePath("/search");
   return `/movie/${movie.id}`;
 }

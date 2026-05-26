@@ -29,10 +29,10 @@ export default function ShellError({
         </button>
         <Link
           className="flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 text-[15px] font-semibold text-foreground"
-          href="/movies"
+          href="/library"
         >
           <Home aria-hidden="true" className="h-4 w-4" />
-          Movies
+          Library
         </Link>
       </section>
     </main>

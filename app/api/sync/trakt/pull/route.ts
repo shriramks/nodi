@@ -39,8 +39,8 @@ export async function POST(request: NextRequest) {
 
     const result = await pullTraktSync(request.nextUrl.origin);
 
-    revalidatePath("/movies");
-    revalidatePath("/to-watch");
+    revalidatePath("/library");
+    revalidatePath("/wishlist");
     revalidatePath("/stats");
     revalidatePath("/search");
 

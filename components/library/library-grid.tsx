@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowUpDown, ChevronDown, ChevronRight, ListFilter, LoaderCircle, X } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Check, ChevronDown, ChevronRight, Clapperboard, CircleCheck, ListFilter, LoaderCircle, X } from "lucide-react";
 import { PosterCard } from "@/components/movie/poster-card";
 import { BulkActionsBar } from "@/components/movie/bulk-actions-bar";
 import { TmdbImagePrefetcher } from "@/components/media/tmdb-image-prefetcher";
@@ -17,6 +17,7 @@ import {
 import type {
   LibraryMovie,
   LibraryStatsTimeBucket,
+  MediaTypeFilter,
   Tag,
 } from "@/lib/db/types";
 import type { LibraryMoviePage } from "@/lib/db/queries";
@@ -82,12 +83,19 @@ const OP_SYMBOL: Record<RatingOp, string> = {
   "<=": "≤",
 };
 
+const LIBRARY_TYPE_OPTIONS: Array<{ type: MediaTypeFilter; label: string }> = [
+  { type: "all", label: "All" },
+  { type: "movie", label: "Movies" },
+  { type: "show", label: "Shows" },
+];
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 type Props = {
   initialPage: LibraryMoviePage;
   allTags?: Tag[];
   pageStatus?: "watched" | "to_watch";
+  libraryType?: MediaTypeFilter;
   activeFilters?: MovieLibraryActiveFilters;
   filterOptions?: MovieLibraryFilterOptions;
 };
@@ -109,10 +117,11 @@ export type MovieLibraryFilterOptions = {
   months: LibraryStatsTimeBucket[];
 };
 
-export function MovieLibraryGrid({
+export function LibraryGrid({
   initialPage,
   allTags,
   pageStatus = "watched",
+  libraryType = "all",
   activeFilters = emptyActiveFilters,
   filterOptions = emptyFilterOptions,
 }: Props) {
@@ -132,6 +141,7 @@ export function MovieLibraryGrid({
 
   const [sortSheetOpen, setSortSheetOpen] = useState(false);
   const [draftSortState, setDraftSortState] = useState(() => initialSortState(sortOptions));
+  const [typeSheetOpen, setTypeSheetOpen] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [filterSheetView, setFilterSheetView] = useState<FilterSheetView>("main");
   const [draftGenre, setDraftGenre] = useState<string | undefined>(activeFilters.genre);
@@ -196,6 +206,19 @@ export function MovieLibraryGrid({
     setSortSheetOpen(false);
   }
 
+  function applyLibraryType(nextType: MediaTypeFilter) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextType === "all") {
+      params.delete("type");
+    } else {
+      params.set("type", nextType);
+    }
+
+    const query = params.toString();
+    router.push(query ? `${pathname}?${query}` : pathname);
+    setTypeSheetOpen(false);
+  }
+
   const loadPage = useCallback(async (offset: number, mode: "append" | "replace") => {
     loadingRequestRef.current?.abort();
     const abortController = new AbortController();
@@ -206,13 +229,14 @@ export function MovieLibraryGrid({
     try {
       const params = new URLSearchParams({
         status: pageStatus,
+        type: libraryType,
         offset: String(offset),
         sortKey,
         sortDir,
       });
       appendFilterParams(params, activeFilters);
 
-      const response = await fetch(`/api/library/movies?${params.toString()}`, {
+      const response = await fetch(`/api/library/items?${params.toString()}`, {
         headers: {
           accept: "application/json",
         },
@@ -242,7 +266,7 @@ export function MovieLibraryGrid({
         setIsLoadingPage(false);
       }
     }
-  }, [activeFilters, pageStatus, sortDir, sortKey, sortState]);
+  }, [activeFilters, libraryType, pageStatus, sortDir, sortKey, sortState]);
 
   const loadNextPage = useCallback(async () => {
     if (!hasMore || nextOffset === null || isLoadingPage) {
@@ -399,6 +423,8 @@ export function MovieLibraryGrid({
   const sortPillLabel = sortPillActive
     ? sortOptions.find((o) => o.key === sortKey)!.label
     : "Sort";
+  const typePillActive = libraryType !== "all";
+  const typePillLabel = libraryTypeLabel(libraryType);
   const filterPillLabel = hasActiveFilter ? summarizeFilters(activeFilters) : "Filter";
   const draftFilters: MovieLibraryActiveFilters = {
     genre: draftGenre,
@@ -463,6 +489,7 @@ export function MovieLibraryGrid({
 
     return result;
   }, [movies, sortKey, sortDir]);
+  const canBulkSelect = processed.every((item) => (item.movie.type ?? "movie") === "movie");
 
   // ─── Grouping ─────────────────────────────────────────────────────────────
 
@@ -515,19 +542,19 @@ export function MovieLibraryGrid({
               {selectedIds.size > 0 ? `${selectedIds.size} selected` : "Tap to select"}
             </span>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <button
                 type="button"
-                onClick={openSortSheet}
+                onClick={() => setTypeSheetOpen(true)}
                 className={[
-                  "inline-flex h-11 items-center gap-1.5 rounded-full border px-3.5 text-[13px]",
-                  sortPillActive
-                    ? "border-accent/30 bg-accent/10 font-semibold text-accent"
-                    : "border-border bg-surface text-text-2",
+                  "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px]",
+                  typePillActive
+                    ? "border-accent/40 font-semibold text-accent"
+                    : "border-border text-text-2",
                 ].join(" ")}
               >
-                <ArrowUpDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
-                {sortPillLabel}
+                <Clapperboard aria-hidden="true" className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
+                {typePillLabel}
                 <ChevronDown aria-hidden="true" className="h-3 w-3 shrink-0 opacity-45" strokeWidth={2.4} />
               </button>
 
@@ -536,10 +563,10 @@ export function MovieLibraryGrid({
                   type="button"
                   onClick={openFilterSheet}
                   className={[
-                    "inline-flex h-11 items-center gap-1.5 rounded-full border px-3.5 text-[13px]",
+                    "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px]",
                     hasActiveFilter
-                      ? "border-accent/30 bg-accent/10 font-semibold text-accent"
-                      : "border-border bg-surface text-text-2",
+                      ? "border-accent/40 font-semibold text-accent"
+                      : "border-border text-text-2",
                   ].join(" ")}
                 >
                   <ListFilter aria-hidden="true" className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
@@ -561,20 +588,40 @@ export function MovieLibraryGrid({
                   <X aria-hidden="true" className="h-4 w-4" strokeWidth={2.2} />
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={openSortSheet}
+                className={[
+                  "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13px]",
+                  sortPillActive
+                    ? "border-accent/40 font-semibold text-accent"
+                    : "border-border text-text-2",
+                ].join(" ")}
+              >
+                <ArrowUpDown aria-hidden="true" className="h-3.5 w-3.5 shrink-0" strokeWidth={2.2} />
+                {sortPillLabel}
+                <ChevronDown aria-hidden="true" className="h-3 w-3 shrink-0 opacity-45" strokeWidth={2.4} />
+              </button>
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={isSelecting ? exitSelectMode : enterSelectMode}
-            className={[
-              "shrink-0 font-medium",
-              isSelecting ? "text-[15px] text-accent" : "text-[13px] text-text-2",
-            ].join(" ")}
-            style={{ minHeight: 44, paddingLeft: 8, paddingRight: 8 }}
-          >
-            {isSelecting ? "Done" : "Select"}
-          </button>
+          {canBulkSelect && (
+            <button
+              type="button"
+              onClick={isSelecting ? exitSelectMode : enterSelectMode}
+              aria-label={isSelecting ? "Done selecting" : "Select items"}
+              title={isSelecting ? "Done selecting" : "Select items"}
+              className={[
+                "inline-flex size-11 shrink-0 items-center justify-center rounded-full border",
+                isSelecting
+                  ? "border-accent/40 text-accent"
+                  : "border-border text-text-2",
+              ].join(" ")}
+            >
+              <CircleCheck aria-hidden="true" className="h-5 w-5" strokeWidth={2.1} />
+            </button>
+          )}
         </div>
 
         {isWatched && hasActiveFilter && !isSelecting && (
@@ -596,7 +643,7 @@ export function MovieLibraryGrid({
         {/* Grid */}
         {processed.length === 0 ? (
           <section className="rounded-2xl border border-dashed border-border bg-surface p-4 text-[15px] leading-[1.4] text-text-2">
-            No movies match the current filter.
+            No library items match the current filter.
           </section>
         ) : groups ? (
           <div className="space-y-1">
@@ -613,6 +660,7 @@ export function MovieLibraryGrid({
                       movieId={movie.id}
                       title={movie.title}
                       posterPath={movie.poster_path}
+                      href={libraryHref(movie)}
                       isSelectable={isSelecting}
                       isSelected={selectedIds.has(movie.id)}
                       onToggle={handleToggle}
@@ -630,6 +678,7 @@ export function MovieLibraryGrid({
                 movieId={movie.id}
                 title={movie.title}
                 posterPath={movie.poster_path}
+                href={libraryHref(movie)}
                 isSelectable={isSelecting}
                 isSelected={selectedIds.has(movie.id)}
                 onToggle={handleToggle}
@@ -661,7 +710,7 @@ export function MovieLibraryGrid({
         ) : null}
       </div>
 
-      {isSelecting && selectedIds.size > 0 && (
+      {canBulkSelect && isSelecting && selectedIds.size > 0 && (
         <BulkActionsBar
           selectedIds={[...selectedIds]}
           initialTags={allTags}
@@ -749,6 +798,62 @@ export function MovieLibraryGrid({
               ))}
             </div>
           </SheetSection>
+          <div className="h-2" />
+        </BottomSheet>
+      )}
+
+      {/* Type sheet */}
+      {typeSheetOpen && (
+        <BottomSheet
+          ariaLabel="Filter by Library type"
+          contentClassName="pt-3"
+          onClose={() => setTypeSheetOpen(false)}
+        >
+          <div className="flex items-center justify-between px-5 pb-3">
+            <p className="text-[17px] font-semibold">Library type</p>
+            <button
+              type="button"
+              onClick={() => setTypeSheetOpen(false)}
+              className="min-h-11 text-[15px] font-semibold text-accent"
+            >
+              Done
+            </button>
+          </div>
+
+          <div role="radiogroup" aria-label="Library type">
+            {LIBRARY_TYPE_OPTIONS.map((option, index) => {
+              const isSelected = libraryType === option.type;
+
+              return (
+                <button
+                  key={option.type}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  onClick={() => applyLibraryType(option.type)}
+                  className="flex w-full items-center gap-3 px-5 py-3.5 text-left active:bg-tap-active"
+                  style={{ borderTop: index === 0 ? "none" : "1px solid var(--divider)" }}
+                >
+                  <span
+                    className={[
+                      "flex size-5 shrink-0 items-center justify-center rounded-md border",
+                      isSelected ? "border-accent bg-accent text-black" : "border-border text-transparent",
+                    ].join(" ")}
+                  >
+                    <Check aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={3} />
+                  </span>
+                  <span
+                    className={[
+                      "flex-1 text-[15px]",
+                      isSelected ? "font-medium text-foreground" : "text-text-2",
+                    ].join(" ")}
+                  >
+                    {option.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
           <div className="h-2" />
         </BottomSheet>
       )}
@@ -1237,6 +1342,22 @@ function sameSort(
   right: { key: SortKey; dir: SortDir },
 ) {
   return left.key === right.key && left.dir === right.dir;
+}
+
+function libraryHref(movie: LibraryMovie["movie"]) {
+  return movie.type === "show" ? `/show/${movie.id}` : `/movie/${movie.id}`;
+}
+
+function libraryTypeLabel(type: MediaTypeFilter) {
+  if (type === "movie") {
+    return "Movies";
+  }
+
+  if (type === "show") {
+    return "Shows";
+  }
+
+  return "All";
 }
 
 function appendFilterParams(

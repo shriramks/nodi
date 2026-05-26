@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Film, Search } from "lucide-react";
+import { Clapperboard, Search } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
 import { PageHeader } from "@/components/ui/section";
@@ -23,10 +23,10 @@ export default function ShellNotFound() {
         </Link>
         <Link
           className="flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 text-[15px] font-semibold text-foreground"
-          href="/movies"
+          href="/library"
         >
-          <Film aria-hidden="true" className="h-4 w-4" />
-          Movies
+          <Clapperboard aria-hidden="true" className="h-4 w-4" />
+          Library
         </Link>
       </section>
     </main>

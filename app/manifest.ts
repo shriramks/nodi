@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     id: "/",
     name: "Nodi",
     short_name: "Nodi",
-    description: "Track watched movies, manage your watchlist, and keep personal movie stats.",
+    description: "Track your library, manage your watchlist, and keep personal stats.",
     lang: "en",
     dir: "ltr",
     start_url: "/?source=pwa",
@@ -56,7 +56,7 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: "390x844",
         type: "image/svg+xml",
         form_factor: "narrow",
-        label: "Nodi mobile movie library",
+        label: "Nodi mobile library",
       },
       {
         src: "/screenshots/nodi-wide.svg",
@@ -68,17 +68,17 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: "Movies",
-        short_name: "Movies",
-        description: "Open your watched movie library.",
-        url: "/movies",
+        name: "Library",
+        short_name: "Library",
+        description: "Open your watched library.",
+        url: "/library",
         icons: [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
       },
       {
-        name: "To Watch",
-        short_name: "Watchlist",
-        description: "Open your queued movies.",
-        url: "/to-watch",
+        name: "Wishlist",
+        short_name: "Wishlist",
+        description: "Open your queued titles.",
+        url: "/wishlist",
         icons: [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
       },
       {

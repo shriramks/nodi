@@ -4,6 +4,7 @@ export type Json = JsonValue;
 
 export type MovieStatus = "watched" | "to_watch";
 export type MediaType = "movie" | "show";
+export type MediaTypeFilter = MediaType | "all";
 export type MediaStatus = "watching" | "watched" | "wishlist";
 export type MediaCompletionMode = "manual" | "auto_all_aired";
 export type WatchLogSource = "manual" | "trakt_sync" | "tmdb_sync" | "import";
@@ -1054,7 +1055,9 @@ export type UserMovieWithMovie = UserMovie & {
 };
 
 export type LibraryMovie = UserMovie & {
-  movie: Pick<Movie, "id" | "poster_path" | "title">;
+  movie: Pick<Movie, "id" | "poster_path" | "title"> & {
+    type?: MediaType;
+  };
 };
 
 export type MovieDetail = Movie & {

@@ -166,6 +166,7 @@ describe("media queries", () => {
             id: mediaId,
             poster_path: "/poster.jpg",
             title: "Nodi",
+            type: "movie",
           },
           movie_id: mediaId,
           personal_rating: 8,
@@ -183,6 +184,7 @@ describe("media queries", () => {
     await expect(
       listMediaLibraryMoviesPage({
         status: "watched",
+        type: "show",
         filters: {
           tagNames: [" Noir ", "noir"],
           watchedMonth: "2026-05",
@@ -202,6 +204,7 @@ describe("media queries", () => {
 
     expect(rpc).toHaveBeenCalledWith("list_media_library_movies_page", {
       p_status: "watched",
+      p_type: "show",
       p_limit: 48,
       p_offset: 0,
       p_sort_key: "watched_date",

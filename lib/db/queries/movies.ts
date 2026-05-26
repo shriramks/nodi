@@ -7,6 +7,7 @@ import type {
   MovieCastMember,
   MovieDetail,
   MovieStatus,
+  MediaTypeFilter,
   LibraryMovie,
   Tag,
   UserMovie,
@@ -55,6 +56,7 @@ export type LibraryMovieSortDirection = "asc" | "desc";
 
 export type LibraryMoviePageOptions = {
   status: MovieStatus;
+  type?: MediaTypeFilter;
   limit?: number;
   offset?: number;
   sort?: {

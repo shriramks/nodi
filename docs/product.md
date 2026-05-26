@@ -23,7 +23,7 @@ experience should be combined because the core behavior is shared: track what wa
 tag it, sync it, and understand personal viewing habits.
 
 Planned route direction:
-- `/media`: replaces `/movies`, showing movies and shows together by default
+- `/library`: replaces `/movies`, showing movies and shows together by default
 - `/wishlist`: replaces `/to-watch`, showing queued movies and shows together by default
 - `/stats?type=all|movie|show`: filters analytics by media type, defaulting to `all`
 - old `/movies` and `/to-watch` routes should redirect during the transition

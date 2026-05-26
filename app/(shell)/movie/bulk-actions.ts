@@ -13,8 +13,8 @@ import { listTags } from "@/lib/db/queries";
 import type { Tag } from "@/lib/db/types";
 
 function revalidateLibrary() {
-  revalidatePath("/movies");
-  revalidatePath("/to-watch");
+  revalidatePath("/library");
+  revalidatePath("/wishlist");
   revalidatePath("/stats");
 }
 

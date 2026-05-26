@@ -8,6 +8,7 @@ type PosterCardProps = {
   movieId: string;
   title: string;
   posterPath: string | null;
+  href?: string;
   isSelectable?: boolean;
   isSelected?: boolean;
   onToggle?: (movieId: string) => void;
@@ -17,6 +18,7 @@ export function PosterCard({
   movieId,
   title,
   posterPath,
+  href,
   isSelectable = false,
   isSelected = false,
   onToggle,
@@ -82,7 +84,7 @@ export function PosterCard({
   }
 
   return (
-    <Link href={`/movie/${movieId}`} className="group block" aria-label={title}>
+    <Link href={href ?? `/movie/${movieId}`} className="group block" aria-label={title}>
       {poster}
     </Link>
   );

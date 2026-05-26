@@ -7,7 +7,7 @@ import type {
   MediaItem,
   MediaProviderMapping,
   MediaStatus,
-  MediaType,
+  MediaTypeFilter,
   MovieStatus,
   MediaWatchActivity,
   Tag,
@@ -24,7 +24,6 @@ import {
 } from "./stats-transforms";
 
 const mediaPageSize = 1000;
-export type MediaTypeFilter = MediaType | "all";
 
 type MediaJoinRow = UserMedia & {
   media: Pick<MediaItem, "id" | "type" | "poster_path" | "title"> | null;
@@ -37,7 +36,7 @@ type MediaTagJoinRow = {
 type MediaLibraryMoviePageRow = Omit<UserMedia, "status"> & {
   movie_id: string;
   status: MovieStatus;
-  movie: Pick<MediaItem, "id" | "poster_path" | "title">;
+  movie: Pick<MediaItem, "id" | "type" | "poster_path" | "title">;
   total_count: number;
 };
 
@@ -129,6 +128,7 @@ export async function listMediaLibraryMoviesPage(
   const watchedRange = watchedFilterRange(options.filters);
   const { data, error } = await supabase.rpc("list_media_library_movies_page", {
     p_status: options.status,
+    p_type: options.type ?? "all",
     p_limit: limit,
     p_offset: offset,
     p_sort_key: sort.key,
@@ -171,8 +171,10 @@ export async function listMediaLibraryMoviesPage(
   };
 }
 
-export async function getMediaWatchedMovieLibrarySummary(): Promise<WatchedLibrarySummary> {
-  const rows = await listMediaWatchedLibrarySummaryRows("movie");
+export async function getMediaWatchedMovieLibrarySummary(
+  type: MediaTypeFilter = "all",
+): Promise<WatchedLibrarySummary> {
+  const rows = await listMediaWatchedLibrarySummaryRows(type);
 
   return buildWatchedLibrarySummary(rows.map((row) => ({
     movie_id: row.media_id,

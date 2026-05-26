@@ -50,7 +50,7 @@ episodes are TV-specific watch units loaded only when a show or episode screen n
 - list imports into local tags
 - planned: show ratings, show watchlist, episode watch history, and show/list imports as local tags
 
-## Planned Media Architecture
+## Planned Library Architecture
 
 ### One app, typed media
 
@@ -58,7 +58,7 @@ Nodi should stay one app with typed media, not split into separate movie and TV 
 combined surfaces should be:
 
 ```text
-/media?type=all|movie|show
+/library?type=all|movie|show
 /wishlist?type=all|movie|show
 /stats?type=all|movie|show
 ```
@@ -178,7 +178,7 @@ definitions clear:
 
 The media expansion should not make ordinary pages slower:
 
-- `/media`: one indexed paged query with poster-card fields only
+- `/library`: one indexed paged query with poster-card fields only
 - `/wishlist`: one indexed paged query with poster-card fields only
 - `/movie/[id]`: movie detail only, no episode/show hydration
 - `/show/[id]`: show metadata plus seasons/episodes
@@ -590,11 +590,11 @@ For v1, online-first is fine. No offline mutation support is required.
 - `/stats`
   - `tag` scopes stats to movies with that tag
   - `year` scopes stats to watch events in that watched year
-  - genre, language, month, and year breakdowns link to `/movies` filters
+  - genre, language, month, and year breakdowns link to `/library` filters
 
-### Planned media routes
+### Planned library routes
 
-- `/media`
+- `/library`
   - replaces `/movies`
   - `type=all|movie|show`, default `all`
   - keeps existing genre, language, tag, rating, year, and month filters where meaningful
@@ -609,7 +609,7 @@ For v1, online-first is fine. No offline mutation support is required.
     context, and show tags
 - `/stats`
   - `type=all|movie|show`, default `all`
-  - type filter propagates to `/media` drill-down links
+  - type filter propagates to `/library` drill-down links
 - `/search`
 - `/movie/[movieId]`
 - `/movie/tmdb/[tmdbId]`

@@ -1,12 +1,12 @@
 "use client";
 
-import { BarChart2, Bookmark, Film, Search } from "lucide-react";
+import { BarChart2, Bookmark, LibraryBig, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const items = [
-  { href: "/movies", label: "Movies", Icon: Film },
-  { href: "/to-watch", label: "To Watch", Icon: Bookmark },
+  { href: "/library", label: "Library", Icon: LibraryBig },
+  { href: "/wishlist", label: "Wishlist", Icon: Bookmark },
   { href: "/stats", label: "Stats", Icon: BarChart2 },
   { href: "/search", label: "Search", Icon: Search },
 ];

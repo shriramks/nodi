@@ -179,6 +179,11 @@ flows still use `watch_logs` until later media mutations intentionally switch tr
 existing `/movies`, `/to-watch`, and `/api/library/movies` payload shape while mapping
 `user_media.status = 'wishlist'` back to the legacy `to_watch` route status.
 
+`supabase/migrations/20260526150000_add_media_library_type_filter.sql` adds the
+`p_type = all|movie|show` argument to the paged media library RPC used by `/library` and `/wishlist`.
+The default keeps the combined media view, while `movie` and `show` narrow the same indexed paged
+query without falling back to application-side filtering.
+
 ## 8. Operational Notes
 
 Keep these server-side only:
