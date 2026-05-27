@@ -12,7 +12,7 @@ import {
   loadTmdbAuthForCurrentUser,
   type TmdbTvSeasonDetails,
 } from "@/lib/providers/tmdb/client";
-import { EpisodeWatchButton } from "../episode-watch-client";
+import { EpisodeWatchButton, SeasonWatchButton } from "../episode-watch-client";
 
 type ShowEpisodesPageProps = {
   params: Promise<{ showId: string }>;
@@ -43,6 +43,15 @@ export default async function ShowEpisodesPage({
           episodeId={episode.id}
           isWatched={(episode.watchActivity?.length ?? 0) > 0}
           showId={show.id}
+        />
+      )}
+      seasonWatchControl={(season) => (
+        <SeasonWatchButton
+          seasonNumber={season.seasonNumber}
+          showId={show.id}
+          unwatchedCount={
+            season.episodes.filter((episode) => (episode.watchActivity?.length ?? 0) === 0).length
+          }
         />
       )}
       show={{

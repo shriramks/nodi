@@ -8,6 +8,7 @@ import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { OverviewText } from "@/components/movie/overview-text";
 import { DetailRow } from "@/components/ui/detail";
 import {
+  CollapsibleSection,
   Section,
   SectionHeader,
   SectionScrollBleed,
@@ -58,12 +59,16 @@ type ShowCastMember = {
 
 type ShowDetailViewProps = {
   actions?: ReactNode;
+  ratingPicker?: ReactNode;
   show: DetailShow;
+  tagEditor?: ReactNode;
 };
 
 export function ShowDetailView({
   actions,
+  ratingPicker,
   show,
+  tagEditor,
 }: ShowDetailViewProps) {
   const metaLine = [
     show.release_year,
@@ -75,9 +80,9 @@ export function ShowDetailView({
   const visibleTags = (show.tags ?? []).slice(0, 3);
   const tmdbRating = getTmdbRating(show);
   const statusLabel = showStatusLine(show);
+  const statusColour = show.userStatus ? statusColourFor(show.userStatus) : null;
   const detailRows = [
     show.first_air_date ? { label: "First aired", value: formatDate(show.first_air_date) } : null,
-    show.studio ? { label: "Studio", value: show.studio } : null,
     show.network ? { label: "Network", value: show.network } : null,
     show.season_count !== null ? { label: "Seasons", value: String(show.season_count) } : null,
     show.episode_count !== null ? { label: "Episodes", value: String(show.episode_count) } : null,
@@ -144,10 +149,12 @@ export function ShowDetailView({
 
           {metaLine ? <p className="text-[13px] leading-[1.35] text-text-2">{metaLine}</p> : null}
 
-          {statusLabel ? <p className="text-[15px] font-semibold text-accent">{statusLabel}</p> : null}
+          {statusLabel && statusColour ? (
+            <p className={`text-[15px] font-semibold ${statusColour}`}>{statusLabel}</p>
+          ) : null}
 
           <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
-            <PersonalRating rating={show.personalRating ?? null} />
+            {ratingPicker ?? <PersonalRating rating={show.personalRating ?? null} />}
             {tmdbRating ? <TmdbRatingBadge rating={tmdbRating} /> : null}
           </div>
 
@@ -205,8 +212,9 @@ export function ShowDetailView({
         )}
       </Section>
 
-      <Section>
-        <SectionHeader>Details</SectionHeader>
+      {show.userStatus ? tagEditor : null}
+
+      <CollapsibleSection title="Details">
         {detailRows.length > 0 ? (
           <div>
             {detailRows.map((row) => (
@@ -218,7 +226,7 @@ export function ShowDetailView({
             No extra details available.
           </p>
         )}
-      </Section>
+      </CollapsibleSection>
     </main>
   );
 }
@@ -343,7 +351,19 @@ function statusLabelFor(status: MediaStatus) {
     return "Watched";
   }
 
-  return "In Library";
+  return "Watching";
+}
+
+function statusColourFor(status: MediaStatus) {
+  if (status === "wishlist") {
+    return "text-watchlist";
+  }
+
+  if (status === "watched") {
+    return "text-watched";
+  }
+
+  return "text-accent";
 }
 
 function languageDisplayName(code: string): string {

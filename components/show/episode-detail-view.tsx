@@ -40,7 +40,6 @@ export function EpisodeDetailView({
   const tmdbRating = getTmdbRating(show);
   const detailRows = [
     episode.air_date ? { label: "Airdate", value: formatDate(episode.air_date) } : null,
-    show.studio ? { label: "Studio", value: show.studio } : null,
     episode.runtime_minutes ?? show.runtime_minutes
       ? { label: "Duration", value: `${episode.runtime_minutes ?? show.runtime_minutes} min` }
       : null,

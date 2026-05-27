@@ -4,11 +4,17 @@ import { revalidatePath } from "next/cache";
 
 import {
   addMediaEpisodeWatchDate,
+  attachTagToMediaShow,
+  createAndAttachTagToMediaShow,
   deleteMediaEpisodeWatchActivity,
+  detachTagFromMediaShow,
   ingestPreparedTmdbShow,
   markMediaEpisodeUnwatched,
+  markMediaSeasonWatched,
   markMediaEpisodeWatched,
+  removeUserMediaShow,
   setMediaShowStatus,
+  updateMediaShowRating,
   updateMediaEpisodeWatchActivityDate,
 } from "@/lib/db/mutations";
 import { AppError } from "@/lib/errors";
@@ -84,8 +90,41 @@ export async function saveShowToLibraryAction(showId: string): Promise<void> {
   revalidateShowState(showId);
 }
 
+export async function markShowWatchedAction(showId: string): Promise<void> {
+  await setMediaShowStatus(showId, "watched");
+  revalidateShowState(showId);
+}
+
 export async function addShowToWishlistAction(showId: string): Promise<void> {
   await setMediaShowStatus(showId, "wishlist");
+  revalidateShowState(showId);
+}
+
+export async function removeShowFromLibraryAction(showId: string): Promise<void> {
+  await removeUserMediaShow(showId);
+  revalidateShowState(showId);
+}
+
+export async function updateShowRatingAction(
+  showId: string,
+  rating: number | null,
+): Promise<void> {
+  await updateMediaShowRating(showId, { personalRating: rating });
+  revalidateShowState(showId);
+}
+
+export async function addShowTagAction(showId: string, name: string): Promise<void> {
+  await createAndAttachTagToMediaShow(showId, { name });
+  revalidateShowState(showId);
+}
+
+export async function attachShowTagByIdAction(showId: string, tagId: string): Promise<void> {
+  await attachTagToMediaShow(showId, tagId);
+  revalidateShowState(showId);
+}
+
+export async function removeShowTagAction(showId: string, tagId: string): Promise<void> {
+  await detachTagFromMediaShow(showId, tagId);
   revalidateShowState(showId);
 }
 
@@ -104,6 +143,15 @@ export async function toggleEpisodeWatchedAction(
   }
 
   revalidateEpisodeState(showId, episodeId);
+}
+
+export async function markSeasonWatchedAction(
+  showId: string,
+  seasonNumber: number,
+): Promise<void> {
+  await markMediaSeasonWatched(showId, seasonNumber);
+  revalidateShowState(showId);
+  revalidatePath(`/show/${showId}/episodes`);
 }
 
 export async function addEpisodeWatchDateAction(

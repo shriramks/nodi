@@ -33,11 +33,13 @@ type EpisodeListShow = {
 
 type ShowEpisodeListViewProps = {
   episodeWatchControl?: (episode: ShowEpisode) => ReactNode;
+  seasonWatchControl?: (season: ShowSeason) => ReactNode;
   show: EpisodeListShow;
 };
 
 export function ShowEpisodeListView({
   episodeWatchControl,
+  seasonWatchControl,
   show,
 }: ShowEpisodeListViewProps) {
   const watchedCount = show.seasons.reduce(
@@ -116,13 +118,16 @@ export function ShowEpisodeListView({
         <div>
           {show.seasons.map((season) => (
             <article className="border-b border-divider" key={season.seasonNumber}>
-              <div className="sticky top-[78px] z-10 flex min-h-11 items-center justify-between gap-3 border-b border-divider bg-background/95 px-4 backdrop-blur">
-                <h2 className="text-[18px] font-bold text-text-muted">
+              <div className="sticky top-[78px] z-10 flex min-h-10 items-center justify-between gap-3 border-b border-divider bg-background/95 px-4 backdrop-blur">
+                <h2 className="text-[17px] font-bold text-text-muted">
                   {season.seasonNumber === 0 ? "Specials" : `Season ${season.seasonNumber}`}
                 </h2>
-                <span className="tabnum text-[13px] text-text-muted">
-                  {season.episodes.length} episodes
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="tabnum text-[13px] text-text-muted">
+                    {season.episodes.length} episodes
+                  </span>
+                  {seasonWatchControl?.(season)}
+                </div>
               </div>
               <div>
                 {season.episodes.map((episode) => (
@@ -159,43 +164,75 @@ function EpisodeRow({
   const latestWatch = [...(episode.watchActivity ?? [])].sort(
     (left, right) => Date.parse(right.watched_at) - Date.parse(left.watched_at),
   )[0];
+  const airDate = episode.air_date ? formatDateParts(episode.air_date) : null;
 
   return (
-    <div className="grid min-h-[88px] grid-cols-[minmax(0,1fr)_48px] items-center gap-3 border-b border-divider px-4 py-3 last:border-b-0">
+    <div className="grid min-h-[56px] grid-cols-[56px_minmax(0,1fr)_76px_44px] items-center gap-2.5 border-b border-divider px-4 py-1.5 last:border-b-0">
+      <Link
+        aria-label={`${episode.title} episode detail`}
+        className="tabnum text-[13px] font-semibold leading-[1.2] text-text-2 active:opacity-70"
+        href={`/show/${showId}/episode/${episode.id}`}
+      >
+        S{episode.season_number.toString().padStart(2, "0")}E
+        {episode.episode_number.toString().padStart(2, "0")}
+      </Link>
       <Link
         aria-label={`${episode.title} episode detail`}
         className="min-w-0 active:opacity-70"
         href={`/show/${showId}/episode/${episode.id}`}
       >
-        <p className="truncate text-[20px] font-bold leading-[1.15] text-foreground">
+        <p className="truncate text-[15px] font-bold leading-[1.15] text-foreground">
           {episode.title}
         </p>
-        <p className="mt-1 text-[14px] leading-[1.3] text-text-2">
-          <span className="tabnum">
-            S{episode.season_number.toString().padStart(2, "0")}E
-            {episode.episode_number.toString().padStart(2, "0")}
-          </span>
-          {episode.air_date ? ` · ${formatDate(episode.air_date)}` : null}
-        </p>
         {latestWatch ? (
-          <p className="mt-1 text-[13px] leading-[1.3] text-watched">
+          <p className="mt-0.5 text-[11px] leading-[1.2] text-watched">
             Watched {formatDate(latestWatch.watched_at.slice(0, 10))}
           </p>
         ) : null}
       </Link>
-      {watchControl ?? (
-        <span
-          aria-label={isWatched ? "Watched" : "Unwatched"}
-          className={[
-            "grid h-12 w-12 place-items-center rounded-full",
-            isWatched ? "bg-accent text-black" : "bg-surface text-text-muted",
-          ].join(" ")}
-        >
-          <Check aria-hidden="true" className="h-5 w-5" strokeWidth={2.7} />
-        </span>
-      )}
+      <Link
+        aria-hidden="true"
+        className="tabnum text-center text-[12px] leading-[1.15] text-text-2 active:opacity-70"
+        href={`/show/${showId}/episode/${episode.id}`}
+        tabIndex={-1}
+      >
+        {airDate ? (
+          <>
+            {airDate.dayMonth}
+            <br />
+            {airDate.year}
+          </>
+        ) : null}
+      </Link>
+      <div className="justify-self-end">
+        {watchControl ?? (
+          <span
+            aria-label={isWatched ? "Watched" : "Unwatched"}
+            className={[
+              "grid h-11 w-11 place-items-center rounded-full",
+              isWatched ? "bg-accent text-black" : "bg-surface text-text-muted",
+            ].join(" ")}
+          >
+            <Check aria-hidden="true" className="h-5 w-5" strokeWidth={2.7} />
+          </span>
+        )}
+      </div>
     </div>
   );
+}
+
+function formatDateParts(dateStr: string) {
+  const label = formatDate(dateStr);
+  const lastSpaceIndex = label.lastIndexOf(" ");
+
+  if (lastSpaceIndex === -1) {
+    return { dayMonth: label, year: "" };
+  }
+
+  return {
+    dayMonth: label.slice(0, lastSpaceIndex),
+    year: label.slice(lastSpaceIndex + 1),
+  };
 }
 
 function ShowPosterSmall({

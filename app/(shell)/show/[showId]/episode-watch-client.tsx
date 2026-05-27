@@ -16,6 +16,7 @@ import { SectionHeader } from "@/components/ui/section";
 import {
   addEpisodeWatchDateAction,
   deleteEpisodeWatchActivityAction,
+  markSeasonWatchedAction,
   toggleEpisodeWatchedAction,
   updateEpisodeWatchActivityDateAction,
 } from "../actions";
@@ -79,7 +80,7 @@ export function EpisodeWatchButton({
     <button
       aria-label={optimisticWatched ? "Mark episode unwatched" : "Mark episode watched"}
       className={[
-        "grid h-12 w-12 place-items-center rounded-full active:opacity-70 disabled:opacity-50",
+        "grid h-11 w-11 place-items-center rounded-full active:opacity-70 disabled:opacity-50",
         optimisticWatched ? "bg-accent text-black" : "bg-surface text-text-muted",
       ].join(" ")}
       disabled={isPending}
@@ -92,6 +93,84 @@ export function EpisodeWatchButton({
         <Check aria-hidden="true" className="h-5 w-5" strokeWidth={2.7} />
       )}
     </button>
+  );
+}
+
+export function SeasonWatchButton({
+  seasonNumber,
+  showId,
+  unwatchedCount,
+}: {
+  seasonNumber: number;
+  showId: string;
+  unwatchedCount: number;
+}) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function markSeason() {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await markSeasonWatchedAction(showId, seasonNumber);
+        setConfirmOpen(false);
+      } catch {
+        setError("Season was not saved. Try again.");
+      }
+    });
+  }
+
+  if (unwatchedCount === 0) {
+    return null;
+  }
+
+  return (
+    <>
+      <button
+        className="inline-flex min-h-8 items-center px-1 text-[12px] font-bold text-accent active:opacity-70"
+        onClick={() => setConfirmOpen(true)}
+        type="button"
+      >
+        Mark all
+      </button>
+
+      {confirmOpen ? (
+        <BottomSheet
+          ariaLabel="Mark season watched"
+          contentClassName="px-5 pt-3"
+          dismissButtonLabel="Close confirmation"
+          onClose={() => setConfirmOpen(false)}
+        >
+          <p className="text-[17px] font-semibold text-foreground">Mark season watched?</p>
+          <p className="mt-2 text-[14px] leading-[1.35] text-text-2">
+            {unwatchedCount} {unwatchedCount === 1 ? "episode" : "episodes"} will be marked watched.
+          </p>
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            <button
+              className="flex min-h-11 items-center justify-center rounded-xl border border-border px-3 text-[15px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
+              disabled={isPending}
+              onClick={() => setConfirmOpen(false)}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-accent px-3 text-[15px] font-semibold text-black active:opacity-70 disabled:opacity-50"
+              disabled={isPending}
+              onClick={markSeason}
+              type="button"
+            >
+              {isPending ? (
+                <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+              ) : null}
+              Mark watched
+            </button>
+          </div>
+          {error ? <p className="mt-3 text-[13px] text-unsynced">{error}</p> : null}
+        </BottomSheet>
+      ) : null}
+    </>
   );
 }
 

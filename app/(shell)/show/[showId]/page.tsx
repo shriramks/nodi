@@ -2,9 +2,13 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 
-import { LocalShowStateActions } from "@/components/show/show-state-actions";
+import {
+  LocalShowStateActions,
+  ShowRatingSheet,
+  ShowTagEditor,
+} from "@/components/show/show-state-actions";
 import { ShowDetailView } from "@/components/show/show-detail-view";
-import { getShowDetail, type ShowDetail } from "@/lib/db/queries";
+import { getShowDetail, listTags, type ShowDetail } from "@/lib/db/queries";
 import { ingestTmdbShow } from "@/lib/db/mutations";
 import { isAppError } from "@/lib/errors";
 import {
@@ -17,6 +21,8 @@ import {
 } from "@/lib/providers/tmdb/client";
 import {
   addShowToWishlistAction,
+  markShowWatchedAction,
+  removeShowFromLibraryAction,
   saveShowToLibraryAction,
 } from "../actions";
 
@@ -40,23 +46,31 @@ export default async function ShowDetailPage({ params }: ShowDetailPageProps) {
     show = await loadFreshShowOrNotFound(showId);
   }
 
-  const cast = await loadShowCast(show);
+  const [allTags, cast] = await Promise.all([listTags(), loadShowCast(show)]);
+  const personalRating = show.userMedia?.personal_rating ?? null;
+  const status = show.userMedia?.status ?? null;
 
   return (
     <ShowDetailView
       actions={
         <LocalShowStateActions
           addToWishlist={addShowToWishlistAction.bind(null, show.id)}
+          markWatched={markShowWatchedAction.bind(null, show.id)}
+          removeFromLibrary={removeShowFromLibraryAction.bind(null, show.id)}
           saveToLibrary={saveShowToLibraryAction.bind(null, show.id)}
-          status={show.userMedia?.status ?? null}
+          status={status}
         />
+      }
+      ratingPicker={
+        status ? <ShowRatingSheet currentRating={personalRating} showId={show.id} /> : null
       }
       show={{
         ...show,
         cast,
-        userStatus: show.userMedia?.status ?? null,
-        personalRating: show.userMedia?.personal_rating ?? null,
+        userStatus: status,
+        personalRating,
       }}
+      tagEditor={<ShowTagEditor allTags={allTags} showId={show.id} tags={show.tags} />}
     />
   );
 }
