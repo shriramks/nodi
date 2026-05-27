@@ -152,15 +152,36 @@ async function hydrateShowEpisodesOnDemand(show: ShowDetail) {
   }
 }
 
+/** Re-sync from TMDB when metadata hasn't been refreshed in this many days. */
+const STALE_METADATA_DAYS = 3;
+
 function needsEpisodeHydration(show: ShowDetail) {
   const episodeCount = show.seasons.reduce(
     (count, season) => count + season.episodes.length,
     0,
   );
 
-  if (show.episode_count !== null) {
-    return episodeCount < show.episode_count;
+  // Always hydrate if we have fewer episodes than the stored total.
+  if (show.episode_count !== null && episodeCount < show.episode_count) {
+    return true;
   }
 
-  return episodeCount === 0;
+  if (episodeCount === 0) {
+    return true;
+  }
+
+  // For shows still being watched, re-sync if TMDB metadata is stale so
+  // newly-aired episodes are picked up even when episode_count hasn't changed.
+  if (show.userMedia?.status === "watching") {
+    const updatedAt = show.metadata_updated_at
+      ? new Date(show.metadata_updated_at).getTime()
+      : 0;
+    const ageMs = Date.now() - updatedAt;
+    const staleCutoffMs = STALE_METADATA_DAYS * 24 * 60 * 60 * 1000;
+    if (ageMs > staleCutoffMs) {
+      return true;
+    }
+  }
+
+  return false;
 }
