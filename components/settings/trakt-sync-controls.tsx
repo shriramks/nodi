@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleStop, DownloadCloud, RefreshCcw, UploadCloud } from "lucide-react";
+import { CircleStop, DownloadCloud, RefreshCcw, Sparkles, UploadCloud } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SettingsPanel } from "@/components/ui/settings";
@@ -20,6 +20,11 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
   const [pullMode, setPullMode] = useState<PullMode>("full");
   const [stopping, setStopping] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillProgress, setBackfillProgress] = useState<{
+    enriched: number;
+    remaining: number;
+  } | null>(null);
   const connected = syncState.connection?.status === "active";
   const progress = syncState.activeProgress;
   const hasActiveProgress = Boolean(progress);
@@ -118,6 +123,44 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
     }
   }
 
+  async function runBackfill() {
+    setError(null);
+    setBackfilling(true);
+    setBackfillProgress(null);
+    let totalEnriched = 0;
+
+    try {
+      while (true) {
+        const response = await fetch("/api/movies/tmdb/backfill?budget=100", { method: "POST" });
+        const payload = (await response.json()) as {
+          enriched?: number;
+          remaining?: number;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Backfill failed.");
+        }
+
+        totalEnriched += payload.enriched ?? 0;
+        const remaining = payload.remaining ?? 0;
+        setBackfillProgress({ enriched: totalEnriched, remaining });
+
+        if (remaining === 0) {
+          break;
+        }
+
+        await new Promise<void>((resolve) => setTimeout(resolve, 300));
+      }
+
+      router.refresh();
+    } catch (backfillError) {
+      setError(backfillError instanceof Error ? backfillError.message : "Backfill failed.");
+    } finally {
+      setBackfilling(false);
+    }
+  }
+
   return (
     <section className="space-y-4">
       <SettingsPanel className="space-y-0">
@@ -177,7 +220,7 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
         </div>
       </dl>
 
-      {syncState.lastFailure ? (
+      {syncState.lastFailure && syncState.lastRun?.status !== "success" ? (
         <p className="rounded-2xl border border-border bg-surface p-3 text-[13px] leading-[1.4] text-unsynced">
           {syncState.lastFailure.errorMessage ?? syncState.lastFailure.eventType}
         </p>
@@ -251,6 +294,29 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
             {pullMode === "shows" ? "Pull TV only" : "Pull movies + TV"}
           </button>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <button
+          type="button"
+          disabled={!connected || backfilling || runningAction !== null || Boolean(progress)}
+          onClick={runBackfill}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-surface px-4 py-3 text-[13px] font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {backfilling ? (
+            <RefreshCcw aria-hidden="true" className="h-4 w-4 animate-spin" />
+          ) : (
+            <Sparkles aria-hidden="true" className="h-4 w-4" />
+          )}
+          {backfilling ? "Enriching metadata…" : "Enrich metadata"}
+        </button>
+        {backfillProgress ? (
+          <p className="text-center text-[12px] text-text-muted">
+            {backfillProgress.remaining === 0
+              ? `Done — ${backfillProgress.enriched} item(s) enriched`
+              : `${backfillProgress.enriched} enriched · ${backfillProgress.remaining} remaining`}
+          </p>
+        ) : null}
       </div>
     </section>
   );

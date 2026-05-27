@@ -40,6 +40,7 @@ export type StringSnapshotDelta = {
 
 export const historyLastWatchedCursorKey = "history.last_watched_at";
 export const showHistoryLastWatchedCursorKey = "shows.history.last_watched_at";
+export const showHistoryBootstrapCursorKey = "shows.history.bootstrap_cursor";
 export const lastPullCursorKey = "last_pull_at";
 export const pullCheckpointCursorKey = "pull.checkpoint";
 

@@ -102,6 +102,7 @@ import {
   serializePullCheckpoint,
   serializeRatingSnapshot,
   serializeStringSnapshot,
+  showHistoryBootstrapCursorKey,
   showHistoryLastWatchedCursorKey,
   snapshotCursorKey,
   type PullCheckpointPhase,
@@ -1008,6 +1009,58 @@ export async function pullTraktSyncWithOptions(
       });
     }
 
+    // Sort show history ascending so we can commit a resumable cursor after each batch.
+    // On bootstrap (showHistoryCursor = null) a prior interrupted run may have saved a
+    // bootstrap cursor; filter out already-processed items so we pick up where we left off.
+    const showHistoryBootstrapCursor = cursors.get(showHistoryBootstrapCursorKey) || null;
+    const bootstrapIsResume = !showHistoryCursor && showHistoryBootstrapCursor !== null;
+    const sortedShowHistoryStates = showHistoryStates
+      .filter((s) => !bootstrapIsResume || s.item.watched_at > showHistoryBootstrapCursor)
+      .sort((a, b) => a.item.watched_at.localeCompare(b.item.watched_at));
+    const showHistoryBatchSize = 500;
+    const showHistoryBatches = chunkArray(sortedShowHistoryStates, showHistoryBatchSize);
+    let showHistoryProcessed = 0;
+    let overallNewestShowWatchedAt: string | null = showHistoryBootstrapCursor;
+
+    for (const batch of showHistoryBatches) {
+      const batchPlan = planPullUserMediaWrites({
+        episodeResolution,
+        existingUserMedia,
+        pendingMediaIds,
+        removedRatingKeys: [],
+        removedWatchlistKeys: [],
+        result,
+        showHistoryStates: batch,
+        showRatingStates: [],
+        showResolution,
+        showWatchlistStates: [],
+      });
+
+      await upsertUserMediaDrafts(user.id, batchPlan.upserts, result, runContext);
+      applyUserMediaPlanToMap(existingUserMedia, batchPlan);
+      await insertMediaWatchActivity(user.id, batchPlan.watchActivityRows, result, runContext);
+      await flushPendingPullItemFailures(runContext, result);
+      showHistoryProcessed += batch.length;
+      overallNewestShowWatchedAt = latestTimestamp(overallNewestShowWatchedAt, batchPlan.newestWatchedAt);
+
+      // Save bootstrap cursor after each batch so a timeout is resumable.
+      if (overallNewestShowWatchedAt) {
+        await upsertSyncCursor(provider, showHistoryBootstrapCursorKey, overallNewestShowWatchedAt);
+      }
+
+      progressCurrent += 1;
+      await updateTraktSyncRunProgress(user.id, run.id, {
+        current: progressCurrent,
+        itemCurrent: showHistoryProcessed,
+        itemLabel: "episodes",
+        itemTotal: showHistoryStates.length,
+        label: `Importing episode history (${showHistoryProcessed}/${showHistoryStates.length})`,
+        phase: "reconcile",
+        total: progressTotal,
+      });
+    }
+
+    // Process watchlist + ratings with the final in-memory user_media state.
     const showPlan = planPullUserMediaWrites({
       episodeResolution,
       existingUserMedia,
@@ -1015,7 +1068,7 @@ export async function pullTraktSyncWithOptions(
       removedRatingKeys: activeRemovedShowRatingKeys,
       removedWatchlistKeys: activeRemovedShowWatchlistKeys,
       result,
-      showHistoryStates,
+      showHistoryStates: [],
       showRatingStates: activeShowRatingStates,
       showResolution,
       showWatchlistStates: activeShowWatchlistStates,
@@ -1024,13 +1077,15 @@ export async function pullTraktSyncWithOptions(
     await deleteUserMedia(user.id, showPlan.deleteMediaIds, result, runContext);
     await upsertUserMediaDrafts(user.id, showPlan.upserts, result, runContext);
     applyUserMediaPlanToMap(existingUserMedia, showPlan);
-    await insertMediaWatchActivity(user.id, showPlan.watchActivityRows, result, runContext);
     await flushPendingPullItemFailures(runContext, result);
     await storeShowHistoryCheckpoint(runContext, {
       changed: showHistoryStates.length > 0,
       itemCount: showHistoryStates.length,
-      newestWatchedAt: showPlan.newestWatchedAt ?? showHistoryCursor,
+      newestWatchedAt: overallNewestShowWatchedAt ?? showHistoryCursor,
     });
+    // Bootstrap complete — clear the intermediate cursor so future incremental
+    // runs use showHistoryLastWatchedCursorKey exclusively.
+    await upsertSyncCursor(provider, showHistoryBootstrapCursorKey, null);
     await storeSnapshotCheckpoint("shows.watchlist", runContext, {
       changed: showWatchlistChanged,
       itemCount: activeShowWatchlistStates.length + activeRemovedShowWatchlistKeys.length,

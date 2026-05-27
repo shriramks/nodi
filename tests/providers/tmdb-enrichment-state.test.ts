@@ -37,8 +37,8 @@ describe("TMDB enrichment state", () => {
   it("bounds manual backfill call budget", () => {
     expect(normalizeTmdbBackfillCallBudget(null)).toBe(20);
     expect(normalizeTmdbBackfillCallBudget(0)).toBe(1);
-    expect(normalizeTmdbBackfillCallBudget(500)).toBe(50);
-    expect(normalizeTmdbBackfillLimit(500)).toBe(50);
+    expect(normalizeTmdbBackfillCallBudget(500)).toBe(100);
+    expect(normalizeTmdbBackfillLimit(500)).toBe(100);
   });
 
   it("estimates TMDB backfill call counts by media type", () => {

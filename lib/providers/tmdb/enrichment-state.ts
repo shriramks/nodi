@@ -16,7 +16,7 @@ export function normalizeTmdbBackfillCallBudget(value: number | null | undefined
     return fallback;
   }
 
-  return Math.min(Math.max(value, 1), 50);
+  return Math.min(Math.max(value, 1), 100);
 }
 
 export const estimateTmdbMovieBackfillCallCount = () => 2;
