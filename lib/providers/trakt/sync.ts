@@ -34,6 +34,7 @@ import {
   toRemoteTraktMovieState,
   toRemoteTraktRatingState,
   toRemoteTraktEpisodeHistoryState,
+  toRemoteTraktShowState,
   toRemoteTraktShowRatingState,
   toRemoteTraktShowWatchlistState,
   toRemoteTraktWatchlistState,
@@ -59,6 +60,7 @@ import {
   listTraktHistoryMoviesPage,
   listTraktHistoryShowsPage,
   listTraktListMovieItemsPage,
+  listTraktListShowItemsPage,
   listTraktRatedMoviesPage,
   listTraktRatedShowsPage,
   listTraktUserListsPage,
@@ -72,6 +74,7 @@ import {
   type TraktHistoryMovie,
   type TraktAuth,
   type TraktListMovie,
+  type TraktListShow,
   type TraktPagination,
   type TraktRatedMovie,
   type TraktRatedShow,
@@ -152,11 +155,12 @@ type RemoteHistoryState = {
 };
 type TraktListImport = {
   itemFetchSkipped: boolean;
-  items: TraktListMovie[];
   listKey: string;
   metadataCursor: string;
+  movieItems: TraktListMovie[];
   previousMetadataCursor: string | undefined;
   previousSnapshot: string | undefined;
+  showItems: TraktListShow[];
   tagName: string;
 };
 type TraktListFetchProgress = {
@@ -179,6 +183,8 @@ type RemoteTraktListState = {
   movieStates: RemoteTraktMovieState[];
   movieStatesToTag: RemoteTraktMovieState[];
   removedKeys: string[];
+  showStates: RemoteTraktShowState[];
+  showStatesToTag: RemoteTraktShowState[];
   snapshot: string;
   tagName: string;
 };
@@ -627,7 +633,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       total: 8,
     });
 
-    const listFetch = await listAllListsWithMovieItems(
+    const listFetch = await listAllListsWithTaggableItems(
       connection,
       cursors,
       result,
@@ -668,7 +674,9 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     const showWatchlistStates = normalizeShowWatchlistStates(showWatchlistItems, result);
     const showRatingStates = normalizeShowRatingStates(showRatingItems, result);
     const listStates = normalizeListStates(listImports, cursors, result);
-    const listStatesToTag = listStates.filter((list) => list.movieStatesToTag.length > 0);
+    const listStatesToTag = listStates.filter(
+      (list) => list.movieStatesToTag.length > 0 || list.showStatesToTag.length > 0,
+    );
     const changedListCount = listStates.filter((list) => list.changed).length;
     const currentWatchlistKeys = new Set(watchlistStates.map((item) => item.key));
     const rawWatchlistSnapshot = cursors.get(snapshotCursorKey("watchlist"));
@@ -737,7 +745,10 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       activeRemovedShowWatchlistKeys.length +
       activeShowRatingStates.length +
       activeRemovedShowRatingKeys.length +
-      listStatesToTag.reduce((count, list) => count + list.movieStatesToTag.length, 0);
+      listStatesToTag.reduce(
+        (count, list) => count + list.movieStatesToTag.length + list.showStatesToTag.length,
+        0,
+      );
     const reconcileBatchCount = Math.ceil(activeReconcileItemCount / dbWriteChunkSize);
 
     progressTotal = 9 + reconcileBatchCount;
@@ -792,6 +803,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
         ...showHistoryStates.map((state) => state.show),
         ...activeShowWatchlistStates,
         ...activeShowRatingStates,
+        ...listStatesToTag.flatMap((list) => list.showStatesToTag),
       ],
       result,
       run: runContext,
@@ -998,6 +1010,14 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       listStatesToTag,
       tagsByListKey,
       movieResolution,
+      result,
+      runContext,
+    );
+    await upsertTraktListMediaTags(
+      user.id,
+      listStatesToTag,
+      tagsByListKey,
+      showResolution,
       result,
       runContext,
     );
@@ -1715,7 +1735,7 @@ async function listAllShowRatings(
   return items;
 }
 
-async function listAllListsWithMovieItems(
+async function listAllListsWithTaggableItems(
   auth: TraktAuth,
   cursors: CursorMap,
   result: PullResult,
@@ -1746,6 +1766,7 @@ async function listAllListsWithMovieItems(
     }
 
     const metadataCursor = serializeListMetadataCursor({
+      itemKinds: ["movie", "show"],
       itemCount: list.item_count,
       tagName,
       updatedAt: list.updated_at,
@@ -1763,11 +1784,12 @@ async function listAllListsWithMovieItems(
       skippedListCount += 1;
       imports.push({
         itemFetchSkipped: true,
-        items: [],
         listKey,
         metadataCursor,
+        movieItems: [],
         previousMetadataCursor,
         previousSnapshot,
+        showItems: [],
         tagName,
       });
       await onProgress?.({
@@ -1779,12 +1801,21 @@ async function listAllListsWithMovieItems(
       continue;
     }
 
-    let items: TraktListMovie[];
+    let movieItems: TraktListMovie[];
+    let showItems: TraktListShow[];
 
     try {
-      items = await listAllListMovieItems(auth, listKey, run, async (count) => {
+      movieItems = await listAllListMovieItems(auth, listKey, run, async (count) => {
         await onProgress?.({
           itemCount: itemCount + count,
+          listCount: imports.length + 1,
+          skippedListCount,
+          totalItemCount,
+        });
+      });
+      showItems = await listAllListShowItems(auth, listKey, run, async (count) => {
+        await onProgress?.({
+          itemCount: itemCount + movieItems.length + count,
           listCount: imports.length + 1,
           skippedListCount,
           totalItemCount,
@@ -1801,14 +1832,15 @@ async function listAllListsWithMovieItems(
       continue;
     }
 
-    itemCount += items.length;
+    itemCount += movieItems.length + showItems.length;
     imports.push({
       itemFetchSkipped: false,
-      items,
       listKey,
       metadataCursor,
+      movieItems,
       previousMetadataCursor,
       previousSnapshot,
+      showItems,
       tagName,
     });
     await onProgress?.({
@@ -1859,6 +1891,34 @@ async function listAllListMovieItems(
   for (let page = 1; page <= maxBootstrapPages; page += 1) {
     await assertTraktSyncRunActive(run.userId, run.runId);
     const response = await listTraktListMovieItemsPage(auth, {
+      listId,
+      page,
+      limit: pageLimit,
+    });
+
+    items.push(...response.items);
+    await onPage?.(items.length);
+    await assertTraktSyncRunActive(run.userId, run.runId);
+
+    if (!hasNextTraktPage(response.pagination, page, response.items.length)) {
+      break;
+    }
+  }
+
+  return items;
+}
+
+async function listAllListShowItems(
+  auth: TraktAuth,
+  listId: string,
+  run: SyncRunContext,
+  onPage?: (count: number) => Promise<void>,
+) {
+  const items: TraktListShow[] = [];
+
+  for (let page = 1; page <= maxBootstrapPages; page += 1) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const response = await listTraktListShowItemsPage(auth, {
       listId,
       page,
       limit: pageLimit,
@@ -2033,6 +2093,8 @@ function normalizeListStates(
         movieStates: [],
         movieStatesToTag: [],
         removedKeys: [],
+        showStates: [],
+        showStatesToTag: [],
         snapshot: listImport.previousSnapshot ?? serializeStringSnapshot([]),
         tagName: listImport.tagName,
       });
@@ -2040,8 +2102,9 @@ function normalizeListStates(
     }
 
     const movieStatesByKey = new Map<string, RemoteTraktMovieState>();
+    const showStatesByKey = new Map<string, RemoteTraktShowState>();
 
-    for (const item of listImport.items) {
+    for (const item of listImport.movieItems) {
       if (item.type && item.type !== "movie") {
         continue;
       }
@@ -2058,11 +2121,32 @@ function normalizeListStates(
       }
     }
 
+    for (const item of listImport.showItems) {
+      if (item.type && item.type !== "show") {
+        continue;
+      }
+
+      const show = toRemoteTraktShowState(item.show);
+
+      if (!show) {
+        result.skipped += 1;
+        continue;
+      }
+
+      if (!showStatesByKey.has(show.key)) {
+        showStatesByKey.set(show.key, show);
+      }
+    }
+
     const delta = getStringSnapshotDelta(
-      movieStatesByKey.keys(),
+      [
+        ...Array.from(movieStatesByKey.keys()).map((key) => `movie:${key}`),
+        ...Array.from(showStatesByKey.keys()).map((key) => `show:${key}`),
+      ],
       listImport.previousSnapshot ?? cursors.get(snapshotCursorKey(`lists.${listImport.listKey}`)),
     );
     const movieStatesToTag: RemoteTraktMovieState[] = Array.from(movieStatesByKey.values());
+    const showStatesToTag: RemoteTraktShowState[] = Array.from(showStatesByKey.values());
 
     states.push({
       changed: delta.changed,
@@ -2072,12 +2156,16 @@ function normalizeListStates(
       movieStates: Array.from(movieStatesByKey.values()),
       movieStatesToTag,
       removedKeys: delta.removedKeys,
+      showStates: Array.from(showStatesByKey.values()),
+      showStatesToTag,
       snapshot: delta.snapshot,
       tagName: listImport.tagName,
     });
   }
 
-  result.listsImported = states.filter((list) => list.movieStatesToTag.length > 0).length;
+  result.listsImported = states.filter(
+    (list) => list.movieStatesToTag.length > 0 || list.showStatesToTag.length > 0,
+  ).length;
 
   return states;
 }
@@ -3554,7 +3642,11 @@ async function storeListSnapshots(
     changed: listStates.some((list) => list.changed),
     cursorValue: null,
     itemCount: listStates.reduce(
-      (count, list) => count + list.movieStatesToTag.length + list.removedKeys.length,
+      (count, list) =>
+        count +
+        list.movieStatesToTag.length +
+        list.showStatesToTag.length +
+        list.removedKeys.length,
       0,
     ),
   });
@@ -3747,6 +3839,66 @@ async function upsertTraktListMovieTags(
 
       if (fallbackError) {
         recordPullFailure(result, "tag", `${row.movie_id}:${row.tag_id}`, fallbackError);
+      } else {
+        result.listItemsTagged += 1;
+      }
+    }
+  }
+}
+
+async function upsertTraktListMediaTags(
+  userId: string,
+  listStates: RemoteTraktListState[],
+  tagsByListKey: Map<string, Tag>,
+  showResolution: ShowResolutionResult,
+  result: PullResult,
+  run: SyncRunContext,
+) {
+  const rowsByKey = new Map<string, { media_id: string; tag_id: string; user_id: string }>();
+  const supabase = createSupabaseAdminClient();
+
+  for (const listState of listStates) {
+    const tag = tagsByListKey.get(listState.listKey);
+
+    if (!tag) {
+      recordPullFailure(result, "tag", listState.listKey, "Failed to resolve list tag.");
+      continue;
+    }
+
+    for (const showState of listState.showStatesToTag) {
+      const mediaId = resolveImportedShowId(showState, showResolution, result, "list");
+
+      if (!mediaId) {
+        continue;
+      }
+
+      rowsByKey.set(`${mediaId}:${tag.id}`, {
+        media_id: mediaId,
+        tag_id: tag.id,
+        user_id: userId,
+      });
+    }
+  }
+
+  for (const rowChunk of chunkArray(Array.from(rowsByKey.values()), dbWriteChunkSize)) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const { error } = await supabase
+      .from("user_media_tags")
+      .upsert(rowChunk, { onConflict: "user_id,media_id,tag_id" });
+
+    if (!error) {
+      result.listItemsTagged += rowChunk.length;
+      continue;
+    }
+
+    for (const row of rowChunk) {
+      await assertTraktSyncRunActive(run.userId, run.runId);
+      const { error: fallbackError } = await supabase
+        .from("user_media_tags")
+        .upsert(row, { onConflict: "user_id,media_id,tag_id" });
+
+      if (fallbackError) {
+        recordPullFailure(result, "tag", `${row.media_id}:${row.tag_id}`, fallbackError);
       } else {
         result.listItemsTagged += 1;
       }

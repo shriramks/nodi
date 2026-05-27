@@ -4,6 +4,7 @@ import {
   fetchTraktJsonPage,
   listTraktHistoryShowsPage,
   listTraktListMovieItemsPage,
+  listTraktListShowItemsPage,
   listTraktRatedShowsPage,
   listTraktUserListsPage,
   listTraktWatchlistShowsPage,
@@ -114,6 +115,25 @@ describe("Trakt client", () => {
     expect(result.items).toEqual([{ movie: { ids: { tmdb: 437 } }, type: "movie" }]);
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
       "https://api.trakt.tv/users/me/lists/festival%20picks/items/movies?page=1&limit=100",
+    );
+  });
+
+  it("builds user list show item page requests", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify([{ show: { ids: { tmdb: 1396 } }, type: "show" }]), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      }),
+    );
+
+    const result = await listTraktListShowItemsPage(
+      { accessToken: "access-token", clientId: "client-id" },
+      { limit: 100, listId: "television archive", page: 1 },
+    );
+
+    expect(result.items).toEqual([{ show: { ids: { tmdb: 1396 } }, type: "show" }]);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://api.trakt.tv/users/me/lists/television%20archive/items/shows?page=1&limit=100",
     );
   });
 

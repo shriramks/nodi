@@ -27,12 +27,13 @@ describe("Trakt sync cursors", () => {
   it("serializes list metadata cursors in a stable normalized shape", () => {
     expect(
       serializeListMetadataCursor({
+        itemKinds: ["show", "movie", "movie"],
         itemCount: 3,
         tagName: " Favorites ",
         updatedAt: " 2026-05-10T08:00:00.000Z ",
       }),
     ).toBe(
-      "{\"itemCount\":3,\"tagName\":\"Favorites\",\"updatedAt\":\"2026-05-10T08:00:00.000Z\"}",
+      "{\"itemKinds\":[\"movie\",\"show\"],\"itemCount\":3,\"tagName\":\"Favorites\",\"updatedAt\":\"2026-05-10T08:00:00.000Z\"}",
     );
 
     expect(
@@ -41,11 +42,12 @@ describe("Trakt sync cursors", () => {
         tagName: "",
         updatedAt: null,
       }),
-    ).toBe("{\"itemCount\":null,\"tagName\":null,\"updatedAt\":null}");
+    ).toBe("{\"itemKinds\":[],\"itemCount\":null,\"tagName\":null,\"updatedAt\":null}");
   });
 
   it("uses list metadata cursors only when the item snapshot can be reused", () => {
     const metadataCursor = serializeListMetadataCursor({
+      itemKinds: ["movie", "show"],
       itemCount: 2,
       tagName: "Favorites",
       updatedAt: "2026-05-10T08:00:00.000Z",

@@ -23,6 +23,7 @@ export type PullCheckpoint = {
 };
 
 export type ListMetadataCursor = {
+  itemKinds?: string[] | null | undefined;
   itemCount: number | null | undefined;
   tagName: string | null | undefined;
   updatedAt: string | null | undefined;
@@ -56,6 +57,7 @@ export function pullPhaseCheckpointCursorKey(phase: PullCheckpointPhase) {
 
 export function serializeListMetadataCursor(metadata: ListMetadataCursor) {
   return JSON.stringify({
+    itemKinds: normalizeStringSnapshotKeys(metadata.itemKinds ?? []),
     itemCount: normalizeNonNegativeInteger(metadata.itemCount),
     tagName: normalizeNullableString(metadata.tagName),
     updatedAt: normalizeNullableString(metadata.updatedAt),
@@ -77,6 +79,7 @@ export function parseListMetadataCursor(cursor: string | undefined): ListMetadat
     const obj = parsed as Record<string, unknown>;
 
     return {
+      itemKinds: Array.isArray(obj.itemKinds) ? normalizeStringSnapshotKeys(obj.itemKinds) : [],
       itemCount: typeof obj.itemCount === "number" ? obj.itemCount : null,
       tagName: typeof obj.tagName === "string" ? obj.tagName : null,
       updatedAt: typeof obj.updatedAt === "string" ? obj.updatedAt : null,

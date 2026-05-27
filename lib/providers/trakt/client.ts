@@ -106,6 +106,13 @@ export type TraktListMovie = {
   movie: TraktMovie;
 };
 
+export type TraktListShow = {
+  rank?: number;
+  listed_at?: string;
+  type?: "show";
+  show: TraktShow;
+};
+
 export type TraktSyncMovie = TraktMovie & {
   watched_at?: string;
   listed_at?: string;
@@ -493,6 +500,23 @@ export function listTraktListMovieItemsPage(
 ) {
   return fetchTraktJsonPage<TraktListMovie[]>(
     `/users/me/lists/${encodeURIComponent(String(options.listId))}/items/movies`,
+    {
+      accessToken: auth.accessToken,
+      clientId: auth.clientId,
+      query: {
+        page: options.page,
+        limit: options.limit,
+      },
+    },
+  );
+}
+
+export function listTraktListShowItemsPage(
+  auth: TraktAuth,
+  options: { listId: number | string; page: number; limit: number },
+) {
+  return fetchTraktJsonPage<TraktListShow[]>(
+    `/users/me/lists/${encodeURIComponent(String(options.listId))}/items/shows`,
     {
       accessToken: auth.accessToken,
       clientId: auth.clientId,

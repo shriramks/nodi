@@ -48,7 +48,7 @@ episodes are TV-specific watch units loaded only when a show or episode screen n
 - watchlist sync
 - ratings sync
 - list imports into local tags
-- planned: show ratings, show watchlist, episode watch history, and show/list imports as local tags
+- show ratings, show watchlist, episode watch history, and show list imports as local tags
 
 ## Planned Library Architecture
 
@@ -316,10 +316,10 @@ Vercel Cron
 
 Trakt list imports are snapshot-based. Each list stores a `lists.<id>.snapshot` cursor. When a list's
 item pages are fetched (because metadata changed or no prior snapshot exists), all current remote
-movies are tagged — not just additions. This is idempotent via upsert and ensures correctness even if
-a prior run left tag links in a partial state (e.g. due to a list rename mid-sync). Remote list
-removals advance the snapshot but do not remove local `user_movie_tags`, preserving local tag edits
-and removals unless a future strict reconciliation mode is added.
+movies and shows are tagged — not just additions. This is idempotent via upsert and ensures correctness
+even if a prior run left tag links in a partial state (e.g. due to a list rename mid-sync). Remote list
+removals advance the snapshot but do not remove local `user_movie_tags` or `user_media_tags`,
+preserving local tag edits and removals unless a future strict reconciliation mode is added.
 
 List pulls also store a `lists.<id>.metadata` cursor from Trakt list metadata. When that metadata is
 unchanged and an item snapshot already exists, the pull reuses the snapshot and skips fetching the
