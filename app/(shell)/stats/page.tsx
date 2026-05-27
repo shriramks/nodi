@@ -204,6 +204,10 @@ function StatsHero({
   stats: LibraryStats;
   type: MediaTypeFilter;
 }) {
+  if (type === "all") {
+    return <AllStatsHero stats={stats} hasData={hasData} />;
+  }
+
   const metrics = heroMetrics(stats, type);
 
   return (
@@ -232,6 +236,115 @@ function StatsHero({
           border={index > 0}
         />
       ))}
+    </div>
+  );
+}
+
+function ClapperboardIcon() {
+  return (
+    <svg width="14" height="13" viewBox="0 0 18 16" fill="none" aria-hidden>
+      <rect x="1" y="5" width="16" height="10" rx="1.5" fill="currentColor" />
+      <rect x="1" y="1.5" width="16" height="4" rx="1" fill="currentColor" />
+      <line x1="4.5" y1="1.5" x2="3" y2="5.5" stroke="black" strokeWidth="1.2" strokeOpacity="0.45" />
+      <line x1="8" y1="1.5" x2="6.5" y2="5.5" stroke="black" strokeWidth="1.2" strokeOpacity="0.45" />
+      <line x1="11.5" y1="1.5" x2="10" y2="5.5" stroke="black" strokeWidth="1.2" strokeOpacity="0.45" />
+      <line x1="15" y1="1.5" x2="13.5" y2="5.5" stroke="black" strokeWidth="1.2" strokeOpacity="0.45" />
+    </svg>
+  );
+}
+
+function TvIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <line x1="6" y1="5.5" x2="3.5" y2="1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <line x1="12" y1="5.5" x2="14.5" y2="1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <rect x="1" y="5.5" width="16" height="10" rx="2" fill="currentColor" />
+      <rect x="2.5" y="7" width="13" height="7" rx="1" fill="black" fillOpacity="0.25" />
+      <rect x="4" y="15.5" width="3" height="1.5" rx="0.75" fill="currentColor" fillOpacity="0.75" />
+      <rect x="11" y="15.5" width="3" height="1.5" rx="0.75" fill="currentColor" fillOpacity="0.75" />
+    </svg>
+  );
+}
+
+function AllStatsHero({ stats, hasData }: { stats: LibraryStats; hasData: boolean }) {
+  const movieFlex = Math.max(stats.movieRuntimeMinutes, 1);
+  const tvFlex = Math.max(stats.showRuntimeMinutes, 1);
+
+  return (
+    <div className="pb-5">
+      {/* Total time */}
+      <div className="pb-3">
+        <p className="tabnum text-accent leading-[1.1]" style={{ fontSize: 34, fontWeight: 700, letterSpacing: "-0.5px" }}>
+          {formatRuntime(stats.runtimeMinutes)}
+        </p>
+        <p className="text-[11px] text-text-muted mt-0.5">Total time watched</p>
+      </div>
+
+      {/* Split bar */}
+      {hasData && (
+        <>
+          <div className="flex overflow-hidden mb-1.5" style={{ height: 28, borderRadius: 8, gap: 2 }}>
+            {/* Movie segment */}
+            <div
+              className="flex items-center gap-1.5 min-w-0"
+              style={{
+                flex: movieFlex,
+                background: "rgba(210, 140, 60, 0.28)",
+                borderRadius: "8px 0 0 8px",
+                paddingLeft: 10,
+              }}
+            >
+              <span className="shrink-0 opacity-50" style={{ color: "rgba(255,255,255,0.9)" }}>
+                <ClapperboardIcon />
+              </span>
+              <span className="tabnum truncate" style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.55)" }}>
+                {formatRuntime(stats.movieRuntimeMinutes)}
+              </span>
+            </div>
+            {/* TV segment */}
+            <div
+              className="flex items-center gap-1.5 min-w-0"
+              style={{
+                flex: tvFlex,
+                background: "rgba(60, 130, 200, 0.28)",
+                borderRadius: "0 8px 8px 0",
+                paddingLeft: 8,
+              }}
+            >
+              <span className="shrink-0 opacity-50" style={{ color: "rgba(255,255,255,0.9)" }}>
+                <TvIcon />
+              </span>
+              <span className="tabnum truncate" style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.55)" }}>
+                {formatRuntime(stats.showRuntimeMinutes)}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex justify-between mb-4">
+            <p className="text-[11px] text-text-faint">Movie time</p>
+            <p className="text-[11px] text-text-faint">TV time</p>
+          </div>
+        </>
+      )}
+
+      {/* Counts */}
+      <div className="grid border-t border-divider pt-3.5" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
+        {[
+          { value: stats.movieCount.toString(), label: "Movies" },
+          { value: stats.showCount.toString(), label: "Shows" },
+          { value: stats.episodeWatchCount.toString(), label: "Episodes" },
+        ].map(({ value, label }, index) => (
+          <div
+            key={label}
+            className={index > 0 ? "border-l border-divider pl-3" : ""}
+          >
+            <p className="tabnum text-foreground leading-[1.1]" style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.5px" }}>
+              {value}
+            </p>
+            <p className="text-[11px] text-text-muted mt-0.5">{label}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -267,18 +380,8 @@ function heroMetrics(stats: LibraryStats, type: MediaTypeFilter) {
     };
   }
 
-  return {
-    primary: [
-      plainMetric(stats.movieCount.toString(), "Movies", "text-foreground"),
-      runtimeMetric(stats.runtimeMinutes, "Time watched", "text-accent"),
-      plainMetric(stats.episodeWatchCount.toString(), "Episodes", "text-foreground"),
-    ],
-    secondary: [
-      plainMetric(formatRuntime(stats.movieRuntimeMinutes), "Movie time", "text-text-2"),
-      plainMetric(formatRuntime(stats.showRuntimeMinutes), "TV time", "text-text-2"),
-      plainMetric(stats.favDecade ?? "—", "Fav decade", "text-text-2"),
-    ],
-  };
+  // "all" type is handled by AllStatsHero, this branch is unreachable
+  return { primary: [], secondary: [] };
 }
 
 function plainMetric(
