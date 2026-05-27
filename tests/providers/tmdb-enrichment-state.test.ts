@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  estimateTmdbMovieBackfillCallCount,
+  estimateTmdbShowBackfillCallCount,
   needsTmdbMetadataEnrichment,
+  normalizeTmdbBackfillCallBudget,
   normalizeTmdbBackfillLimit,
+  selectTmdbBackfillCandidatesWithinBudget,
 } from "@/lib/providers/tmdb/enrichment-state";
 
 describe("TMDB enrichment state", () => {
@@ -30,9 +34,41 @@ describe("TMDB enrichment state", () => {
     ).toBe(false);
   });
 
-  it("bounds manual backfill batch size", () => {
-    expect(normalizeTmdbBackfillLimit(null)).toBe(20);
-    expect(normalizeTmdbBackfillLimit(0)).toBe(1);
+  it("bounds manual backfill call budget", () => {
+    expect(normalizeTmdbBackfillCallBudget(null)).toBe(20);
+    expect(normalizeTmdbBackfillCallBudget(0)).toBe(1);
+    expect(normalizeTmdbBackfillCallBudget(500)).toBe(50);
     expect(normalizeTmdbBackfillLimit(500)).toBe(50);
+  });
+
+  it("estimates TMDB backfill call counts by media type", () => {
+    expect(estimateTmdbMovieBackfillCallCount()).toBe(2);
+    expect(estimateTmdbShowBackfillCallCount(0)).toBe(1);
+    expect(estimateTmdbShowBackfillCallCount(3)).toBe(4);
+    expect(estimateTmdbShowBackfillCallCount(-1)).toBe(1);
+  });
+
+  it("selects prioritized candidates within the TMDB call budget", () => {
+    const candidates = [
+      { id: "watched-show", estimatedTmdbCallCount: 4 },
+      { id: "movie", estimatedTmdbCallCount: 2 },
+      { id: "later-show", estimatedTmdbCallCount: 1 },
+    ];
+
+    expect(selectTmdbBackfillCandidatesWithinBudget(candidates, 6)).toEqual([
+      candidates[0],
+      candidates[1],
+    ]);
+  });
+
+  it("keeps progress moving when the top candidate exceeds the call budget", () => {
+    const candidates = [
+      { id: "large-show", estimatedTmdbCallCount: 12 },
+      { id: "movie", estimatedTmdbCallCount: 2 },
+    ];
+
+    expect(selectTmdbBackfillCandidatesWithinBudget(candidates, 5)).toEqual([
+      candidates[0],
+    ]);
   });
 });

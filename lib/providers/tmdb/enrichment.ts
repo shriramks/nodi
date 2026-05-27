@@ -17,8 +17,12 @@ import {
 } from "@/lib/providers/tmdb/client";
 import { toTmdbShowIngestPayload } from "@/lib/providers/tmdb/adapters";
 import {
+  estimateTmdbMovieBackfillCallCount,
+  estimateTmdbShowBackfillCallCount,
   needsTmdbMetadataEnrichment,
-  normalizeTmdbBackfillLimit,
+  normalizeTmdbBackfillCallBudget,
+  selectTmdbBackfillCandidatesWithinBudget,
+  type EstimatedTmdbBackfillCandidate,
 } from "@/lib/providers/tmdb/enrichment-state";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
@@ -32,6 +36,7 @@ export type TmdbMetadataBackfillResult = {
 };
 
 type TmdbBackfillOptions = {
+  callBudget?: number | null;
   limit?: number | null;
   scanLimit?: number | null;
 };
@@ -40,11 +45,11 @@ type TmdbOnDemandEnrichmentOptions = {
   auth?: TmdbAuth;
 };
 
-type TmdbEnrichmentCandidate = {
+type TmdbEnrichmentCandidate = EstimatedTmdbBackfillCandidate & {
   movie: Movie;
   tmdbId: number;
 };
-type TmdbShowEnrichmentCandidate = {
+type TmdbShowEnrichmentCandidate = EstimatedTmdbBackfillCandidate & {
   seasonNumbers: number[];
   show: MediaItem;
   tmdbId: number;
@@ -60,7 +65,10 @@ export async function backfillCurrentUserTmdbMetadata(
 ): Promise<TmdbMetadataBackfillResult> {
   const user = await requireUser();
   const auth = await loadTmdbAuthForUser(user.id);
-  const limit = normalizeTmdbBackfillLimit(options.limit, defaultBackfillLimit);
+  const callBudget = normalizeTmdbBackfillCallBudget(
+    options.callBudget ?? options.limit,
+    defaultBackfillLimit,
+  );
   const scanLimit = normalizeTmdbBackfillScanLimit(options.scanLimit);
   const [movieCandidates, showCandidates] = await Promise.all([
     listCurrentUserTmdbEnrichmentCandidates(user.id, {
@@ -72,11 +80,18 @@ export async function backfillCurrentUserTmdbMetadata(
       scanLimit,
     }),
   ]);
-  const selectedShowCandidates = showCandidates.slice(0, limit);
-  const selectedMovieCandidates = movieCandidates.slice(
-    0,
-    Math.max(limit - selectedShowCandidates.length, 0),
+  const selectedShowCandidates = selectTmdbBackfillCandidatesWithinBudget(
+    showCandidates,
+    callBudget,
   );
+  const spentShowBudget = sumEstimatedTmdbCallCount(selectedShowCandidates);
+  const selectedMovieCandidates =
+    spentShowBudget < callBudget
+      ? selectTmdbBackfillCandidatesWithinBudget(
+          movieCandidates,
+          callBudget - spentShowBudget,
+        )
+      : [];
   const selectedCount = selectedShowCandidates.length + selectedMovieCandidates.length;
   const candidateCount = movieCandidates.length + showCandidates.length;
   const candidates = selectedMovieCandidates;
@@ -218,7 +233,11 @@ async function listCurrentUserTmdbEnrichmentCandidates(
       continue;
     }
 
-    candidates.push({ movie, tmdbId });
+    candidates.push({
+      estimatedTmdbCallCount: estimateTmdbMovieBackfillCallCount(),
+      movie,
+      tmdbId,
+    });
   }
 
   return candidates;
@@ -252,6 +271,9 @@ async function listCurrentUserTmdbShowEnrichmentCandidates(
     }
 
     candidates.push({
+      estimatedTmdbCallCount: estimateTmdbShowBackfillCallCount(
+        watchedSeasonsByShowId.get(show.id)?.length ?? 0,
+      ),
       seasonNumbers: watchedSeasonsByShowId.get(show.id) ?? [],
       show,
       tmdbId,
@@ -267,6 +289,13 @@ async function listCurrentUserTmdbShowEnrichmentCandidates(
 
     return a.show.title.localeCompare(b.show.title);
   });
+}
+
+function sumEstimatedTmdbCallCount(candidates: EstimatedTmdbBackfillCandidate[]) {
+  return candidates.reduce(
+    (total, candidate) => total + Math.max(candidate.estimatedTmdbCallCount, 1),
+    0,
+  );
 }
 
 async function loadCurrentUserMovieIds(userId: string) {

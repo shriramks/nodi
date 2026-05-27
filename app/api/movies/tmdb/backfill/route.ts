@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/server";
 import { isAppError } from "@/lib/errors";
 import { backfillCurrentUserTmdbMetadata } from "@/lib/providers/tmdb/enrichment";
-import { normalizeTmdbBackfillLimit } from "@/lib/providers/tmdb/enrichment-state";
+import { normalizeTmdbBackfillCallBudget } from "@/lib/providers/tmdb/enrichment-state";
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -31,10 +31,14 @@ export async function POST(request: NextRequest) {
       return rateLimitResponse(retryAfter);
     }
 
-    const limit = normalizeTmdbBackfillLimit(
-      Number(request.nextUrl.searchParams.get("limit") ?? 20),
+    const callBudget = normalizeTmdbBackfillCallBudget(
+      Number(
+        request.nextUrl.searchParams.get("budget") ??
+          request.nextUrl.searchParams.get("limit") ??
+          20,
+      ),
     );
-    const result = await backfillCurrentUserTmdbMetadata({ limit });
+    const result = await backfillCurrentUserTmdbMetadata({ callBudget });
 
     return NextResponse.json(result);
   } catch (error) {

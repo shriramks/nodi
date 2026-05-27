@@ -43,7 +43,7 @@ export function TmdbBackfillControls({ enabled }: TmdbBackfillControlsProps) {
 
     try {
       while (!stopRef.current) {
-        const response = await fetch("/api/movies/tmdb/backfill?limit=50", { method: "POST" });
+        const response = await fetch("/api/movies/tmdb/backfill?budget=50", { method: "POST" });
         const payload = (await response.json()) as TmdbBackfillResult & { error?: string };
 
         if (!response.ok) {
