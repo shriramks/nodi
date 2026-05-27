@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import { ShowEpisodeListView } from "@/components/show/show-episode-list-view";
 import { getShowDetail, type ShowDetail } from "@/lib/db/queries";
-import { ingestTmdbShow } from "@/lib/db/mutations";
+import { ingestTmdbShow, refreshShowWatchedState } from "@/lib/db/mutations";
 import { isAppError } from "@/lib/errors";
 import {
   getTmdbTvDetailsWithAuth,
@@ -34,6 +34,22 @@ export default async function ShowEpisodesPage({
 
   if (await hydrateShowEpisodesOnDemand(show)) {
     show = await loadFreshShowOrNotFound(showId);
+  }
+
+  // Repair stale "watching" status for shows where all episodes have been
+  // marked watched (e.g. synced from Trakt before auto-promotion existed).
+  if (show.userMedia?.status === "watching") {
+    const totalEpisodes = show.seasons.reduce((c, s) => c + s.episodes.length, 0);
+    const watchedEpisodes = show.seasons.reduce(
+      (c, s) => c + s.episodes.filter((ep) => (ep.watchActivity?.length ?? 0) > 0).length,
+      0,
+    );
+    const episodeCountCovers =
+      show.episode_count === null || totalEpisodes >= show.episode_count;
+    if (totalEpisodes > 0 && watchedEpisodes >= totalEpisodes && episodeCountCovers) {
+      await refreshShowWatchedState(show.id);
+      show = await loadFreshShowOrNotFound(showId);
+    }
   }
 
   return (

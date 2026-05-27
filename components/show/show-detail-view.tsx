@@ -324,7 +324,6 @@ function showStatusLine(show: DetailShow) {
     return null;
   }
 
-  const base = statusLabelFor(show.userStatus);
   const seasons = show.seasons ?? [];
   const totalCount =
     show.episode_count ??
@@ -334,6 +333,11 @@ function showStatusLine(show: DetailShow) {
       count + season.episodes.filter((episode) => (episode.watchActivity?.length ?? 0) > 0).length,
     0,
   );
+
+  // Auto-display "Watched" if every loaded episode has watch activity
+  const resolvedStatus =
+    totalCount > 0 && watchedCount >= totalCount ? "watched" : show.userStatus;
+  const base = statusLabelFor(resolvedStatus);
 
   if (totalCount > 0) {
     return `${base} · ${watchedCount}/${totalCount} episodes`;

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Check, Heart } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
+import { CollapsibleSeason } from "@/components/show/collapsible-season";
 import type { Episode, MediaStatus, MediaWatchActivity, Tag } from "@/lib/db/types";
 import { tmdbImage } from "@/lib/providers/tmdb/images";
 
@@ -99,7 +100,7 @@ export function ShowEpisodeListView({
           <div className="mt-2 flex flex-wrap gap-2">
             {show.userStatus ? (
               <span className="inline-flex min-h-7 items-center rounded-lg bg-watched/15 px-2 text-[12px] font-semibold text-watched">
-                {statusLabelFor(show.userStatus)}
+                {statusLabelFor(effectiveStatus(show.userStatus, watchedCount, totalCount))}
               </span>
             ) : null}
             {tags.map((tag) => (
@@ -116,20 +117,19 @@ export function ShowEpisodeListView({
 
       {show.seasons.length > 0 ? (
         <div>
-          {show.seasons.map((season) => (
-            <article className="border-b border-divider" key={season.seasonNumber}>
-              <div className="sticky top-[78px] z-10 flex min-h-10 items-center justify-between gap-3 border-b border-divider bg-background/95 px-4 backdrop-blur">
-                <h2 className="text-[17px] font-bold text-text-muted">
-                  {season.seasonNumber === 0 ? "Specials" : `Season ${season.seasonNumber}`}
-                </h2>
-                <div className="flex items-center gap-2">
-                  <span className="tabnum text-[13px] text-text-muted">
-                    {season.episodes.length} episodes
-                  </span>
-                  {seasonWatchControl?.(season)}
-                </div>
-              </div>
-              <div>
+          {show.seasons.map((season) => {
+            const seasonWatched = season.episodes.filter(
+              (ep) => (ep.watchActivity?.length ?? 0) > 0,
+            ).length;
+            return (
+              <CollapsibleSeason
+                defaultExpanded={season.seasonNumber === currentSeasonNumber(show.seasons)}
+                episodeCount={season.episodes.length}
+                key={season.seasonNumber}
+                seasonNumber={season.seasonNumber}
+                seasonWatchControl={seasonWatchControl?.(season)}
+                watchedCount={seasonWatched}
+              >
                 {season.episodes.map((episode) => (
                   <EpisodeRow
                     episode={episode}
@@ -138,9 +138,9 @@ export function ShowEpisodeListView({
                     watchControl={episodeWatchControl?.(episode)}
                   />
                 ))}
-              </div>
-            </article>
-          ))}
+              </CollapsibleSeason>
+            );
+          })}
         </div>
       ) : (
         <p className="px-4 py-5 text-[15px] leading-[1.4] text-text-muted">
@@ -149,6 +149,39 @@ export function ShowEpisodeListView({
       )}
     </main>
   );
+}
+
+function currentSeasonNumber(seasons: ShowSeason[]): number | null {
+  // Last season with some (but not all) episodes watched
+  let lastInProgress: number | null = null;
+  for (const season of seasons) {
+    const watched = season.episodes.filter((ep) => (ep.watchActivity?.length ?? 0) > 0).length;
+    if (watched > 0 && watched < season.episodes.length) {
+      lastInProgress = season.seasonNumber;
+    }
+  }
+  if (lastInProgress !== null) return lastInProgress;
+
+  // First season with any unwatched episodes
+  for (const season of seasons) {
+    if (season.episodes.some((ep) => (ep.watchActivity?.length ?? 0) === 0)) {
+      return season.seasonNumber;
+    }
+  }
+
+  // All watched: expand the last season
+  if (seasons.length > 0) return seasons[seasons.length - 1].seasonNumber;
+
+  return null;
+}
+
+function effectiveStatus(
+  status: MediaStatus,
+  watchedCount: number,
+  totalCount: number,
+): MediaStatus {
+  if (totalCount > 0 && watchedCount >= totalCount) return "watched";
+  return status;
 }
 
 function EpisodeRow({

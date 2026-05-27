@@ -610,11 +610,14 @@ async function getShowAutoCompletionState({
 }) {
   const supabase = await createSupabaseServerClient();
   const today = new Date().toISOString().slice(0, 10);
+  // Include episodes with no air_date (treat as aired) alongside those with air_date <= today.
+  // Future-dated episodes already in the DB are still excluded, which correctly keeps
+  // in-progress shows from auto-completing while there are unwatched upcoming episodes.
   const { data: episodes, error: episodesError } = await supabase
     .from("episodes")
     .select("id")
     .eq("show_id", mediaId)
-    .lte("air_date", today);
+    .or(`air_date.is.null,air_date.lte.${today}`);
 
   if (episodesError) {
     throwDatabaseError("Failed to load aired show episodes.", episodesError);
@@ -935,6 +938,17 @@ export async function updateMediaEpisodeWatchActivityDate(
     mediaId,
     userId: user.id,
   });
+}
+
+/**
+ * Recalculates a show's watched status from its episode watch activity.
+ * Safe to call on page load to repair a stale "watching" status when all
+ * episodes have already been marked watched (e.g. via Trakt sync).
+ */
+export async function refreshShowWatchedState(showId: string): Promise<UserMedia> {
+  const user = await requireUser();
+  const mediaId = validateUuid(showId, "showId");
+  return refreshShowMediaLastWatchedAt({ mediaId, userId: user.id });
 }
 
 export async function setMediaMovieWatchStatus(

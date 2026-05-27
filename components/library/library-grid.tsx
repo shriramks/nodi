@@ -1345,7 +1345,7 @@ function sameSort(
 }
 
 function libraryHref(movie: LibraryMovie["movie"]) {
-  return movie.type === "show" ? `/show/${movie.id}` : `/movie/${movie.id}`;
+  return movie.type === "show" ? `/show/${movie.id}/episodes` : `/movie/${movie.id}`;
 }
 
 function libraryTypeLabel(type: MediaTypeFilter) {

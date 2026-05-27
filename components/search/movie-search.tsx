@@ -112,7 +112,7 @@ export function MovieSearch() {
     }
 
     if (result.mediaType === "show" && result.localMediaId) {
-      router.push(`/show/${result.localMediaId}`);
+      router.push(`/show/${result.localMediaId}/episodes`);
       return;
     }
 
