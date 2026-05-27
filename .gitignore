@@ -38,6 +38,7 @@ yarn-error.log*
 .local/
 tmp/
 mocks/
+scripts/
 progress_nodi.md
 docs/nodi_security_audit.md
 *.local.json

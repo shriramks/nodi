@@ -58,7 +58,7 @@ type TmdbShowEnrichmentCandidate = EstimatedTmdbBackfillCandidate & {
 const defaultBackfillLimit = 20;
 const defaultScanLimit = 500;
 const failureSampleLimit = 5;
-const dbReadChunkSize = 500;
+const dbReadChunkSize = 100; // Supabase REST encodes .in() IDs in the URL; 500 UUIDs = ~18KB, exceeding the 16KB header limit
 
 export async function backfillCurrentUserTmdbMetadata(
   options: TmdbBackfillOptions = {},

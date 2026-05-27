@@ -631,7 +631,7 @@ async function listMediaStateAnalyticsRowsForUser(
         "media_id, status, personal_rating, last_watched_at, completed_at, media_items!inner(id, type, runtime_minutes, original_language, primary_genre_name, release_year)",
       )
       .eq("user_id", userId)
-      .eq("status", "watched");
+      .in("status", ["watched", "watching"]);
 
     if (type !== "all") {
       query = query.eq("media_items.type", type);
@@ -697,7 +697,7 @@ async function listMediaRatingAnalyticsRowsForUser(
     .from("user_media")
     .select("media_id, personal_rating, media_items!inner(id, type)")
     .eq("user_id", userId)
-    .eq("status", "watched")
+    .in("status", ["watched", "watching"])
     .not("personal_rating", "is", null);
 
   if (type !== "all") {

@@ -184,6 +184,16 @@ existing `/movies`, `/to-watch`, and `/api/library/movies` payload shape while m
 The default keeps the combined media view, while `movie` and `show` narrow the same indexed paged
 query without falling back to application-side filtering.
 
+`supabase/migrations/20260527180000_fix_watching_status_in_library_rpc.sql` fixes
+`list_media_library_movies_page` to include `user_media` rows with `status = 'watching'` alongside
+`status = 'watched'` when the caller requests the watched library. Shows synced from Trakt that are
+in progress (some episodes watched, not yet complete) receive `status = 'watching'`; the prior WHERE
+clause excluded them entirely. The output maps `'watching'` → `'watched'` so the returned payload
+stays compatible with the existing `MovieStatus` type. The companion code fix in
+`lib/db/queries/media.ts` widens the same filter in `listMediaStateAnalyticsRowsForUser` and
+`listMediaRatingAnalyticsRowsForUser` so stats show counts, genre/language breakdowns, and average
+ratings include in-progress shows.
+
 ## 8. Operational Notes
 
 Keep these server-side only:
