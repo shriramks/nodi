@@ -2,7 +2,12 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getLibraryStats, listTags } from "@/lib/db/queries";
-import type { LibraryStatsBreakdownItem, LibraryStatsRatingBucket } from "@/lib/db/types";
+import type {
+  LibraryStats,
+  LibraryStatsBreakdownItem,
+  LibraryStatsRatingBucket,
+  MediaTypeFilter,
+} from "@/lib/db/types";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { PageHeader, Section, SectionHeader } from "@/components/ui/section";
 import { MoviesOverTime } from "./movies-over-time";
@@ -30,115 +35,54 @@ const GENRE_COLORS = [
   "var(--chart-cyan)",
 ];
 
+type HeroMetricConfig = {
+  value: ReactNode;
+  label: string;
+  valueClass: string;
+  fontSize?: number;
+};
+
 export default async function StatsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tag?: string; year?: string }>;
+  searchParams: Promise<{ tag?: string; year?: string; type?: string }>;
 }) {
-  const { tag: tagFilter, year } = await searchParams;
+  const { tag: tagFilter, year, type } = await searchParams;
+  const typeFilter = parseStatsType(type);
   const yearFilter = year && /^\d{4}$/.test(year) ? year : undefined;
 
   const [stats, tags] = await Promise.all([
-    getLibraryStats(tagFilter, yearFilter),
+    getLibraryStats(typeFilter, tagFilter, yearFilter),
     listTags(),
   ]);
 
-  const hasData = stats.watchEventCount > 0;
+  const hasData = stats.watchedCount > 0 || stats.watchEventCount > 0;
 
   const filteredLanguages = stats.languageBreakdown
     .filter((item) => item.key !== "unknown")
     .slice(0, 5);
-  const statsHref = statsFilterHref({ tag: tagFilter, year: yearFilter });
+  const statsHref = statsFilterHref({ type: typeFilter, tag: tagFilter, year: yearFilter });
 
   return (
     <main>
       <PageHeader
         title="Stats"
         className="pb-3"
-        action={(
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <StatsFilters
-              tags={tags}
-              years={stats.availableYearBuckets}
-              currentTag={tagFilter}
-              currentYear={yearFilter}
-            />
-            <SettingsSheet />
-          </div>
-        )}
+        action={<SettingsSheet />}
       />
 
-      {/* Hero metrics */}
-      <div
-        className="grid pb-5"
-        style={{ gridTemplateColumns: "1fr 1.5fr 1fr", rowGap: 20 }}
-      >
-        <HeroMetric
-          value={stats.watchedCount.toString()}
-          label="Movies"
-          valueClass="text-foreground"
+      <div className="pb-4">
+        <StatsFilters
+          tags={tags}
+          years={stats.availableYearBuckets}
+          currentType={typeFilter}
+          currentTag={tagFilter}
+          currentYear={yearFilter}
         />
-        <HeroMetric
-          value={formatRuntime(stats.runtimeMinutes)}
-          label="Time watched"
-          valueClass="text-accent"
-          fontSize={stats.runtimeMinutes >= 86400 ? 20 : 22}
-          border
-        />
-        <HeroMetric
-          value={
-            stats.avgRating !== null ? (
-              <>
-                <span style={{ fontSize: 14, lineHeight: 1 }}>♥</span>
-                {` ${stats.avgRating}`}
-              </>
-            ) : (
-              "—"
-            )
-          }
-          label="Avg rating"
-          valueClass={stats.avgRating !== null ? "text-watched" : "text-text-faint"}
-          border
-        />
-
-        {hasData && (
-          <>
-            <HeroMetric
-              value={
-                stats.favGenre !== null ? (
-                  <>
-                    {stats.favGenre}
-                    {stats.favGenreCount !== null && (
-                      <span className="tabnum ml-1.5 text-[12px] font-normal text-text-faint">
-                        {stats.favGenreCount}
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  "—"
-                )
-              }
-              label="Fav genre"
-              valueClass="text-text-2"
-              secondary
-            />
-            <HeroMetric
-              value={stats.avgRuntimeMinutes > 0 ? formatRuntime(stats.avgRuntimeMinutes) : "—"}
-              label="Avg runtime"
-              valueClass="text-text-2"
-              secondary
-              border
-            />
-            <HeroMetric
-              value={stats.favDecade ?? "—"}
-              label="Fav decade"
-              valueClass="text-text-2"
-              secondary
-              border
-            />
-          </>
-        )}
       </div>
+
+      {/* Hero metrics */}
+      <StatsHero stats={stats} type={typeFilter} hasData={hasData} />
 
       <div className="h-px bg-divider" />
 
@@ -147,6 +91,7 @@ export default async function StatsPage({
           <MoviesOverTime
             monthBuckets={stats.monthBuckets}
             yearBuckets={stats.yearBuckets}
+            typeFilter={typeFilter}
             tagFilter={tagFilter}
             yearFilter={yearFilter}
             returnTo={statsHref}
@@ -161,7 +106,13 @@ export default async function StatsPage({
               <GenreTreemap
                 items={stats.genreBreakdown}
                 colors={GENRE_COLORS}
-                hrefForItem={(item) => moviesFilterHref({ genre: item.label, tag: tagFilter, year: yearFilter, returnTo: statsHref })}
+                hrefForItem={(item) => libraryFilterHref({
+                  type: typeFilter,
+                  genre: item.label,
+                  tag: tagFilter,
+                  year: yearFilter,
+                  returnTo: statsHref,
+                })}
               />
             )}
           </StatsBreakdownSection>
@@ -171,7 +122,8 @@ export default async function StatsPage({
           <StatsBreakdownSection title="By rating">
             <RatingDistribution
               breakdown={stats.ratingBreakdown}
-              hrefForRating={(rating) => moviesFilterHref({
+              hrefForRating={(rating) => libraryFilterHref({
+                type: typeFilter,
                 rating,
                 ratingOp: "=",
                 tag: tagFilter,
@@ -189,14 +141,20 @@ export default async function StatsPage({
             ) : (
               <LanguageDonut
                 items={filteredLanguages}
-                hrefForItem={(item) => moviesFilterHref({ language: item.key, tag: tagFilter, year: yearFilter, returnTo: statsHref })}
+                hrefForItem={(item) => libraryFilterHref({
+                  type: typeFilter,
+                  language: item.key,
+                  tag: tagFilter,
+                  year: yearFilter,
+                  returnTo: statsHref,
+                })}
               />
             )}
           </StatsBreakdownSection>
         </>
       ) : (
         <p className="pt-6 text-[15px] leading-[1.4] text-text-2">
-          No watch history yet. Mark a movie watched to see stats.
+          No watch history yet. Mark something watched to see stats.
         </p>
       )}
     </main>
@@ -234,6 +192,139 @@ function HeroMetric({
       </p>
       <p className="text-[11px] text-text-muted truncate">{label}</p>
     </div>
+  );
+}
+
+function StatsHero({
+  hasData,
+  stats,
+  type,
+}: {
+  hasData: boolean;
+  stats: LibraryStats;
+  type: MediaTypeFilter;
+}) {
+  const metrics = heroMetrics(stats, type);
+
+  return (
+    <div
+      className="grid pb-5"
+      style={{ gridTemplateColumns: "1fr 1.5fr 1fr", rowGap: 20 }}
+    >
+      {metrics.primary.map((metric, index) => (
+        <HeroMetric
+          key={metric.label}
+          value={metric.value}
+          label={metric.label}
+          valueClass={metric.valueClass}
+          fontSize={metric.fontSize}
+          border={index > 0}
+        />
+      ))}
+
+      {hasData && metrics.secondary.map((metric, index) => (
+        <HeroMetric
+          key={metric.label}
+          value={metric.value}
+          label={metric.label}
+          valueClass={metric.valueClass}
+          secondary
+          border={index > 0}
+        />
+      ))}
+    </div>
+  );
+}
+
+function heroMetrics(stats: LibraryStats, type: MediaTypeFilter) {
+  if (type === "movie") {
+    return {
+      primary: [
+        plainMetric(stats.movieCount.toString(), "Movies", "text-foreground"),
+        runtimeMetric(stats.runtimeMinutes, "Time watched", "text-accent"),
+        ratingMetric(stats.avgRating),
+      ],
+      secondary: [
+        plainMetric(favGenreValue(stats), "Fav genre", "text-text-2"),
+        plainMetric(stats.avgRuntimeMinutes > 0 ? formatRuntime(stats.avgRuntimeMinutes) : "—", "Avg runtime", "text-text-2"),
+        plainMetric(stats.favDecade ?? "—", "Fav decade", "text-text-2"),
+      ],
+    };
+  }
+
+  if (type === "show") {
+    return {
+      primary: [
+        plainMetric(stats.showCount.toString(), "Shows", "text-foreground"),
+        runtimeMetric(stats.showRuntimeMinutes, "TV time", "text-accent"),
+        plainMetric(stats.episodeWatchCount.toString(), "Episodes", "text-foreground"),
+      ],
+      secondary: [
+        plainMetric(favGenreValue(stats), "Fav genre", "text-text-2"),
+        plainMetric(stats.avgRuntimeMinutes > 0 ? formatRuntime(stats.avgRuntimeMinutes) : "—", "Avg episode", "text-text-2"),
+        ratingMetric(stats.avgRating, true),
+      ],
+    };
+  }
+
+  return {
+    primary: [
+      plainMetric(stats.movieCount.toString(), "Movies", "text-foreground"),
+      runtimeMetric(stats.runtimeMinutes, "Time watched", "text-accent"),
+      plainMetric(stats.episodeWatchCount.toString(), "Episodes", "text-foreground"),
+    ],
+    secondary: [
+      plainMetric(formatRuntime(stats.movieRuntimeMinutes), "Movie time", "text-text-2"),
+      plainMetric(formatRuntime(stats.showRuntimeMinutes), "TV time", "text-text-2"),
+      plainMetric(stats.favDecade ?? "—", "Fav decade", "text-text-2"),
+    ],
+  };
+}
+
+function plainMetric(
+  value: ReactNode,
+  label: string,
+  valueClass: string,
+): HeroMetricConfig {
+  return { value, label, valueClass };
+}
+
+function runtimeMetric(minutes: number, label: string, valueClass: string): HeroMetricConfig {
+  return {
+    value: formatRuntime(minutes),
+    label,
+    valueClass,
+    fontSize: minutes >= 86400 ? 20 : 22,
+  };
+}
+
+function ratingMetric(avgRating: number | null, secondary = false): HeroMetricConfig {
+  return {
+    value: avgRating !== null ? (
+      <>
+        <span style={{ fontSize: secondary ? 12 : 14, lineHeight: 1 }}>♥</span>
+        {` ${avgRating}`}
+      </>
+    ) : (
+      "—"
+    ),
+    label: "Avg rating",
+    valueClass: avgRating !== null ? "text-watched" : "text-text-faint",
+  };
+}
+
+function favGenreValue(stats: LibraryStats) {
+  return stats.favGenre !== null ? (
+    <>
+      {stats.favGenre}
+      {stats.favGenreCount !== null && (
+        <span className="tabnum ml-1.5 text-[12px] font-normal text-text-faint">
+          {stats.favGenreCount}
+        </span>
+      )}
+    </>
+  ) : (
+    "—"
   );
 }
 
@@ -319,7 +410,7 @@ function TreemapCell({
         padding: "5px 7px",
         minWidth: 0,
       }}
-      aria-label={`View ${item.label} movies`}
+      aria-label={`View ${item.label} library items`}
     >
       <span
         style={{
@@ -388,7 +479,7 @@ function LanguageDonut({
     <div className="flex flex-col items-center gap-3">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         {segments.map(({ item, d, color }) => (
-          <a key={item.key} href={hrefForItem(item)} aria-label={`View ${item.label} movies`}>
+          <a key={item.key} href={hrefForItem(item)} aria-label={`View ${item.label} library items`}>
             <path d={d} fill={color} />
           </a>
         ))}
@@ -466,7 +557,7 @@ function RatingDistribution({
             key={rating}
             href={hrefForRating(rating)}
             className="flex flex-1 flex-col items-center gap-1"
-            aria-label={`View ${rating} rated movies`}
+            aria-label={`View ${rating} rated library items`}
           >
             {content}
           </Link>
@@ -480,7 +571,8 @@ function RatingDistribution({
   );
 }
 
-function moviesFilterHref({
+function libraryFilterHref({
+  type,
   genre,
   language,
   tag,
@@ -490,6 +582,7 @@ function moviesFilterHref({
   ratingOp,
   returnTo,
 }: {
+  type: MediaTypeFilter;
   genre?: string;
   language?: string;
   tag?: string;
@@ -501,6 +594,7 @@ function moviesFilterHref({
 }) {
   const params = new URLSearchParams();
   params.set("from", "stats");
+  params.set("type", type);
   params.set("returnTo", returnTo);
   if (tag) params.set("tag", tag);
   if (genre) params.set("genre", genre);
@@ -511,21 +605,28 @@ function moviesFilterHref({
     params.set("ratingOp", ratingOp ?? "=");
     params.set("rating", String(rating));
   }
-  return `/movies?${params.toString()}`;
+  return `/library?${params.toString()}`;
 }
 
 function statsFilterHref({
+  type,
   tag,
   year,
 }: {
+  type: MediaTypeFilter;
   tag?: string;
   year?: string;
 }) {
   const params = new URLSearchParams();
+  if (type !== "all") params.set("type", type);
   if (tag) params.set("tag", tag);
   if (year) params.set("year", year);
   const query = params.toString();
   return query ? `/stats?${query}` : "/stats";
+}
+
+function parseStatsType(value: string | undefined): MediaTypeFilter {
+  return value === "movie" || value === "show" ? value : "all";
 }
 
 function formatRuntime(minutes: number) {

@@ -1089,7 +1089,12 @@ export type LibraryStatsRatingBucket = {
 export type LibraryStats = {
   watchedCount: number;
   watchEventCount: number;
+  movieCount: number;
+  showCount: number;
+  episodeWatchCount: number;
   runtimeMinutes: number;
+  movieRuntimeMinutes: number;
+  showRuntimeMinutes: number;
   avgRuntimeMinutes: number;
   avgRating: number | null;
   favGenre: string | null;

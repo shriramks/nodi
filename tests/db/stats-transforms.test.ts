@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildLibraryStats,
+  buildMediaLibraryStats,
   buildWatchedLibrarySummary,
+  type MediaStatsRatingRow,
+  type MediaStatsStateRow,
+  type MediaStatsTagRow,
+  type MediaStatsWatchRow,
   type RatingAnalyticsRow,
   type TagAnalyticsRow,
   type WatchLogAnalyticsRow,
@@ -176,13 +181,194 @@ describe("stats transforms", () => {
       genreBreakdown: [],
       languageBreakdown: [],
       monthBuckets: [],
+      movieCount: 0,
+      movieRuntimeMinutes: 0,
       ratingBreakdown: [],
       runtimeMinutes: 0,
+      showCount: 0,
+      showRuntimeMinutes: 0,
       tagBreakdown: [],
       watchEventCount: 0,
       watchedCount: 0,
       yearBuckets: [],
     });
+  });
+
+  it("builds all-media stats from movie activity and watched show state", () => {
+    const watchRows: MediaStatsWatchRow[] = [
+      {
+        id: "activity-1",
+        media_id: "movie-a",
+        episode_id: null,
+        watched_at: "2026-01-10T12:00:00.000Z",
+        media_items: {
+          id: "movie-a",
+          type: "movie",
+          original_language: "ja",
+          primary_genre_name: "Animation",
+          runtime_minutes: 80,
+          release_year: 2000,
+        },
+      },
+      {
+        id: "activity-2",
+        media_id: "show-a",
+        episode_id: "episode-a",
+        watched_at: "2026-02-10T12:00:00.000Z",
+        media_items: {
+          id: "show-a",
+          type: "show",
+          original_language: "en",
+          primary_genre_name: "Drama",
+          runtime_minutes: 45,
+          release_year: 2010,
+        },
+        episodes: { runtime_minutes: 42 },
+      },
+      {
+        id: "activity-3",
+        media_id: "show-a",
+        episode_id: "episode-b",
+        watched_at: "2026-03-10T12:00:00.000Z",
+        media_items: {
+          id: "show-a",
+          type: "show",
+          original_language: "en",
+          primary_genre_name: "Drama",
+          runtime_minutes: 45,
+          release_year: 2010,
+        },
+        episodes: { runtime_minutes: 43 },
+      },
+    ];
+    const tagRows: MediaStatsTagRow[] = [
+      { media_id: "movie-a", tags: { id: "tag-1", name: "Weekend" } },
+      { media_id: "show-a", tags: { id: "tag-1", name: "Weekend" } },
+    ];
+    const ratingRows: MediaStatsRatingRow[] = [
+      { media_id: "movie-a", personal_rating: 8 },
+      { media_id: "show-a", personal_rating: 10 },
+    ];
+    const stateRows: MediaStatsStateRow[] = [
+      {
+        media_id: "movie-a",
+        status: "watched",
+        personal_rating: 8,
+        last_watched_at: "2026-01-10T12:00:00.000Z",
+        completed_at: "2026-01-10T12:00:00.000Z",
+        media_items: {
+          id: "movie-a",
+          type: "movie",
+          original_language: "ja",
+          primary_genre_name: "Animation",
+          runtime_minutes: 80,
+          release_year: 2000,
+        },
+      },
+      {
+        media_id: "show-a",
+        status: "watched",
+        personal_rating: 10,
+        last_watched_at: "2026-03-10T12:00:00.000Z",
+        completed_at: "2026-03-10T12:00:00.000Z",
+        media_items: {
+          id: "show-a",
+          type: "show",
+          original_language: "en",
+          primary_genre_name: "Drama",
+          runtime_minutes: 45,
+          release_year: 2010,
+        },
+      },
+    ];
+
+    const stats = buildMediaLibraryStats(watchRows, tagRows, ratingRows, stateRows, "all");
+
+    expect(stats.movieCount).toBe(1);
+    expect(stats.showCount).toBe(1);
+    expect(stats.episodeWatchCount).toBe(2);
+    expect(stats.runtimeMinutes).toBe(165);
+    expect(stats.movieRuntimeMinutes).toBe(80);
+    expect(stats.showRuntimeMinutes).toBe(85);
+    expect(stats.avgRating).toBe(9);
+    expect(stats.genreBreakdown).toEqual([
+      { count: 1, key: "animation", label: "Animation", percentage: 50 },
+      { count: 1, key: "drama", label: "Drama", percentage: 50 },
+    ]);
+    expect(stats.tagBreakdown).toEqual([
+      { count: 2, key: "tag-1", label: "Weekend", percentage: 100 },
+    ]);
+
+    const showWatchRows = watchRows.filter((row) => row.media_items?.type === "show");
+    const showStats = buildMediaLibraryStats(
+      showWatchRows,
+      tagRows.filter((row) => row.media_id === "show-a"),
+      ratingRows.filter((row) => row.media_id === "show-a"),
+      stateRows.filter((row) => row.media_items?.type === "show"),
+      "show",
+      "Weekend",
+      "2026",
+    );
+    expect(showStats.watchedCount).toBe(1);
+    expect(showStats.showCount).toBe(1);
+    expect(showStats.movieCount).toBe(0);
+    expect(showStats.episodeWatchCount).toBe(2);
+    expect(showStats.avgRuntimeMinutes).toBe(43);
+    expect(showStats.monthBuckets).toHaveLength(12);
+  });
+
+  it("keeps show year filters available from watched show state without episode activity", () => {
+    const stateRows: MediaStatsStateRow[] = [
+      {
+        media_id: "show-a",
+        status: "watched",
+        personal_rating: 9,
+        last_watched_at: "2025-12-31T12:00:00.000Z",
+        completed_at: "2025-12-31T12:00:00.000Z",
+        media_items: {
+          id: "show-a",
+          type: "show",
+          original_language: "en",
+          primary_genre_name: "Drama",
+          runtime_minutes: 45,
+          release_year: 2010,
+        },
+      },
+      {
+        media_id: "show-b",
+        status: "watched",
+        personal_rating: 7,
+        last_watched_at: "2026-01-05T12:00:00.000Z",
+        completed_at: "2026-01-05T12:00:00.000Z",
+        media_items: {
+          id: "show-b",
+          type: "show",
+          original_language: "ko",
+          primary_genre_name: "Mystery",
+          runtime_minutes: 60,
+          release_year: 2020,
+        },
+      },
+    ];
+    const ratingRows: MediaStatsRatingRow[] = [
+      { media_id: "show-a", personal_rating: 9 },
+      { media_id: "show-b", personal_rating: 7 },
+    ];
+
+    const stats = buildMediaLibraryStats([], [], ratingRows, stateRows, "show");
+
+    expect(stats.availableYearBuckets.map((bucket) => [bucket.key, bucket.count])).toEqual([
+      ["2025", 1],
+      ["2026", 1],
+    ]);
+
+    const filteredStats = buildMediaLibraryStats([], [], ratingRows, stateRows, "show", undefined, "2025");
+    expect(filteredStats.showCount).toBe(1);
+    expect(filteredStats.watchedCount).toBe(1);
+    expect(filteredStats.avgRating).toBe(9);
+    expect(filteredStats.genreBreakdown).toEqual([
+      { count: 1, key: "drama", label: "Drama", percentage: 100 },
+    ]);
   });
 
   it("builds a lightweight watched-library summary without double-counting rewatches", () => {

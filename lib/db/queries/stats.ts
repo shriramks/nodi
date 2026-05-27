@@ -5,16 +5,37 @@ import { throwDatabaseError } from "@/lib/db/errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   buildLibraryStats,
+  buildMediaLibraryStats,
   buildWatchedLibrarySummary,
   type RatingAnalyticsRow,
   type TagAnalyticsRow,
   type WatchLogAnalyticsRow,
   type WatchedLibrarySummaryRow,
 } from "./stats-transforms";
+import { getMediaStatsInput } from "./media";
+import type { MediaTypeFilter } from "@/lib/db/types";
 
 const analyticsPageSize = 1000;
 
-export async function getLibraryStats(tagFilter?: string, yearFilter?: string) {
+export async function getLibraryStats(
+  type: MediaTypeFilter = "all",
+  tagFilter?: string,
+  yearFilter?: string,
+) {
+  const mediaStats = await getMediaStatsInput(type);
+
+  return buildMediaLibraryStats(
+    mediaStats.watchRows,
+    mediaStats.tagRows,
+    mediaStats.ratingRows,
+    mediaStats.stateRows,
+    type,
+    tagFilter,
+    yearFilter,
+  );
+}
+
+export async function getLegacyMovieLibraryStats(tagFilter?: string, yearFilter?: string) {
   const user = await requireUser();
 
   const [watchRows, tagRows, ratingRows] = await Promise.all([

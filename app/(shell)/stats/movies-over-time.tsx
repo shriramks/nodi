@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Section, SectionHeader } from "@/components/ui/section";
 import { monthLabels } from "@/lib/db/queries/stats-transforms";
-import type { LibraryStatsTimeBucket } from "@/lib/db/types";
+import type { LibraryStatsTimeBucket, MediaTypeFilter } from "@/lib/db/types";
 
 type View = "month" | "year";
 
@@ -28,12 +28,14 @@ function detectOutlierScale(buckets: LibraryStatsTimeBucket[]): number {
 export function MoviesOverTime({
   monthBuckets,
   yearBuckets,
+  typeFilter,
   tagFilter,
   yearFilter,
   returnTo,
 }: {
   monthBuckets: LibraryStatsTimeBucket[];
   yearBuckets: LibraryStatsTimeBucket[];
+  typeFilter: MediaTypeFilter;
   tagFilter?: string;
   yearFilter?: string;
   returnTo: string;
@@ -145,12 +147,13 @@ export function MoviesOverTime({
                 href={moviesTimeHref({
                   view: activeView,
                   key: bucket.key,
+                  typeFilter,
                   tagFilter,
                   returnTo,
                 })}
                 className="flex flex-col items-center justify-end gap-1"
                 style={{ width: barWidth, flexShrink: 0, height: "100%" }}
-                aria-label={`View ${bucket.label} movies`}
+                aria-label={`View ${bucket.label} library items`}
               >
                 {bucketContent}
               </Link>
@@ -174,18 +177,21 @@ export function MoviesOverTime({
 function moviesTimeHref({
   view,
   key,
+  typeFilter,
   tagFilter,
   returnTo,
 }: {
   view: View;
   key: string;
+  typeFilter: MediaTypeFilter;
   tagFilter?: string;
   returnTo: string;
 }) {
   const params = new URLSearchParams();
   params.set("from", "stats");
+  params.set("type", typeFilter);
   params.set("returnTo", returnTo);
   if (tagFilter) params.set("tag", tagFilter);
   params.set(view, key);
-  return `/movies?${params.toString()}`;
+  return `/library?${params.toString()}`;
 }

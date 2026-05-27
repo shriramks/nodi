@@ -332,10 +332,22 @@ describe("media queries", () => {
       data: [{ media_id: mediaId, personal_rating: 8 }],
       error: null,
     }));
+    const stateQuery = chainQuery(createQuery({
+      data: [{
+        media_id: mediaId,
+        status: "watched",
+        personal_rating: 8,
+        last_watched_at: "2026-05-02T00:00:00.000Z",
+        completed_at: "2026-05-02T00:00:00.000Z",
+        media_items: { id: mediaId, type: "movie", runtime_minutes: 100 },
+      }],
+      error: null,
+    }));
+    const userMediaQueries = [ratingQuery, stateQuery];
     const from = vi.fn((table: string) => {
       if (table === "media_watch_activity") return activityQuery;
       if (table === "user_media_tags") return tagQuery;
-      if (table === "user_media") return ratingQuery;
+      if (table === "user_media") return userMediaQueries.shift() ?? stateQuery;
       throw new Error(`Unexpected table query: ${table}`);
     });
     mocks.createSupabaseServerClient.mockResolvedValue({ from });
@@ -344,6 +356,7 @@ describe("media queries", () => {
       watchRows: [expect.objectContaining({ media_id: mediaId })],
       tagRows: [expect.objectContaining({ media_id: mediaId })],
       ratingRows: [{ media_id: mediaId, personal_rating: 8 }],
+      stateRows: [expect.objectContaining({ media_id: mediaId })],
     });
 
     expect(from).toHaveBeenCalledWith("media_watch_activity");
@@ -352,6 +365,7 @@ describe("media queries", () => {
     expect(activityQuery.eq).toHaveBeenCalledWith("media_items.type", "movie");
     expect(tagQuery.eq).toHaveBeenCalledWith("media_items.type", "movie");
     expect(ratingQuery.eq).toHaveBeenCalledWith("media_items.type", "movie");
+    expect(stateQuery.eq).toHaveBeenCalledWith("media_items.type", "movie");
   });
 
   it("loads lightweight watched summary rows from media watch activity", async () => {

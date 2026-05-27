@@ -2,16 +2,24 @@
 
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import type { LibraryStatsTimeBucket } from "@/lib/db/types";
+import type { LibraryStatsTimeBucket, MediaTypeFilter } from "@/lib/db/types";
+
+const typeOptions: Array<{ value: MediaTypeFilter; label: string }> = [
+  { value: "all", label: "All" },
+  { value: "movie", label: "Movies" },
+  { value: "show", label: "Shows" },
+];
 
 export function StatsFilters({
   tags,
   years,
+  currentType,
   currentTag,
   currentYear,
 }: {
   tags: { id: string; name: string }[];
   years: LibraryStatsTimeBucket[];
+  currentType: MediaTypeFilter;
   currentTag: string | undefined;
   currentYear: string | undefined;
 }) {
@@ -21,11 +29,13 @@ export function StatsFilters({
     ? yearOptions.some((year) => year.key === currentYear)
     : true;
 
-  function pushFilter(next: { tag?: string; year?: string }) {
+  function pushFilter(next: { type?: MediaTypeFilter; tag?: string; year?: string }) {
     const params = new URLSearchParams();
+    const type = Object.hasOwn(next, "type") ? next.type : currentType;
     const tag = Object.hasOwn(next, "tag") ? next.tag : currentTag;
     const year = Object.hasOwn(next, "year") ? next.year : currentYear;
 
+    if (type && type !== "all") params.set("type", type);
     if (tag) params.set("tag", tag);
     if (year) params.set("year", year);
 
@@ -34,15 +44,28 @@ export function StatsFilters({
   }
 
   return (
-    <>
+    <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <StatsSelect
+        label={typeOptions.find((option) => option.value === currentType)?.label ?? "All"}
+        value={currentType}
+        active={currentType !== "all"}
+        onChange={(value) => pushFilter({ type: value as MediaTypeFilter })}
+      >
+        {typeOptions.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </StatsSelect>
+
       {tags.length > 0 && (
         <StatsSelect
-          label={currentTag ?? "All movies"}
+          label={currentTag ?? "All tags"}
           value={currentTag ?? ""}
           active={!!currentTag}
           onChange={(value) => pushFilter({ tag: value || undefined })}
         >
-          <option value="">All movies</option>
+          <option value="">All tags</option>
           {tags.map((tag) => (
             <option key={tag.id} value={tag.name}>
               {tag.name}
@@ -51,23 +74,21 @@ export function StatsFilters({
         </StatsSelect>
       )}
 
-      {yearOptions.length > 0 && (
-        <StatsSelect
-          label={currentYear ?? "All time"}
-          value={currentYear ?? ""}
-          active={!!currentYear}
-          onChange={(value) => pushFilter({ year: value || undefined })}
-        >
-          <option value="">All time</option>
-          {!hasCurrentYearOption && <option value={currentYear ?? ""}>{currentYear}</option>}
-          {yearOptions.map((year) => (
-            <option key={year.key} value={year.key}>
-              {year.label}
-            </option>
-          ))}
-        </StatsSelect>
-      )}
-    </>
+      <StatsSelect
+        label={currentYear ?? "All time"}
+        value={currentYear ?? ""}
+        active={!!currentYear}
+        onChange={(value) => pushFilter({ year: value || undefined })}
+      >
+        <option value="">All time</option>
+        {!hasCurrentYearOption && <option value={currentYear ?? ""}>{currentYear}</option>}
+        {yearOptions.map((year) => (
+          <option key={year.key} value={year.key}>
+            {year.label}
+          </option>
+        ))}
+      </StatsSelect>
+    </div>
   );
 }
 
@@ -86,7 +107,7 @@ function StatsSelect({
 }) {
   return (
     <div
-      className="relative inline-flex h-[30px] max-w-[150px] cursor-pointer items-center gap-1 rounded-lg px-2.5"
+      className="relative inline-flex h-9 max-w-[150px] shrink-0 cursor-pointer items-center gap-1 rounded-full px-3"
       style={{
         border: `1px solid ${active ? "var(--color-accent)" : "var(--color-divider)"}`,
         background: "transparent",
