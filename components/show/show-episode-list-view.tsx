@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Check, Heart } from "lucide-react";
+import { Check } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
 import { CollapsibleSeason } from "@/components/show/collapsible-season";
@@ -50,12 +50,22 @@ export function ShowEpisodeListView({
   );
   const totalCount = show.seasons.reduce((count, season) => count + season.episodes.length, 0);
   const tags = (show.tags ?? []).slice(0, 2);
-  const metaLine = [
-    show.primary_genre_name,
-    show.original_language ? languageDisplayName(show.original_language) : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+
+  const status = show.userStatus ? effectiveStatus(show.userStatus, watchedCount, totalCount) : null;
+  const headingLabel =
+    totalCount === 0
+      ? "Episodes"
+      : status === "watched"
+        ? "Watched"
+        : status === "watching"
+          ? "Watching"
+          : "Episodes";
+  const countLine =
+    totalCount > 0 && watchedCount > 0 && watchedCount < totalCount
+      ? `${watchedCount} of ${totalCount} episodes`
+      : totalCount > 0
+        ? `${totalCount} episodes`
+        : null;
 
   return (
     <main className="-mx-4 -mt-6 pb-4">
@@ -76,31 +86,24 @@ export function ShowEpisodeListView({
       <section className="grid grid-cols-[74px_minmax(0,1fr)] gap-3 border-b border-divider px-4 py-4">
         <ShowPosterSmall posterPath={show.poster_path} title={show.title} />
         <div className="min-w-0 self-center">
-          <p className="text-[18px] font-bold leading-[1.2]">
-            {totalCount > 0
-              ? `Watched · ${watchedCount}/${totalCount} episodes`
-              : "Episodes"}
-          </p>
-          {metaLine ? <p className="mt-1 text-[13px] leading-[1.35] text-text-2">{metaLine}</p> : null}
+          <p className="text-[18px] font-bold leading-[1.2]">{headingLabel}</p>
+          {countLine ? (
+            <p className="mt-1 text-[13px] leading-[1.35] text-text-2">{countLine}</p>
+          ) : null}
           <div className="mt-2 flex flex-wrap gap-2">
-            {show.personalRating !== null && show.personalRating !== undefined ? (
-              <span className="inline-flex min-h-7 items-center gap-1 rounded-lg bg-accent/15 px-2 text-[12px] font-bold text-accent">
-                <Heart aria-hidden="true" className="h-3.5 w-3.5 fill-accent/20" strokeWidth={1.8} />
-                {show.personalRating}
-              </span>
-            ) : null}
             {show.tmdb_vote_average !== null && show.tmdb_vote_average !== undefined ? (
-              <span className="inline-flex min-h-7 items-center rounded-lg bg-surface px-2 text-[12px] font-bold text-text-2">
-                <strong className="mr-1 text-[10px] text-tmdb-brand">TMDB</strong>
-                {show.tmdb_vote_average}
-                {show.tmdb_vote_count ? ` · ${compactNumber(show.tmdb_vote_count)}` : null}
-              </span>
-            ) : null}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {show.userStatus ? (
-              <span className="inline-flex min-h-7 items-center rounded-lg bg-watched/15 px-2 text-[12px] font-semibold text-watched">
-                {statusLabelFor(effectiveStatus(show.userStatus, watchedCount, totalCount))}
+              <span
+                className="inline-flex h-6 max-w-full shrink-0 items-center gap-1.5 overflow-hidden rounded-md border border-border bg-background px-2 align-middle text-[11px] font-medium leading-none text-text-muted"
+                title={
+                  show.tmdb_vote_count
+                    ? `TMDB rating: ${show.tmdb_vote_average} from ${show.tmdb_vote_count.toLocaleString()} votes`
+                    : `TMDB rating: ${show.tmdb_vote_average}`
+                }
+              >
+                <span className="text-[9px] font-semibold uppercase tracking-normal text-text-faint">
+                  TMDB
+                </span>
+                <span className="tabnum text-text-2">{show.tmdb_vote_average}</span>
               </span>
             ) : null}
             {tags.map((tag) => (
@@ -291,32 +294,6 @@ function ShowPosterSmall({
   );
 }
 
-function compactNumber(value: number) {
-  return new Intl.NumberFormat("en", {
-    maximumFractionDigits: 1,
-    notation: "compact",
-  }).format(value);
-}
-
-function statusLabelFor(status: MediaStatus) {
-  if (status === "wishlist") {
-    return "Wishlist";
-  }
-
-  if (status === "watched") {
-    return "Watched show";
-  }
-
-  return "Watching";
-}
-
-function languageDisplayName(code: string): string {
-  try {
-    return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code.toUpperCase();
-  } catch {
-    return code.toUpperCase();
-  }
-}
 
 function formatDate(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
