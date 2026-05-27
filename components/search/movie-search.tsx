@@ -1,6 +1,6 @@
 "use client";
 
-import { Film, LoaderCircle, Search, Tv, X } from "lucide-react";
+import { Film, LoaderCircle, Search, X } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -227,8 +227,6 @@ function SearchResultPoster({
             className="h-full w-full object-cover"
             {...tmdbImage(result.posterPath, "searchPoster")}
           />
-        ) : result.mediaType === "show" ? (
-          <Tv className="h-5 w-5 text-text-faint" strokeWidth={1.8} />
         ) : (
           <Film className="h-5 w-5 text-text-faint" strokeWidth={1.8} />
         )}

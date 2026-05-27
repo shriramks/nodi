@@ -67,11 +67,20 @@ export type MediaDetail = MediaItem & {
 
 export type ShowSeason = {
   seasonNumber: number;
-  episodes: Episode[];
+  episodes: ShowEpisode[];
 };
 
 export type ShowDetail = MediaDetail & {
   seasons: ShowSeason[];
+};
+
+export type ShowEpisode = Episode & {
+  watchActivity: MediaWatchActivity[];
+};
+
+export type EpisodeDetail = {
+  episode: ShowEpisode;
+  show: MediaDetail;
 };
 
 export type MediaWatchActivityAnalyticsRow = Pick<
@@ -399,14 +408,106 @@ export async function getShowDetail(showId: string): Promise<ShowDetail> {
     throwDatabaseError("Failed to load show episodes.", error);
   }
 
+  const episodes = (data ?? []) as Episode[];
+  const watchActivityByEpisodeId = await listWatchActivityByEpisodeId(detail.id, episodes);
+
   return {
     ...detail,
-    seasons: groupEpisodesBySeason((data ?? []) as Episode[]),
+    seasons: groupEpisodesBySeason(
+      episodes.map((episode) => ({
+        ...episode,
+        watchActivity: watchActivityByEpisodeId.get(episode.id) ?? [],
+      })),
+    ),
   };
 }
 
-function groupEpisodesBySeason(episodes: Episode[]): ShowSeason[] {
-  const seasonsByNumber = new Map<number, Episode[]>();
+export async function getEpisodeDetail(
+  showId: string,
+  episodeId: string,
+): Promise<EpisodeDetail> {
+  const show = await getMediaDetail(showId);
+
+  if (show.type !== "show") {
+    throwNotFound("Show was not found.");
+  }
+
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const id = validateUuid(episodeId, "episodeId");
+
+  const { data: episode, error: episodeError } = await supabase
+    .from("episodes")
+    .select("*")
+    .eq("id", id)
+    .eq("show_id", show.id)
+    .maybeSingle();
+
+  if (episodeError) {
+    throwDatabaseError("Failed to load episode.", episodeError);
+  }
+
+  if (!episode) {
+    throwNotFound("Episode was not found.");
+  }
+
+  const { data: watchActivity, error: watchActivityError } = await supabase
+    .from("media_watch_activity")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("media_id", show.id)
+    .eq("episode_id", id)
+    .order("watched_at", { ascending: false });
+
+  if (watchActivityError) {
+    throwDatabaseError("Failed to load episode watch activity.", watchActivityError);
+  }
+
+  return {
+    episode: {
+      ...(episode as Episode),
+      watchActivity: (watchActivity ?? []) as MediaWatchActivity[],
+    },
+    show,
+  };
+}
+
+async function listWatchActivityByEpisodeId(mediaId: string, episodes: Episode[]) {
+  if (episodes.length === 0) {
+    return new Map<string, MediaWatchActivity[]>();
+  }
+
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("media_watch_activity")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("media_id", mediaId)
+    .in("episode_id", episodes.map((episode) => episode.id))
+    .order("watched_at", { ascending: false });
+
+  if (error) {
+    throwDatabaseError("Failed to load episode watch activity.", error);
+  }
+
+  const byEpisodeId = new Map<string, MediaWatchActivity[]>();
+
+  ((data ?? []) as MediaWatchActivity[]).forEach((activity) => {
+    if (!activity.episode_id) {
+      return;
+    }
+
+    const activities = byEpisodeId.get(activity.episode_id) ?? [];
+    activities.push(activity);
+    byEpisodeId.set(activity.episode_id, activities);
+  });
+
+  return byEpisodeId;
+}
+
+function groupEpisodesBySeason(episodes: ShowEpisode[]): ShowSeason[] {
+  const seasonsByNumber = new Map<number, ShowEpisode[]>();
 
   episodes.forEach((episode) => {
     const season = seasonsByNumber.get(episode.season_number) ?? [];

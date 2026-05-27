@@ -184,6 +184,22 @@ export type TmdbTvSeasonDetails = {
   vote_average?: number | null;
 };
 
+export type TmdbTvAggregateCredits = {
+  cast?: Array<{
+    id: number;
+    name: string;
+    order?: number | null;
+    profile_path?: string | null;
+    roles?: Array<{
+      character?: string | null;
+      episode_count?: number | null;
+    }>;
+    total_episode_count?: number | null;
+  }>;
+  crew?: unknown[];
+  id: number;
+};
+
 export type TmdbMovieAppendToResponse =
   | "credits"
   | "keywords"
@@ -422,6 +438,26 @@ export function getTmdbTvDetailsWithAuth(
   return fetchTmdbJsonWithAuth<TmdbTvDetails>(auth, `/tv/${tmdbId}`, {
     language,
   });
+}
+
+export function getTmdbTvAggregateCredits(tmdbId: number, language?: string | null) {
+  return fetchTmdbJson<TmdbTvAggregateCredits>(`/tv/${tmdbId}/aggregate_credits`, {
+    language,
+  });
+}
+
+export function getTmdbTvAggregateCreditsWithAuth(
+  auth: TmdbAuth,
+  tmdbId: number,
+  language?: string | null,
+) {
+  return fetchTmdbJsonWithAuth<TmdbTvAggregateCredits>(
+    auth,
+    `/tv/${tmdbId}/aggregate_credits`,
+    {
+      language,
+    },
+  );
 }
 
 export function getTmdbTvSeasonDetails(

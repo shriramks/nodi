@@ -1,22 +1,27 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
-import { Film, Heart, Tv } from "lucide-react";
+import Link from "next/link";
+import { Film, Heart } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { OverviewText } from "@/components/movie/overview-text";
 import { DetailRow } from "@/components/ui/detail";
 import {
-  CollapsibleSection,
   Section,
   SectionHeader,
+  SectionScrollBleed,
 } from "@/components/ui/section";
-import type { Episode, MediaStatus, Tag } from "@/lib/db/types";
+import type { Episode, MediaStatus, MediaWatchActivity, Tag } from "@/lib/db/types";
 import { tmdbImage } from "@/lib/providers/tmdb/images";
+
+type ShowEpisode = Episode & {
+  watchActivity?: MediaWatchActivity[];
+};
 
 type ShowSeason = {
   seasonNumber: number;
-  episodes: Episode[];
+  episodes: ShowEpisode[];
 };
 
 type DetailShow = {
@@ -36,10 +41,19 @@ type DetailShow = {
   network: string | null;
   season_count: number | null;
   episode_count: number | null;
+  cast?: ShowCastMember[];
   tags?: Tag[];
   seasons?: ShowSeason[];
   userStatus?: MediaStatus | null;
   personalRating?: number | null;
+};
+
+type ShowCastMember = {
+  character_name: string | null;
+  id: string | number;
+  name: string;
+  profile_path: string | null;
+  tmdb_person_id?: number | null;
 };
 
 type ShowDetailViewProps = {
@@ -47,7 +61,10 @@ type ShowDetailViewProps = {
   show: DetailShow;
 };
 
-export function ShowDetailView({ actions, show }: ShowDetailViewProps) {
+export function ShowDetailView({
+  actions,
+  show,
+}: ShowDetailViewProps) {
   const metaLine = [
     show.release_year,
     show.original_language ? languageDisplayName(show.original_language) : null,
@@ -57,7 +74,7 @@ export function ShowDetailView({ actions, show }: ShowDetailViewProps) {
     .join(" · ");
   const visibleTags = (show.tags ?? []).slice(0, 3);
   const tmdbRating = getTmdbRating(show);
-  const statusLabel = show.userStatus ? statusLabelFor(show.userStatus) : null;
+  const statusLabel = showStatusLine(show);
   const detailRows = [
     show.first_air_date ? { label: "First aired", value: formatDate(show.first_air_date) } : null,
     show.studio ? { label: "Studio", value: show.studio } : null,
@@ -92,7 +109,7 @@ export function ShowDetailView({ actions, show }: ShowDetailViewProps) {
             />
           ) : (
             <div className="flex h-full items-center justify-center bg-surface-muted">
-              <Tv aria-hidden="true" className="h-10 w-10 text-text-faint" strokeWidth={1.6} />
+              <Film aria-hidden="true" className="h-10 w-10 text-text-faint" strokeWidth={1.6} />
             </div>
           )}
           <div className="movie-detail-hero-scrim absolute inset-0" />
@@ -127,9 +144,7 @@ export function ShowDetailView({ actions, show }: ShowDetailViewProps) {
 
           {metaLine ? <p className="text-[13px] leading-[1.35] text-text-2">{metaLine}</p> : null}
 
-          {statusLabel ? (
-            <p className="text-[15px] font-semibold text-accent">{statusLabel}</p>
-          ) : null}
+          {statusLabel ? <p className="text-[15px] font-semibold text-accent">{statusLabel}</p> : null}
 
           <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
             <PersonalRating rating={show.personalRating ?? null} />
@@ -156,16 +171,42 @@ export function ShowDetailView({ actions, show }: ShowDetailViewProps) {
         </div>
       </section>
 
-      {actions}
+      {actions || show.id ? (
+        <div className="space-y-2">
+          {actions}
+          {show.id ? (
+            <Link
+              className="flex h-11 w-full items-center justify-center rounded-xl bg-surface px-4 text-[14px] font-bold text-foreground active:opacity-70"
+              href={`/show/${show.id}/episodes`}
+            >
+              Episodes
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
 
       <Section>
         <SectionHeader>Plot</SectionHeader>
         <OverviewText text={show.overview} />
       </Section>
 
-      <ShowSeasonList seasons={show.seasons ?? []} expectedEpisodeCount={show.episode_count} />
+      <Section>
+        <SectionHeader>Cast</SectionHeader>
+        {(show.cast?.length ?? 0) > 0 ? (
+          <SectionScrollBleed className="flex gap-3 pb-1">
+            {(show.cast ?? []).map((member) => (
+              <ShowCastMemberLink key={member.id} member={member} />
+            ))}
+          </SectionScrollBleed>
+        ) : (
+          <p className="text-[15px] leading-[1.4] text-text-muted">
+            No cast details available.
+          </p>
+        )}
+      </Section>
 
-      <CollapsibleSection title="Details">
+      <Section>
+        <SectionHeader>Details</SectionHeader>
         {detailRows.length > 0 ? (
           <div>
             {detailRows.map((row) => (
@@ -177,74 +218,43 @@ export function ShowDetailView({ actions, show }: ShowDetailViewProps) {
             No extra details available.
           </p>
         )}
-      </CollapsibleSection>
+      </Section>
     </main>
   );
 }
 
-function ShowSeasonList({
-  expectedEpisodeCount,
-  seasons,
-}: {
-  expectedEpisodeCount: number | null;
-  seasons: ShowSeason[];
-}) {
-  if (seasons.length === 0) {
-    return (
-      <Section>
-        <SectionHeader>Seasons</SectionHeader>
-        <p className="text-[15px] leading-[1.4] text-text-muted">
-          {expectedEpisodeCount
-            ? `${expectedEpisodeCount} episodes listed by TMDB.`
-            : "No episode details available."}
-        </p>
-      </Section>
-    );
+function ShowCastMemberLink({ member }: { member: ShowCastMember }) {
+  const content = (
+    <div className="w-[72px] shrink-0">
+      <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-surface-muted">
+        {member.profile_path ? (
+          <Image
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-cover"
+            {...tmdbImage(member.profile_path, "profileAvatar")}
+          />
+        ) : (
+          <Film aria-hidden="true" className="h-5 w-5 text-text-faint" strokeWidth={1.7} />
+        )}
+      </div>
+      <p className="mt-1.5 truncate text-[12px] font-semibold leading-[1.2] text-foreground">
+        {member.name}
+      </p>
+      {member.character_name ? (
+        <p className="mt-0.5 truncate text-[11px] text-text-muted">{member.character_name}</p>
+      ) : null}
+    </div>
+  );
+
+  if (!member.tmdb_person_id) {
+    return content;
   }
 
   return (
-    <Section>
-      <SectionHeader>Seasons</SectionHeader>
-      <div className="space-y-3">
-        {seasons.map((season) => (
-          <article key={season.seasonNumber} className="space-y-2">
-            <div className="flex min-h-8 items-center justify-between gap-3 border-b border-divider pb-1">
-              <h2 className="text-[15px] font-semibold text-foreground">
-                {season.seasonNumber === 0 ? "Specials" : `Season ${season.seasonNumber}`}
-              </h2>
-              <span className="tabnum text-[13px] text-text-muted">
-                {season.episodes.length} episodes
-              </span>
-            </div>
-            <div className="space-y-1">
-              {season.episodes.slice(0, 6).map((episode) => (
-                <div
-                  key={episode.id}
-                  className="grid min-h-10 grid-cols-[34px_1fr] items-center gap-3"
-                >
-                  <span className="tabnum text-[13px] font-semibold text-text-faint">
-                    E{episode.episode_number}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate text-[14px] font-medium text-foreground">
-                      {episode.title}
-                    </p>
-                    {episode.air_date ? (
-                      <p className="text-[12px] text-text-muted">{formatDate(episode.air_date)}</p>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-              {season.episodes.length > 6 ? (
-                <p className="tabnum pl-[46px] text-[12px] text-text-muted">
-                  +{season.episodes.length - 6} more
-                </p>
-              ) : null}
-            </div>
-          </article>
-        ))}
-      </div>
-    </Section>
+    <Link className="active:opacity-70" href={`/person/tmdb/${member.tmdb_person_id}`}>
+      {content}
+    </Link>
   );
 }
 
@@ -299,6 +309,29 @@ function getTmdbRating(show: DetailShow) {
   }
 
   return null;
+}
+
+function showStatusLine(show: DetailShow) {
+  if (!show.userStatus) {
+    return null;
+  }
+
+  const base = statusLabelFor(show.userStatus);
+  const seasons = show.seasons ?? [];
+  const totalCount =
+    show.episode_count ??
+    seasons.reduce((count, season) => count + season.episodes.length, 0);
+  const watchedCount = seasons.reduce(
+    (count, season) =>
+      count + season.episodes.filter((episode) => (episode.watchActivity?.length ?? 0) > 0).length,
+    0,
+  );
+
+  if (totalCount > 0) {
+    return `${base} · ${watchedCount}/${totalCount} episodes`;
+  }
+
+  return base;
 }
 
 function statusLabelFor(status: MediaStatus) {

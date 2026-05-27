@@ -12,6 +12,7 @@ import type {
   MediaItem,
   MediaItemInsert,
   MediaProviderMappingInsert,
+  MediaWatchActivityInsert,
   MediaWatchActivity,
   UserMedia,
   UserMediaInsert,
@@ -40,6 +41,12 @@ type MediaMovieWatchStatusResult = {
 };
 
 type ShowSaveStatus = Extract<UserMedia["status"], "watching" | "wishlist">;
+type EpisodeWatchPayload = {
+  notes?: string | null;
+  providerEventId?: string | null;
+  source?: MediaWatchActivityInsert["source"];
+  watchedAt?: string | null;
+};
 
 type ExistingMediaMappingRow = {
   media_id: string | null;
@@ -391,6 +398,266 @@ async function refreshMovieMediaLastWatchedAt({
   }
 
   return userMedia ?? null;
+}
+
+async function requireEpisodeForShow({
+  episodeId,
+  showId,
+}: {
+  episodeId: string;
+  showId: string;
+}): Promise<Episode> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data: show, error: showError } = await supabase
+    .from("media_items")
+    .select("id, type")
+    .eq("id", showId)
+    .eq("type", "show")
+    .maybeSingle();
+
+  if (showError) {
+    throwDatabaseError("Failed to load show media item.", showError);
+  }
+
+  if (!show) {
+    throwNotFound("Show was not found.");
+  }
+
+  const { data: episode, error: episodeError } = await supabase
+    .from("episodes")
+    .select("*")
+    .eq("id", episodeId)
+    .eq("show_id", showId)
+    .maybeSingle();
+
+  if (episodeError) {
+    throwDatabaseError("Failed to load episode.", episodeError);
+  }
+
+  if (!episode) {
+    throwNotFound("Episode was not found.");
+  }
+
+  return episode as Episode;
+}
+
+async function refreshShowMediaLastWatchedAt({
+  mediaId,
+  userId,
+}: {
+  mediaId: string;
+  userId: string;
+}): Promise<UserMedia> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data: latestActivity, error: latestActivityError } = await supabase
+    .from("media_watch_activity")
+    .select("watched_at")
+    .eq("user_id", userId)
+    .eq("media_id", mediaId)
+    .order("watched_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (latestActivityError) {
+    throwDatabaseError("Failed to load latest show watch activity.", latestActivityError);
+  }
+
+  const latestWatchedAt = latestActivity?.watched_at ?? null;
+  const { data: userMedia, error: userMediaError } = await supabase
+    .from("user_media")
+    .upsert(
+      {
+        completed_at: null,
+        completion_mode: null,
+        last_watched_at: latestWatchedAt,
+        media_id: mediaId,
+        status: "watching",
+        user_id: userId,
+        watchlisted_at: null,
+      },
+      { onConflict: "user_id,media_id" },
+    )
+    .select("*")
+    .single();
+
+  if (userMediaError) {
+    throwDatabaseError("Failed to refresh show watch state.", userMediaError);
+  }
+
+  return userMedia as UserMedia;
+}
+
+function buildEpisodeWatchActivityInsert({
+  episodeId,
+  mediaId,
+  payload,
+  userId,
+  watchedAt,
+}: {
+  episodeId: string;
+  mediaId: string;
+  payload: EpisodeWatchPayload;
+  userId: string;
+  watchedAt: string;
+}): MediaWatchActivityInsert {
+  return {
+    episode_id: episodeId,
+    media_id: mediaId,
+    notes: payload.notes ?? null,
+    provider_event_id: payload.providerEventId ?? null,
+    source: payload.source ?? "manual",
+    user_id: userId,
+    watched_at: watchedAt,
+  };
+}
+
+export async function markMediaEpisodeWatched(
+  showId: string,
+  episodeId: string,
+  payload: EpisodeWatchPayload = {},
+): Promise<{
+  userMedia: UserMedia;
+  watchActivity: MediaWatchActivity;
+}> {
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const mediaId = validateUuid(showId, "showId");
+  const id = validateUuid(episodeId, "episodeId");
+  await requireEpisodeForShow({ episodeId: id, showId: mediaId });
+  const watchedAt = payload.watchedAt ?? new Date().toISOString();
+
+  const { data: watchActivity, error: watchActivityError } = await supabase
+    .from("media_watch_activity")
+    .insert(
+      buildEpisodeWatchActivityInsert({
+        episodeId: id,
+        mediaId,
+        payload,
+        userId: user.id,
+        watchedAt,
+      }),
+    )
+    .select("*")
+    .single();
+
+  if (watchActivityError) {
+    throwDatabaseError("Failed to mark episode watched.", watchActivityError);
+  }
+
+  const userMedia = await refreshShowMediaLastWatchedAt({
+    mediaId,
+    userId: user.id,
+  });
+
+  return {
+    userMedia,
+    watchActivity: watchActivity as MediaWatchActivity,
+  };
+}
+
+export async function markMediaEpisodeUnwatched(
+  showId: string,
+  episodeId: string,
+): Promise<UserMedia> {
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const mediaId = validateUuid(showId, "showId");
+  const id = validateUuid(episodeId, "episodeId");
+  await requireEpisodeForShow({ episodeId: id, showId: mediaId });
+
+  const { error } = await supabase
+    .from("media_watch_activity")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("media_id", mediaId)
+    .eq("episode_id", id);
+
+  if (error) {
+    throwDatabaseError("Failed to mark episode unwatched.", error);
+  }
+
+  return refreshShowMediaLastWatchedAt({
+    mediaId,
+    userId: user.id,
+  });
+}
+
+export async function addMediaEpisodeWatchDate(
+  showId: string,
+  episodeId: string,
+  payload: EpisodeWatchPayload,
+): Promise<{
+  userMedia: UserMedia;
+  watchActivity: MediaWatchActivity;
+}> {
+  if (!payload.watchedAt) {
+    throwDatabaseError("Failed to append episode watch date.", {
+      message: "Episode watch date did not include watchedAt.",
+    });
+  }
+
+  return markMediaEpisodeWatched(showId, episodeId, payload);
+}
+
+export async function deleteMediaEpisodeWatchActivity(
+  showId: string,
+  episodeId: string,
+  activityId: string,
+): Promise<UserMedia> {
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const mediaId = validateUuid(showId, "showId");
+  const episode = validateUuid(episodeId, "episodeId");
+  const id = validateUuid(activityId, "activityId");
+
+  const { error } = await supabase
+    .from("media_watch_activity")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .eq("media_id", mediaId)
+    .eq("episode_id", episode);
+
+  if (error) {
+    throwDatabaseError("Failed to delete episode watch activity.", error);
+  }
+
+  return refreshShowMediaLastWatchedAt({
+    mediaId,
+    userId: user.id,
+  });
+}
+
+export async function updateMediaEpisodeWatchActivityDate(
+  showId: string,
+  episodeId: string,
+  activityId: string,
+  watchedAt: string,
+): Promise<UserMedia> {
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const mediaId = validateUuid(showId, "showId");
+  const episode = validateUuid(episodeId, "episodeId");
+  const id = validateUuid(activityId, "activityId");
+
+  const { error } = await supabase
+    .from("media_watch_activity")
+    .update({ watched_at: watchedAt })
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .eq("media_id", mediaId)
+    .eq("episode_id", episode);
+
+  if (error) {
+    throwDatabaseError("Failed to update episode watch activity.", error);
+  }
+
+  return refreshShowMediaLastWatchedAt({
+    mediaId,
+    userId: user.id,
+  });
 }
 
 export async function setMediaMovieWatchStatus(

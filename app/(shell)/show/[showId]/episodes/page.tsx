@@ -2,37 +2,33 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 
-import { LocalShowStateActions } from "@/components/show/show-state-actions";
-import { ShowDetailView } from "@/components/show/show-detail-view";
+import { ShowEpisodeListView } from "@/components/show/show-episode-list-view";
 import { getShowDetail, type ShowDetail } from "@/lib/db/queries";
 import { ingestTmdbShow } from "@/lib/db/mutations";
 import { isAppError } from "@/lib/errors";
 import {
-  getTmdbTvAggregateCreditsWithAuth,
   getTmdbTvDetailsWithAuth,
   getTmdbTvSeasonDetailsWithAuth,
   loadTmdbAuthForCurrentUser,
-  type TmdbTvAggregateCredits,
   type TmdbTvSeasonDetails,
 } from "@/lib/providers/tmdb/client";
-import {
-  addShowToWishlistAction,
-  saveShowToLibraryAction,
-} from "../actions";
+import { EpisodeWatchButton } from "../episode-watch-client";
 
-type ShowDetailPageProps = {
+type ShowEpisodesPageProps = {
   params: Promise<{ showId: string }>;
 };
 
 export async function generateMetadata({
   params,
-}: ShowDetailPageProps): Promise<Metadata> {
+}: ShowEpisodesPageProps): Promise<Metadata> {
   const { showId } = await params;
   const show = await loadShowOrNotFound(showId);
-  return { title: show.title };
+  return { title: `${show.title} Episodes` };
 }
 
-export default async function ShowDetailPage({ params }: ShowDetailPageProps) {
+export default async function ShowEpisodesPage({
+  params,
+}: ShowEpisodesPageProps) {
   const { showId } = await params;
   let show = await loadShowOrNotFound(showId);
 
@@ -40,20 +36,17 @@ export default async function ShowDetailPage({ params }: ShowDetailPageProps) {
     show = await loadFreshShowOrNotFound(showId);
   }
 
-  const cast = await loadShowCast(show);
-
   return (
-    <ShowDetailView
-      actions={
-        <LocalShowStateActions
-          addToWishlist={addShowToWishlistAction.bind(null, show.id)}
-          saveToLibrary={saveShowToLibraryAction.bind(null, show.id)}
-          status={show.userMedia?.status ?? null}
+    <ShowEpisodeListView
+      episodeWatchControl={(episode) => (
+        <EpisodeWatchButton
+          episodeId={episode.id}
+          isWatched={(episode.watchActivity?.length ?? 0) > 0}
+          showId={show.id}
         />
-      }
+      )}
       show={{
         ...show,
-        cast,
         userStatus: show.userMedia?.status ?? null,
         personalRating: show.userMedia?.personal_rating ?? null,
       }}
@@ -145,45 +138,4 @@ function needsEpisodeHydration(show: ShowDetail) {
   }
 
   return episodeCount === 0;
-}
-
-async function loadShowCast(show: ShowDetail) {
-  const tmdbId = show.providerMappings.find(
-    (mapping) => mapping.provider === "tmdb" && mapping.provider_media_type === "show",
-  )?.provider_id;
-
-  if (!tmdbId || !/^\d+$/.test(tmdbId)) {
-    return [];
-  }
-
-  try {
-    const auth = await loadTmdbAuthForCurrentUser();
-    const credits = await getTmdbTvAggregateCreditsWithAuth(auth, Number(tmdbId));
-    return toShowCast(credits);
-  } catch (error) {
-    if (isAppError(error) && error.status === 404) {
-      return [];
-    }
-
-    console.error("TMDB show cast load failed", {
-      error,
-      showId: show.id,
-      tmdbId,
-    });
-    return [];
-  }
-}
-
-function toShowCast(credits: TmdbTvAggregateCredits) {
-  return (credits.cast ?? [])
-    .slice()
-    .sort((left, right) => (left.order ?? 9999) - (right.order ?? 9999))
-    .slice(0, 12)
-    .map((member) => ({
-      id: member.id,
-      tmdb_person_id: member.id,
-      name: member.name,
-      character_name: member.roles?.[0]?.character?.trim() || null,
-      profile_path: member.profile_path ?? null,
-    }));
 }

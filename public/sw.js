@@ -1,6 +1,6 @@
 /* global self, caches, fetch, URL, Request, Response */
 
-const VERSION = "2026-05-21-1";
+const VERSION = "2026-05-26-1";
 const PRECACHE = `nodi-precache-${VERSION}`;
 const RUNTIME = `nodi-runtime-${VERSION}`;
 const IMAGE_RUNTIME = `nodi-images-${VERSION}`;
@@ -42,7 +42,7 @@ self.addEventListener("activate", (event) => {
         .then((keys) =>
           Promise.all(
             keys
-              .filter((key) => key !== PRECACHE && key !== RUNTIME)
+              .filter((key) => key !== PRECACHE && key !== RUNTIME && key !== IMAGE_RUNTIME)
               .map((key) => caches.delete(key)),
           ),
         ),
@@ -200,7 +200,7 @@ async function fetchAndCache(request, cacheName = RUNTIME, maxEntries) {
 
 function isStaticAsset(request, url) {
   if (url.pathname.startsWith("/_next/static/")) {
-    return true;
+    return request.destination === "font" || request.destination === "image";
   }
 
   if (
@@ -219,9 +219,7 @@ function isStaticAsset(request, url) {
     return true;
   }
 
-  return ["font", "image", "script", "style", "worker"].includes(
-    request.destination,
-  );
+  return ["font", "image"].includes(request.destination);
 }
 
 function isCacheable(response) {

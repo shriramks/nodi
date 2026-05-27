@@ -9,7 +9,9 @@ import { throwDatabaseError } from "@/lib/db/errors";
 import { AppError, isAppError } from "@/lib/errors";
 import { toTmdbShowIngestPayload } from "@/lib/providers/tmdb/adapters";
 import {
+  getTmdbTvAggregateCredits,
   getTmdbTvDetails,
+  type TmdbTvAggregateCredits,
   type TmdbTvDetails,
 } from "@/lib/providers/tmdb/client";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -45,7 +47,10 @@ export default async function TmdbShowDetailPage({
   const { tmdbId: rawTmdbId } = await params;
   const tmdbId = normalizeTmdbId(rawTmdbId);
   await redirectIfSaved(tmdbId);
-  const detail = await loadTmdbShowOrNotFound(tmdbId);
+  const [detail, credits] = await Promise.all([
+    loadTmdbShowOrNotFound(tmdbId),
+    loadTmdbShowCast(tmdbId),
+  ]);
   const ingestPayload = toTmdbShowIngestPayload(detail);
 
   return (
@@ -56,7 +61,10 @@ export default async function TmdbShowDetailPage({
           saveToLibrary={saveTmdbShowToLibraryAction.bind(null, ingestPayload)}
         />
       }
-      show={toDetailShow(detail)}
+      show={{
+        ...toDetailShow(detail),
+        cast: toShowCast(credits),
+      }}
     />
   );
 }
@@ -99,6 +107,7 @@ async function redirectIfSaved(tmdbId: number) {
 }
 
 const loadTmdbShowDetail = cache((tmdbId: number) => getTmdbTvDetails(tmdbId));
+const loadTmdbShowCredits = cache((tmdbId: number) => getTmdbTvAggregateCredits(tmdbId));
 
 async function loadTmdbShowOrNotFound(tmdbId: number) {
   try {
@@ -109,6 +118,14 @@ async function loadTmdbShowOrNotFound(tmdbId: number) {
     }
 
     throw error;
+  }
+}
+
+async function loadTmdbShowCast(tmdbId: number) {
+  try {
+    return await loadTmdbShowCredits(tmdbId);
+  } catch {
+    return { id: tmdbId, cast: [], crew: [] };
   }
 }
 
@@ -150,6 +167,20 @@ function toDetailShow(detail: TmdbTvDetails) {
     userStatus: null,
     personalRating: null,
   };
+}
+
+function toShowCast(credits: TmdbTvAggregateCredits) {
+  return (credits.cast ?? [])
+    .slice()
+    .sort((left, right) => (left.order ?? 9999) - (right.order ?? 9999))
+    .slice(0, 12)
+    .map((member) => ({
+      id: member.id,
+      tmdb_person_id: member.id,
+      name: member.name,
+      character_name: member.roles?.[0]?.character?.trim() || null,
+      profile_path: member.profile_path ?? null,
+    }));
 }
 
 function normalizeDate(value: string | null | undefined) {

@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Film, Tv } from "lucide-react";
+import { Film } from "lucide-react";
 
 import { tmdbImage } from "@/lib/providers/tmdb/images";
 
@@ -14,7 +14,6 @@ type CreditPosterCardProps = {
 
 export function CreditPosterCard({
   href,
-  mediaType = "movie",
   posterPath,
   subtitle,
   title,
@@ -29,8 +28,6 @@ export function CreditPosterCard({
             className="h-full w-full object-cover"
             {...tmdbImage(posterPath, "railPoster")}
           />
-        ) : mediaType === "tv" ? (
-          <Tv aria-hidden="true" className="h-6 w-6 text-text-faint" strokeWidth={1.7} />
         ) : (
           <Film aria-hidden="true" className="h-6 w-6 text-text-faint" strokeWidth={1.7} />
         )}
