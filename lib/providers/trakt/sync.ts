@@ -155,6 +155,7 @@ type RemoteHistoryState = {
 };
 type TraktListImport = {
   itemFetchSkipped: boolean;
+  itemFetchComplete: boolean;
   listKey: string;
   metadataCursor: string;
   movieItems: TraktListMovie[];
@@ -178,6 +179,7 @@ type TraktListFetchResult = {
 type RemoteTraktListState = {
   changed: boolean;
   itemFetchSkipped: boolean;
+  itemFetchComplete: boolean;
   listKey: string;
   metadataCursor: string;
   movieStates: RemoteTraktMovieState[];
@@ -1783,6 +1785,7 @@ async function listAllListsWithTaggableItems(
     if (canReuseSnapshot) {
       skippedListCount += 1;
       imports.push({
+        itemFetchComplete: true,
         itemFetchSkipped: true,
         listKey,
         metadataCursor,
@@ -1801,21 +1804,14 @@ async function listAllListsWithTaggableItems(
       continue;
     }
 
-    let movieItems: TraktListMovie[];
-    let showItems: TraktListShow[];
+    let itemFetchComplete = true;
+    let movieItems: TraktListMovie[] = [];
+    let showItems: TraktListShow[] = [];
 
     try {
       movieItems = await listAllListMovieItems(auth, listKey, run, async (count) => {
         await onProgress?.({
           itemCount: itemCount + count,
-          listCount: imports.length + 1,
-          skippedListCount,
-          totalItemCount,
-        });
-      });
-      showItems = await listAllListShowItems(auth, listKey, run, async (count) => {
-        await onProgress?.({
-          itemCount: itemCount + movieItems.length + count,
           listCount: imports.length + 1,
           skippedListCount,
           totalItemCount,
@@ -1832,8 +1828,23 @@ async function listAllListsWithTaggableItems(
       continue;
     }
 
+    try {
+      showItems = await listAllListShowItems(auth, listKey, run, async (count) => {
+        await onProgress?.({
+          itemCount: itemCount + movieItems.length + count,
+          listCount: imports.length + 1,
+          skippedListCount,
+          totalItemCount,
+        });
+      });
+    } catch (error) {
+      itemFetchComplete = false;
+      recordPullFailure(result, "list", `${listKey}:shows`, error);
+    }
+
     itemCount += movieItems.length + showItems.length;
     imports.push({
+      itemFetchComplete,
       itemFetchSkipped: false,
       listKey,
       metadataCursor,
@@ -2087,6 +2098,7 @@ function normalizeListStates(
     if (listImport.itemFetchSkipped) {
       states.push({
         changed: false,
+        itemFetchComplete: true,
         itemFetchSkipped: true,
         listKey: listImport.listKey,
         metadataCursor: listImport.metadataCursor,
@@ -2150,6 +2162,7 @@ function normalizeListStates(
 
     states.push({
       changed: delta.changed,
+      itemFetchComplete: listImport.itemFetchComplete,
       itemFetchSkipped: false,
       listKey: listImport.listKey,
       metadataCursor: listImport.metadataCursor,
@@ -3626,6 +3639,10 @@ async function storeListSnapshots(
   await assertTraktSyncRunActive(run.userId, run.runId);
 
   for (const listState of listStates) {
+    if (!listState.itemFetchComplete) {
+      continue;
+    }
+
     await upsertSyncCursor(
       provider,
       snapshotCursorKey(`lists.${listState.listKey}`),
@@ -4742,3 +4759,13 @@ function readNumber(value: unknown, label: string) {
 
   return value;
 }
+
+export const __traktSyncTestHooks = {
+  createPullResult,
+  listAllListsWithTaggableItems,
+  normalizeListStates,
+  resolveRemoteShows,
+  storeListSnapshots,
+  upsertTraktListMediaTags,
+  upsertTraktListTags,
+};
