@@ -368,6 +368,14 @@ export async function setMediaShowStatus(
     throwDatabaseError("Failed to save show state.", error);
   }
 
+  if (status === "wishlist") {
+    await queueTraktSyncEvent("show.add_to_watchlist", {
+      showId: id,
+      userMediaId: data.id,
+      watchlistedAt: data.watchlisted_at ?? now,
+    });
+  }
+
   return data as UserMedia;
 }
 
@@ -375,6 +383,17 @@ export async function removeUserMediaShow(showId: string): Promise<void> {
   const user = await requireUser();
   const supabase = await createSupabaseServerClient();
   const id = validateUuid(showId, "showId");
+
+  const { data: existingUserMedia, error: existingUserMediaError } = await supabase
+    .from("user_media")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("media_id", id)
+    .maybeSingle();
+
+  if (existingUserMediaError) {
+    throwDatabaseError("Failed to load existing show state.", existingUserMediaError);
+  }
 
   const { error } = await supabase
     .from("user_media")
@@ -384,6 +403,13 @@ export async function removeUserMediaShow(showId: string): Promise<void> {
 
   if (error) {
     throwDatabaseError("Failed to remove show from library.", error);
+  }
+
+  if (existingUserMedia?.status === "wishlist") {
+    await queueTraktSyncEvent("show.remove_from_watchlist", {
+      showId: id,
+      userMediaId: existingUserMedia.id,
+    });
   }
 }
 
@@ -688,6 +714,16 @@ export async function markMediaEpisodeWatched(
     userId: user.id,
   });
 
+  if (shouldQueueOutboundSync(payload.source)) {
+    await queueTraktSyncEvent("episode.mark_watched", {
+      episodeId: id,
+      showId: mediaId,
+      userMediaId: userMedia.id,
+      watchActivityId: watchActivity.id,
+      watchedAt,
+    });
+  }
+
   return {
     userMedia,
     watchActivity: watchActivity as MediaWatchActivity,
@@ -755,7 +791,7 @@ export async function markMediaSeasonWatched(
       .flatMap((activity) => activity.episode_id ? [activity.episode_id] : []),
   );
   const watchedAt = new Date().toISOString();
-  const rows: MediaWatchActivityInsert[] = episodeIds
+  const rows: Array<MediaWatchActivityInsert & { episode_id: string }> = episodeIds
     .filter((episodeId) => !watchedEpisodeIds.has(episodeId))
     .map((episodeId) => ({
       episode_id: episodeId,
@@ -775,6 +811,16 @@ export async function markMediaSeasonWatched(
     if (insertError) {
       throwDatabaseError("Failed to mark season watched.", insertError);
     }
+
+    await Promise.all(
+      rows.map((row) =>
+        queueTraktSyncEvent("episode.mark_watched", {
+          episodeId: row.episode_id,
+          showId: mediaId,
+          watchedAt,
+        }),
+      ),
+    );
   }
 
   return refreshShowMediaLastWatchedAt({
@@ -803,6 +849,11 @@ export async function markMediaEpisodeUnwatched(
   if (error) {
     throwDatabaseError("Failed to mark episode unwatched.", error);
   }
+
+  await queueTraktSyncEvent("episode.remove_from_history", {
+    episodeId: id,
+    showId: mediaId,
+  });
 
   return refreshShowMediaLastWatchedAt({
     mediaId,
@@ -1145,6 +1196,15 @@ export async function updateMediaShowRating(
   if (!data) {
     throwNotFound("Show is not in the user's library.");
   }
+
+  await queueTraktSyncEvent(
+    rating.personalRating === null ? "show.rating.clear" : "show.rating.set",
+    {
+      personalRating: rating.personalRating,
+      showId: id,
+      userMediaId: data.id,
+    },
+  );
 
   return data;
 }

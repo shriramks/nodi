@@ -38,7 +38,7 @@ export default async function TmdbSettingsPage({ searchParams }: TmdbSettingsPag
       <PageHeader
         leading={<BackButton />}
         title="TMDB"
-        subtitle="Required for search, posters, cast, and movie metadata."
+        subtitle="Required for search, posters, cast, and media metadata."
       />
 
       {params.error ? (

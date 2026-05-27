@@ -330,9 +330,11 @@ with provider mappings, then TMDB detail, credits, posters, and runtime are fill
 TMDB metadata backfill or lazy enrichment when the local movie detail page is opened.
 
 TMDB metadata backfill runs in the browser via `POST /api/movies/tmdb/backfill?limit=50`. The UI
-loops until `remaining === 0`, enriching all pending movies in successive batches of 50 with live
-progress feedback. Each batch makes two TMDB calls per movie (details + credits). A stop button
-interrupts the loop between batches without leaving state inconsistent.
+loops until `remaining === 0`, enriching pending media in successive batches of 50 with live
+progress feedback. Trakt-imported shows are selected before movies; watched episode seasons are
+loaded first so TV stats get runtime and airdate metadata before full show browsing hydration. Movie
+backfill still makes two TMDB calls per movie (details + credits). A stop button interrupts the loop
+between batches without leaving state inconsistent.
 
 Recoverable item-level pull failures are stored in `sync_item_failures` before phase checkpoints,
 list snapshots, or pull cursors advance. Pull summaries keep only capped `failureSamples` for UI

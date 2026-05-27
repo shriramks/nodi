@@ -14,10 +14,34 @@ export type TraktMovieIds = {
   tmdb?: number | null;
 };
 
+export type TraktShowIds = TraktMovieIds & {
+  tvdb?: number | null;
+};
+
+export type TraktEpisodeIds = {
+  trakt?: number | null;
+  tvdb?: number | null;
+  imdb?: string | null;
+  tmdb?: number | null;
+};
+
 export type TraktMovie = {
   title?: string;
   year?: number | null;
   ids: TraktMovieIds;
+};
+
+export type TraktShow = {
+  title?: string;
+  year?: number | null;
+  ids: TraktShowIds;
+};
+
+export type TraktEpisode = {
+  season?: number | null;
+  number?: number | null;
+  title?: string | null;
+  ids?: TraktEpisodeIds;
 };
 
 export type TraktHistoryMovie = {
@@ -28,6 +52,15 @@ export type TraktHistoryMovie = {
   movie: TraktMovie;
 };
 
+export type TraktHistoryEpisode = {
+  id: number;
+  watched_at: string;
+  action?: string;
+  type?: "episode";
+  episode: TraktEpisode;
+  show: TraktShow;
+};
+
 export type TraktWatchlistMovie = {
   rank?: number;
   listed_at: string;
@@ -35,11 +68,25 @@ export type TraktWatchlistMovie = {
   movie: TraktMovie;
 };
 
+export type TraktWatchlistShow = {
+  rank?: number;
+  listed_at: string;
+  type?: "show";
+  show: TraktShow;
+};
+
 export type TraktRatedMovie = {
   rated_at: string;
   rating: number;
   type?: "movie";
   movie: TraktMovie;
+};
+
+export type TraktRatedShow = {
+  rated_at: string;
+  rating: number;
+  type?: "show";
+  show: TraktShow;
 };
 
 export type TraktUserList = {
@@ -66,8 +113,20 @@ export type TraktSyncMovie = TraktMovie & {
   rating?: number;
 };
 
+export type TraktSyncShow = TraktShow & {
+  listed_at?: string;
+  rated_at?: string;
+  rating?: number;
+};
+
+export type TraktSyncEpisode = TraktEpisode & {
+  watched_at?: string;
+};
+
 export type TraktSyncRequest = {
-  movies: TraktSyncMovie[];
+  episodes?: TraktSyncEpisode[];
+  movies?: TraktSyncMovie[];
+  shows?: TraktSyncShow[];
 };
 
 export type TraktSyncResponse = {
@@ -75,7 +134,9 @@ export type TraktSyncResponse = {
   deleted?: Record<string, number>;
   existing?: Record<string, number>;
   not_found?: {
+    episodes?: TraktSyncEpisode[];
     movies?: TraktSyncMovie[];
+    shows?: TraktSyncShow[];
   };
 };
 
@@ -313,6 +374,21 @@ export function listTraktHistoryMoviesPage(
   });
 }
 
+export function listTraktHistoryShowsPage(
+  auth: TraktAuth,
+  options: { page: number; limit: number; startAt?: string | null },
+) {
+  return fetchTraktJsonPage<TraktHistoryEpisode[]>("/users/me/history/shows", {
+    accessToken: auth.accessToken,
+    clientId: auth.clientId,
+    query: {
+      page: options.page,
+      limit: options.limit,
+      start_at: options.startAt,
+    },
+  });
+}
+
 export function listTraktWatchlistMovies(
   auth: TraktAuth,
   options: { page: number; limit: number },
@@ -341,6 +417,20 @@ export function listTraktWatchlistMoviesPage(
   });
 }
 
+export function listTraktWatchlistShowsPage(
+  auth: TraktAuth,
+  options: { page: number; limit: number },
+) {
+  return fetchTraktJsonPage<TraktWatchlistShow[]>("/users/me/watchlist/shows/added", {
+    accessToken: auth.accessToken,
+    clientId: auth.clientId,
+    query: {
+      page: options.page,
+      limit: options.limit,
+    },
+  });
+}
+
 export function listTraktRatedMovies(
   auth: TraktAuth,
   options?: { page?: number; limit?: number },
@@ -360,6 +450,20 @@ export function listTraktRatedMoviesPage(
   options: { page: number; limit: number },
 ) {
   return fetchTraktJsonPage<TraktRatedMovie[]>("/users/me/ratings/movies", {
+    accessToken: auth.accessToken,
+    clientId: auth.clientId,
+    query: {
+      page: options.page,
+      limit: options.limit,
+    },
+  });
+}
+
+export function listTraktRatedShowsPage(
+  auth: TraktAuth,
+  options: { page: number; limit: number },
+) {
+  return fetchTraktJsonPage<TraktRatedShow[]>("/users/me/ratings/shows", {
     accessToken: auth.accessToken,
     clientId: auth.clientId,
     query: {

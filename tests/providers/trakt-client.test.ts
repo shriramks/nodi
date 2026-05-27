@@ -2,8 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   fetchTraktJsonPage,
+  listTraktHistoryShowsPage,
   listTraktListMovieItemsPage,
+  listTraktRatedShowsPage,
   listTraktUserListsPage,
+  listTraktWatchlistShowsPage,
 } from "@/lib/providers/trakt/client";
 
 describe("Trakt client", () => {
@@ -111,6 +114,34 @@ describe("Trakt client", () => {
     expect(result.items).toEqual([{ movie: { ids: { tmdb: 437 } }, type: "movie" }]);
     expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
       "https://api.trakt.tv/users/me/lists/festival%20picks/items/movies?page=1&limit=100",
+    );
+  });
+
+  it("builds show sync page requests", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(() => Promise.resolve(
+      new Response(JSON.stringify([]), {
+        headers: { "content-type": "application/json" },
+        status: 200,
+      }),
+    ));
+    const auth = { accessToken: "access-token", clientId: "client-id" };
+
+    await listTraktHistoryShowsPage(auth, {
+      limit: 100,
+      page: 1,
+      startAt: "2026-05-01T00:00:00.000Z",
+    });
+    await listTraktWatchlistShowsPage(auth, { limit: 100, page: 2 });
+    await listTraktRatedShowsPage(auth, { limit: 100, page: 3 });
+
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+      "https://api.trakt.tv/users/me/history/shows?page=1&limit=100&start_at=2026-05-01T00%3A00%3A00.000Z",
+    );
+    expect(String(fetchMock.mock.calls[1]?.[0])).toBe(
+      "https://api.trakt.tv/users/me/watchlist/shows/added?page=2&limit=100",
+    );
+    expect(String(fetchMock.mock.calls[2]?.[0])).toBe(
+      "https://api.trakt.tv/users/me/ratings/shows?page=3&limit=100",
     );
   });
 });

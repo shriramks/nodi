@@ -33,6 +33,7 @@ import {
   detachTagFromMediaShow,
   ingestPreparedTmdbShow,
   markMediaEpisodeWatched,
+  markMediaSeasonWatched,
   removeUserMediaMovie,
   setMediaShowStatus,
   setMediaMovieWatchStatus,
@@ -411,7 +412,7 @@ describe("media movie mutations", () => {
     });
   });
 
-  it("saves a show wishlist state without queueing a movie sync event", async () => {
+  it("saves a show wishlist state and queues a show sync event", async () => {
     const userShowMedia = {
       ...watchedUserMedia,
       completed_at: null,
@@ -446,7 +447,17 @@ describe("media movie mutations", () => {
       }),
       { onConflict: "user_id,media_id" },
     );
-    expect(mocks.createSyncEvent).not.toHaveBeenCalled();
+    expect(mocks.createSyncEvent).toHaveBeenCalledWith({
+      direction: "push",
+      eventType: "show.add_to_watchlist",
+      payload: {
+        showId,
+        userMediaId: userShowMedia.id,
+        watchlistedAt: userShowMedia.watchlisted_at,
+      },
+      provider: "trakt",
+      status: "pending",
+    });
   });
 
   it("manually marks a show watched without writing episode activity", async () => {
@@ -561,6 +572,84 @@ describe("media movie mutations", () => {
     );
   });
 
+  it("marks a season watched and queues episode sync events", async () => {
+    const episodeOneId = "60000000-0000-4000-8000-000000000000";
+    const episodeTwoId = "60000000-0000-4000-8000-000000000001";
+    const userShowMedia = {
+      ...watchedUserMedia,
+      completed_at: null,
+      completion_mode: null,
+      id: "20000000-0000-4000-8000-000000000001",
+      last_watched_at: watchedAt,
+      media_id: showId,
+      status: "watching" as const,
+      watchlisted_at: null,
+    };
+    const showLookup = createQuery({ data: { id: showId, type: "show" }, error: null });
+    const seasonEpisodes = createQuery({
+      data: [{ id: episodeOneId }, { id: episodeTwoId }],
+      error: null,
+    });
+    const existingActivity = createQuery({ data: [], error: null });
+    const activityInsert = createQuery({ data: null, error: null });
+    const currentUserMedia = createQuery({ data: null, error: null });
+    const latestActivity = createQuery({ data: { watched_at: watchedAt }, error: null });
+    const airedEpisodes = createQuery({
+      data: [{ id: episodeOneId }, { id: episodeTwoId }],
+      error: null,
+    });
+    const watchedRows = createQuery({
+      data: [
+        { episode_id: episodeOneId, watched_at: watchedAt },
+        { episode_id: episodeTwoId, watched_at: watchedAt },
+      ],
+      error: null,
+    });
+    const userMediaUpsert = createQuery({ data: userShowMedia, error: null });
+    createSupabaseWithQueues({
+      episodes: [seasonEpisodes, airedEpisodes],
+      media_items: [showLookup],
+      media_watch_activity: [existingActivity, activityInsert, latestActivity, watchedRows],
+      user_media: [currentUserMedia, userMediaUpsert],
+    });
+
+    await expect(markMediaSeasonWatched(showId, 1)).resolves.toMatchObject({
+      media_id: showId,
+      status: "watching",
+    });
+
+    expect(activityInsert.insert).toHaveBeenCalledWith([
+      expect.objectContaining({
+        episode_id: episodeOneId,
+        media_id: showId,
+        source: "manual",
+      }),
+      expect.objectContaining({
+        episode_id: episodeTwoId,
+        media_id: showId,
+        source: "manual",
+      }),
+    ]);
+    expect(mocks.createSyncEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "episode.mark_watched",
+        payload: expect.objectContaining({
+          episodeId: episodeOneId,
+          showId,
+        }),
+      }),
+    );
+    expect(mocks.createSyncEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "episode.mark_watched",
+        payload: expect.objectContaining({
+          episodeId: episodeTwoId,
+          showId,
+        }),
+      }),
+    );
+  });
+
   it("moves a movie to the media wishlist without writing watch activity", async () => {
     const wishlistUserMedia = {
       ...watchedUserMedia,
@@ -669,7 +758,7 @@ describe("media movie mutations", () => {
     );
   });
 
-  it("updates show ratings through user_media without queueing movie sync events", async () => {
+  it("updates show ratings through user_media and queues a show sync event", async () => {
     const ratingUpdate = createQuery({
       data: {
         ...watchedUserMedia,
@@ -688,7 +777,17 @@ describe("media movie mutations", () => {
 
     expect(ratingUpdate.update).toHaveBeenCalledWith({ personal_rating: 9 });
     expect(ratingUpdate.eq).toHaveBeenCalledWith("media_id", showId);
-    expect(mocks.createSyncEvent).not.toHaveBeenCalled();
+    expect(mocks.createSyncEvent).toHaveBeenCalledWith({
+      direction: "push",
+      eventType: "show.rating.set",
+      payload: {
+        personalRating: 9,
+        showId,
+        userMediaId,
+      },
+      provider: "trakt",
+      status: "pending",
+    });
   });
 
   it("creates, attaches, and detaches tags through user_media_tags", async () => {

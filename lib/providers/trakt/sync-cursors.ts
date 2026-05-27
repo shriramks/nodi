@@ -1,5 +1,17 @@
-export type PullCheckpointPhase = "history" | "lists" | "ratings" | "watchlist";
-export type SnapshotCursorScope = "ratings" | "watchlist" | `lists.${string}`;
+export type PullCheckpointPhase =
+  | "history"
+  | "lists"
+  | "ratings"
+  | "shows.history"
+  | "shows.ratings"
+  | "shows.watchlist"
+  | "watchlist";
+export type SnapshotCursorScope =
+  | "ratings"
+  | "shows.ratings"
+  | "shows.watchlist"
+  | "watchlist"
+  | `lists.${string}`;
 
 export type PullCheckpoint = {
   changed: boolean;
@@ -26,6 +38,7 @@ export type StringSnapshotDelta = {
 };
 
 export const historyLastWatchedCursorKey = "history.last_watched_at";
+export const showHistoryLastWatchedCursorKey = "shows.history.last_watched_at";
 export const lastPullCursorKey = "last_pull_at";
 export const pullCheckpointCursorKey = "pull.checkpoint";
 

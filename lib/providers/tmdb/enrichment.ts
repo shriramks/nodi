@@ -2,16 +2,20 @@ import "server-only";
 
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError } from "@/lib/db/errors";
+import { ingestPreparedTmdbShow } from "@/lib/db/mutations/media";
 import { ingestTmdbMovie } from "@/lib/db/mutations/movies";
-import type { Movie } from "@/lib/db/types";
+import type { MediaItem, Movie } from "@/lib/db/types";
 import { AppError, getErrorMessage, isAppError } from "@/lib/errors";
 import {
   getTmdbMovieCreditsWithAuth,
   getTmdbMovieDetailsWithAuth,
+  getTmdbTvDetailsWithAuth,
+  getTmdbTvSeasonDetailsWithAuth,
   loadTmdbAuthForCurrentUser,
   loadTmdbAuthForUser,
   type TmdbAuth,
 } from "@/lib/providers/tmdb/client";
+import { toTmdbShowIngestPayload } from "@/lib/providers/tmdb/adapters";
 import {
   needsTmdbMetadataEnrichment,
   normalizeTmdbBackfillLimit,
@@ -40,6 +44,11 @@ type TmdbEnrichmentCandidate = {
   movie: Movie;
   tmdbId: number;
 };
+type TmdbShowEnrichmentCandidate = {
+  seasonNumbers: number[];
+  show: MediaItem;
+  tmdbId: number;
+};
 
 const defaultBackfillLimit = 20;
 const defaultScanLimit = 500;
@@ -53,21 +62,51 @@ export async function backfillCurrentUserTmdbMetadata(
   const auth = await loadTmdbAuthForUser(user.id);
   const limit = normalizeTmdbBackfillLimit(options.limit, defaultBackfillLimit);
   const scanLimit = normalizeTmdbBackfillScanLimit(options.scanLimit);
-  const candidates = await listCurrentUserTmdbEnrichmentCandidates(user.id, {
-    limit: scanLimit,
-    scanLimit,
-  });
-  const selectedCandidates = candidates.slice(0, limit);
+  const [movieCandidates, showCandidates] = await Promise.all([
+    listCurrentUserTmdbEnrichmentCandidates(user.id, {
+      limit: scanLimit,
+      scanLimit,
+    }),
+    listCurrentUserTmdbShowEnrichmentCandidates(user.id, {
+      limit: scanLimit,
+      scanLimit,
+    }),
+  ]);
+  const selectedShowCandidates = showCandidates.slice(0, limit);
+  const selectedMovieCandidates = movieCandidates.slice(
+    0,
+    Math.max(limit - selectedShowCandidates.length, 0),
+  );
+  const selectedCount = selectedShowCandidates.length + selectedMovieCandidates.length;
+  const candidateCount = movieCandidates.length + showCandidates.length;
+  const candidates = selectedMovieCandidates;
+  const showCandidatesToEnrich = selectedShowCandidates;
   const result: TmdbMetadataBackfillResult = {
     enriched: 0,
     failed: 0,
     failureSamples: [],
     processed: 0,
-    remaining: Math.max(candidates.length - selectedCandidates.length, 0),
+    remaining: Math.max(candidateCount - selectedCount, 0),
     skipped: 0,
   };
 
-  for (const candidate of selectedCandidates) {
+  for (const candidate of showCandidatesToEnrich) {
+    result.processed += 1;
+
+    try {
+      const enriched = await enrichTmdbShowMetadataCandidate(candidate, auth);
+
+      if (enriched) {
+        result.enriched += 1;
+      } else {
+        result.skipped += 1;
+      }
+    } catch (error) {
+      recordBackfillFailure(result, candidate.tmdbId, error);
+    }
+  }
+
+  for (const candidate of candidates) {
     result.processed += 1;
 
     try {
@@ -136,6 +175,25 @@ async function enrichTmdbMetadataCandidate(
   return true;
 }
 
+async function enrichTmdbShowMetadataCandidate(
+  candidate: TmdbShowEnrichmentCandidate,
+  auth: TmdbAuth,
+) {
+  if (candidate.show.tmdb_enriched_at) {
+    return false;
+  }
+
+  const detail = await getTmdbTvDetailsWithAuth(auth, candidate.tmdbId);
+  const seasons = await Promise.all(
+    candidate.seasonNumbers.map((seasonNumber) =>
+      getTmdbTvSeasonDetailsWithAuth(auth, candidate.tmdbId, seasonNumber),
+    ),
+  );
+
+  await ingestPreparedTmdbShow(toTmdbShowIngestPayload(detail, seasons));
+  return true;
+}
+
 async function listCurrentUserTmdbEnrichmentCandidates(
   userId: string,
   options: {
@@ -166,6 +224,51 @@ async function listCurrentUserTmdbEnrichmentCandidates(
   return candidates;
 }
 
+async function listCurrentUserTmdbShowEnrichmentCandidates(
+  userId: string,
+  options: {
+    limit: number;
+    scanLimit: number;
+  },
+) {
+  const showIds = await loadCurrentUserShowIds(userId);
+
+  if (showIds.length === 0) {
+    return [];
+  }
+
+  const unenrichedShows = await loadUnenrichedShowsByIds(showIds, options.scanLimit);
+  const [mappingsByShowId, watchedSeasonsByShowId] = await Promise.all([
+    loadTmdbMappingsByMediaId(unenrichedShows.map((show) => show.id)),
+    loadWatchedSeasonNumbersByShowId(userId, unenrichedShows.map((show) => show.id)),
+  ]);
+  const candidates: TmdbShowEnrichmentCandidate[] = [];
+
+  for (const show of unenrichedShows) {
+    const tmdbId = mappingsByShowId.get(show.id);
+
+    if (!tmdbId || show.tmdb_enriched_at) {
+      continue;
+    }
+
+    candidates.push({
+      seasonNumbers: watchedSeasonsByShowId.get(show.id) ?? [],
+      show,
+      tmdbId,
+    });
+  }
+
+  return candidates.sort((a, b) => {
+    const watchedDelta = Number(b.seasonNumbers.length > 0) - Number(a.seasonNumbers.length > 0);
+
+    if (watchedDelta !== 0) {
+      return watchedDelta;
+    }
+
+    return a.show.title.localeCompare(b.show.title);
+  });
+}
+
 async function loadCurrentUserMovieIds(userId: string) {
   const supabase = createSupabaseAdminClient();
   const [libraryResult, tagResult] = await Promise.all([
@@ -184,6 +287,27 @@ async function loadCurrentUserMovieIds(userId: string) {
   return uniqueArray([
     ...(libraryResult.data ?? []).map((row) => row.movie_id),
     ...(tagResult.data ?? []).map((row) => row.movie_id),
+  ]);
+}
+
+async function loadCurrentUserShowIds(userId: string) {
+  const supabase = createSupabaseAdminClient();
+  const [libraryResult, tagResult] = await Promise.all([
+    supabase.from("user_media").select("media_id").eq("user_id", userId),
+    supabase.from("user_media_tags").select("media_id").eq("user_id", userId),
+  ]);
+
+  if (libraryResult.error) {
+    throwDatabaseError("Failed to load TMDB show backfill library candidates.", libraryResult.error);
+  }
+
+  if (tagResult.error) {
+    throwDatabaseError("Failed to load TMDB show backfill tag candidates.", tagResult.error);
+  }
+
+  return uniqueArray([
+    ...(libraryResult.data ?? []).map((row) => row.media_id),
+    ...(tagResult.data ?? []).map((row) => row.media_id),
   ]);
 }
 
@@ -211,6 +335,31 @@ async function loadUnenrichedMoviesByIds(movieIds: string[], limit: number) {
   return movies;
 }
 
+async function loadUnenrichedShowsByIds(showIds: string[], limit: number) {
+  const shows: MediaItem[] = [];
+  const supabase = createSupabaseAdminClient();
+
+  for (const chunk of chunkArray(uniqueArray(showIds), dbReadChunkSize)) {
+    if (shows.length >= limit) break;
+
+    const { data, error } = await supabase
+      .from("media_items")
+      .select("*")
+      .in("id", chunk)
+      .eq("type", "show")
+      .is("tmdb_enriched_at", null)
+      .limit(limit - shows.length);
+
+    if (error) {
+      throwDatabaseError("Failed to load unenriched TMDB show backfill items.", error);
+    }
+
+    shows.push(...((data ?? []) as MediaItem[]));
+  }
+
+  return shows;
+}
+
 async function loadTmdbMappingsByMovieId(movieIds: Iterable<string>) {
   const mappings = new Map<string, number>();
   const supabase = createSupabaseAdminClient();
@@ -236,6 +385,98 @@ async function loadTmdbMappingsByMovieId(movieIds: Iterable<string>) {
   }
 
   return mappings;
+}
+
+async function loadTmdbMappingsByMediaId(mediaIds: Iterable<string>) {
+  const mappings = new Map<string, number>();
+  const supabase = createSupabaseAdminClient();
+
+  for (const mediaIdChunk of chunkArray(uniqueArray(mediaIds), dbReadChunkSize)) {
+    const { data, error } = await supabase
+      .from("media_provider_mappings")
+      .select("media_id, provider_id")
+      .eq("provider", "tmdb")
+      .eq("provider_media_type", "show")
+      .in("media_id", mediaIdChunk);
+
+    if (error) {
+      throwDatabaseError("Failed to load TMDB show provider mappings for backfill.", error);
+    }
+
+    for (const mapping of data ?? []) {
+      const tmdbId = Number(mapping.provider_id);
+
+      if (mapping.media_id && Number.isInteger(tmdbId) && tmdbId > 0) {
+        mappings.set(mapping.media_id, tmdbId);
+      }
+    }
+  }
+
+  return mappings;
+}
+
+async function loadWatchedSeasonNumbersByShowId(userId: string, showIds: string[]) {
+  const seasonsByShowId = new Map<string, number[]>();
+  const episodeIdsByShowId = new Map<string, string[]>();
+  const supabase = createSupabaseAdminClient();
+
+  for (const showIdChunk of chunkArray(uniqueArray(showIds), dbReadChunkSize)) {
+    const { data, error } = await supabase
+      .from("media_watch_activity")
+      .select("media_id, episode_id")
+      .eq("user_id", userId)
+      .in("media_id", showIdChunk)
+      .not("episode_id", "is", null);
+
+    if (error) {
+      throwDatabaseError("Failed to load watched show episode candidates.", error);
+    }
+
+    for (const row of data ?? []) {
+      if (!row.episode_id) {
+        continue;
+      }
+
+      const episodeIds = episodeIdsByShowId.get(row.media_id) ?? [];
+
+      episodeIds.push(row.episode_id);
+      episodeIdsByShowId.set(row.media_id, episodeIds);
+    }
+  }
+
+  const episodeIds = uniqueArray(
+    Array.from(episodeIdsByShowId.values()).flat(),
+  );
+  const seasonByEpisodeId = new Map<string, number>();
+
+  for (const episodeIdChunk of chunkArray(episodeIds, dbReadChunkSize)) {
+    const { data, error } = await supabase
+      .from("episodes")
+      .select("id, season_number")
+      .in("id", episodeIdChunk);
+
+    if (error) {
+      throwDatabaseError("Failed to load watched show episode seasons.", error);
+    }
+
+    for (const row of data ?? []) {
+      seasonByEpisodeId.set(row.id, row.season_number);
+    }
+  }
+
+  for (const [showId, ids] of episodeIdsByShowId.entries()) {
+    const seasons = uniqueArray(
+      ids
+        .map((episodeId) => seasonByEpisodeId.get(episodeId))
+        .filter((seasonNumber): seasonNumber is number =>
+          typeof seasonNumber === "number" && Number.isInteger(seasonNumber) && seasonNumber >= 0,
+        ),
+    ).sort((a, b) => a - b);
+
+    seasonsByShowId.set(showId, seasons);
+  }
+
+  return seasonsByShowId;
 }
 
 

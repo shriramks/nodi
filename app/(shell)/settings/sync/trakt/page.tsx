@@ -48,7 +48,7 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
       <PageHeader
         leading={<BackButton />}
         title="Trakt Sync"
-        subtitle="Optional syncing for watched history, ratings, and watchlist."
+        subtitle="Optional syncing for movie and TV watched history, ratings, and watchlist."
       />
 
       {params.connected ? (

@@ -534,9 +534,11 @@ On schedule:
 4. store cursor
 
 #### TMDB metadata backfill
-Trakt-imported movies arrive as minimal rows without genre, language, poster, or runtime. The
-backfill button in settings enriches all pending movies in batches of 50, looping automatically
-until none remain. Genre and language stats are only meaningful after backfill completes.
+Trakt-imported movies and shows arrive as minimal rows without genre, language, poster, or runtime.
+The backfill button in settings enriches pending media in batches of 50, looping automatically until
+none remain. Show backfill prioritizes watched episode seasons first so TV runtime and airdate stats
+become useful before full episode-list metadata is hydrated. Genre and language stats are only fully
+meaningful after backfill completes.
 
 ### Conflict rule
 For v1, keep it simple:

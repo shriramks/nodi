@@ -2,12 +2,19 @@ import { describe, expect, it } from "vitest";
 
 import {
   getTraktMovieKey,
+  getTraktShowKey,
+  toRemoteTraktEpisodeHistoryState,
   toRemoteTraktRatingState,
+  toRemoteTraktShowRatingState,
+  toRemoteTraktShowWatchlistState,
   toRemoteTraktWatchlistState,
+  toTraktHistoryEpisode,
   toTraktMovieIds,
+  toTraktRatedShow,
+  toTraktSyncShow,
   toTraktSyncMovie,
 } from "@/lib/providers/trakt/adapters";
-import type { ProviderMapping } from "@/lib/db/types";
+import type { MediaProviderMapping, ProviderMapping } from "@/lib/db/types";
 
 const movie = {
   id: "movie-1",
@@ -21,14 +28,12 @@ describe("Trakt adapters", () => {
   it("builds sync ids from local movie metadata and provider mappings", () => {
     const mappings: ProviderMapping[] = [
       {
-        id: "mapping-1",
         created_at: "2026-01-01T00:00:00.000Z",
         movie_id: "movie-1",
         provider: "trakt",
         provider_movie_id: "123",
       },
       {
-        id: "mapping-2",
         created_at: "2026-01-01T00:00:00.000Z",
         movie_id: "movie-1",
         provider: "tmdb",
@@ -105,5 +110,140 @@ describe("Trakt adapters", () => {
         },
       }),
     ).toBeNull();
+  });
+
+  it("builds outbound show and episode payloads", () => {
+    const mappings: MediaProviderMapping[] = [
+      {
+        created_at: "2026-01-01T00:00:00.000Z",
+        episode_id: null,
+        media_id: "show-1",
+        provider: "trakt",
+        provider_id: "456",
+        provider_media_type: "show",
+      },
+      {
+        created_at: "2026-01-01T00:00:00.000Z",
+        episode_id: null,
+        media_id: "show-1",
+        provider: "tmdb",
+        provider_id: "1396",
+        provider_media_type: "show",
+      },
+    ];
+
+    expect(
+      toTraktSyncShow({
+        first_air_date: "2008-01-20",
+        id: "show-1",
+        release_year: 2008,
+        title: "Breaking Bad",
+      }, mappings),
+    ).toEqual({
+      ids: {
+        tmdb: 1396,
+        trakt: 456,
+      },
+      title: "Breaking Bad",
+      year: 2008,
+    });
+
+    expect(
+      toTraktRatedShow({
+        first_air_date: "2008-01-20",
+        id: "show-1",
+        release_year: 2008,
+        title: "Breaking Bad",
+      }, 9, "2026-05-01T00:00:00.000Z", mappings),
+    ).toMatchObject({
+      rated_at: "2026-05-01T00:00:00.000Z",
+      rating: 9,
+    });
+
+    expect(
+      toTraktHistoryEpisode(
+        {
+          episode_number: 1,
+          id: "episode-1",
+          season_number: 1,
+          title: "Pilot",
+        },
+        "2026-05-02T00:00:00.000Z",
+        [{
+          created_at: "2026-01-01T00:00:00.000Z",
+          episode_id: "episode-1",
+          media_id: null,
+          provider: "tmdb",
+          provider_id: "62085",
+          provider_media_type: "episode",
+        }],
+      ),
+    ).toEqual({
+      ids: { tmdb: 62085 },
+      number: 1,
+      season: 1,
+      title: "Pilot",
+      watched_at: "2026-05-02T00:00:00.000Z",
+    });
+  });
+
+  it("normalizes remote show and episode state", () => {
+    expect(
+      getTraktShowKey({
+        ids: { tmdb: 1396, trakt: 456 },
+      }),
+    ).toBe("trakt:456");
+    expect(
+      toRemoteTraktShowWatchlistState({
+        listed_at: "2026-05-01T00:00:00.000Z",
+        show: {
+          ids: { tmdb: 1396 },
+          title: "Breaking Bad",
+          year: 2008,
+        },
+      }),
+    ).toMatchObject({
+      key: "tmdb:1396",
+      listedAt: "2026-05-01T00:00:00.000Z",
+      title: "Breaking Bad",
+    });
+    expect(
+      toRemoteTraktShowRatingState({
+        rated_at: "2026-05-02T00:00:00.000Z",
+        rating: 8,
+        show: {
+          ids: { trakt: 456 },
+        },
+      }),
+    ).toMatchObject({
+      key: "trakt:456",
+      ratedAt: "2026-05-02T00:00:00.000Z",
+      rating: 8,
+    });
+    expect(
+      toRemoteTraktEpisodeHistoryState({
+        episode: {
+          ids: { tmdb: 62085 },
+          number: 1,
+          season: 1,
+          title: "Pilot",
+        },
+        id: 123,
+        show: {
+          ids: { tmdb: 1396 },
+          title: "Breaking Bad",
+        },
+        watched_at: "2026-05-03T00:00:00.000Z",
+      }),
+    ).toMatchObject({
+      episode: {
+        episodeNumber: 1,
+        key: "tmdb:62085",
+        seasonNumber: 1,
+      },
+      show: {
+        key: "tmdb:1396",
+      },
+    });
   });
 });
