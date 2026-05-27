@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Stats Hero — Layout Options</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #111;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+    padding: 40px 24px 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 48px;
+  }
+
+  h1 {
+    color: rgba(255,255,255,0.5);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+
+  .option-label {
+    color: rgba(255,255,255,0.35);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  .option-title {
+    color: rgba(255,255,255,0.7);
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+
+  .option-desc {
+    color: rgba(255,255,255,0.35);
+    font-size: 12px;
+    text-align: center;
+    margin-bottom: 12px;
+    line-height: 1.5;
+  }
+
+  /* iPhone 16 frame — 393×852 logical px, shown at 393px wide */
+  .phone {
+    width: 393px;
+    background: #000;
+    border-radius: 50px;
+    border: 10px solid #1a1a1a;
+    box-shadow: 0 0 0 1px #333, 0 32px 80px rgba(0,0,0,0.7);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Dynamic Island */
+  .phone::before {
+    content: "";
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 34px;
+    background: #000;
+    border-radius: 20px;
+    z-index: 10;
+  }
+
+  .screen {
+    background: #000;
+    min-height: 340px;
+    padding: 60px 0 0;
+  }
+
+  /* ─── Shared design tokens ─── */
+  .accent   { color: #ff9f0a; }
+  .fg       { color: #fff; }
+  .text2    { color: rgba(255,255,255,0.6); }
+  .muted    { color: rgba(255,255,255,0.4); }
+  .faint    { color: rgba(255,255,255,0.25); }
+  .watched  { color: #34c759; }
+  .blue     { color: #0a84ff; }
+
+  .tabnum { font-variant-numeric: tabular-nums; }
+
+  .page-header {
+    padding: 8px 16px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .page-header-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.5px;
+  }
+  .settings-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .settings-btn svg { opacity: 0.5; }
+
+  /* Filter pills */
+  .filter-row {
+    display: flex;
+    gap: 6px;
+    padding: 0 16px 14px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .pill {
+    padding: 5px 12px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .pill-active {
+    background: rgba(255,159,10,0.2);
+    color: #ff9f0a;
+  }
+  .pill-inactive {
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.5);
+  }
+
+  .divider { height: 1px; background: rgba(255,255,255,0.08); margin: 0; }
+
+  /* ═══════════════════════════════════
+     OPTION A — Total hero, 2-col times, 3-col counts
+  ═══════════════════════════════════ */
+
+  .a-hero {
+    padding: 18px 16px 6px;
+  }
+  .a-total-value {
+    font-size: 38px;
+    font-weight: 700;
+    color: #ff9f0a;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+  .a-total-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .a-split-row {
+    display: flex;
+    gap: 0;
+    padding: 14px 16px 16px;
+  }
+  .a-split-item {
+    flex: 1;
+  }
+  .a-split-item + .a-split-item {
+    border-left: 1px solid rgba(255,255,255,0.08);
+    padding-left: 14px;
+    margin-left: 0;
+  }
+  .a-split-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+  .a-split-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    margin-top: 3px;
+  }
+  .a-counts {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    padding: 14px 16px 18px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+  }
+  .a-count-item + .a-count-item {
+    border-left: 1px solid rgba(255,255,255,0.08);
+    padding-left: 12px;
+  }
+  .a-count-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+  .a-count-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    margin-top: 3px;
+  }
+
+  /* ═══════════════════════════════════
+     OPTION B — Time bar split
+  ═══════════════════════════════════ */
+
+  .b-wrap {
+    padding: 16px 16px 20px;
+  }
+  .b-total {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .b-total-value {
+    font-size: 34px;
+    font-weight: 700;
+    color: #ff9f0a;
+    letter-spacing: -1px;
+    line-height: 1;
+  }
+  .b-total-label {
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+  }
+  .b-bar-wrap {
+    height: 28px;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    gap: 2px;
+    margin-bottom: 8px;
+  }
+  .b-bar-movie {
+    background: rgba(210, 140, 60, 0.28);
+    border-radius: 8px 0 0 8px;
+    flex: 70;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding-left: 10px;
+  }
+  .b-bar-tv {
+    background: rgba(60, 130, 200, 0.28);
+    border-radius: 0 8px 8px 0;
+    flex: 30;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 8px;
+  }
+  .b-bar-icon {
+    opacity: 0.45;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  .b-bar-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.55);
+    white-space: nowrap;
+  }
+  .b-bar-sublabels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .b-bar-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+  }
+  .b-counts {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 14px;
+  }
+  .b-count-item + .b-count-item {
+    border-left: 1px solid rgba(255,255,255,0.08);
+    padding-left: 12px;
+  }
+  .b-count-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+  .b-count-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    margin-top: 3px;
+  }
+
+  /* ═══════════════════════════════════
+     OPTION C — Compact 2-row, smaller font
+  ═══════════════════════════════════ */
+
+  .c-row1 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    padding: 16px 16px 12px;
+    gap: 0;
+  }
+  .c-item + .c-item {
+    border-left: 1px solid rgba(255,255,255,0.08);
+    padding-left: 10px;
+  }
+  .c-val-lg {
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .c-val-sm {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .c-lbl {
+    font-size: 10px;
+    color: rgba(255,255,255,0.35);
+    margin-top: 3px;
+    white-space: nowrap;
+  }
+  .c-row2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    padding: 10px 16px 16px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    gap: 0;
+  }
+
+  /* ═══════════════════════════════════
+     OPTION D — Two cards stacked
+  ═══════════════════════════════════ */
+
+  .d-wrap {
+    padding: 14px 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .d-card {
+    background: rgba(255,255,255,0.05);
+    border-radius: 14px;
+    padding: 14px 16px;
+  }
+  .d-card-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 10px;
+  }
+  .d-card-row {
+    display: flex;
+    gap: 0;
+  }
+  .d-card-item {
+    flex: 1;
+  }
+  .d-card-item + .d-card-item {
+    border-left: 1px solid rgba(255,255,255,0.08);
+    padding-left: 14px;
+  }
+  .d-card-val {
+    font-size: 22px;
+    font-weight: 700;
+    color: #ff9f0a;
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+  .d-card-val-sm {
+    font-size: 18px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: -0.3px;
+    line-height: 1;
+  }
+  .d-card-val-count {
+    font-size: 26px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.5px;
+    line-height: 1;
+  }
+  .d-card-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    margin-top: 3px;
+  }
+
+  /* ═══════════════════════════════════
+     OPTION E — Left/right split columns
+  ═══════════════════════════════════ */
+
+  .e-wrap {
+    padding: 16px 16px 20px;
+    display: flex;
+    gap: 0;
+  }
+  .e-left {
+    flex: 1.1;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-right: 16px;
+    border-right: 1px solid rgba(255,255,255,0.08);
+  }
+  .e-right {
+    flex: 0.9;
+    padding-left: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .e-item {}
+  .e-val {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    line-height: 1;
+  }
+  .e-val-sm {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    line-height: 1;
+  }
+  .e-lbl {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    margin-top: 3px;
+  }
+
+  /* ═══════════════════════════════════
+     OPTION F — Inline key=value list style
+  ═══════════════════════════════════ */
+
+  .f-wrap {
+    padding: 14px 16px 20px;
+  }
+  .f-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 9px 0;
+  }
+  .f-row + .f-row {
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .f-key {
+    font-size: 15px;
+    color: rgba(255,255,255,0.55);
+  }
+  .f-val {
+    font-size: 17px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.3px;
+  }
+  .f-val-accent {
+    font-size: 17px;
+    font-weight: 700;
+    color: #ff9f0a;
+    letter-spacing: -0.3px;
+  }
+
+</style>
+</head>
+<body>
+
+<h1>Stats Hero — Layout Options</h1>
+
+<!-- ═══════════════════════════════════════════════
+     OPTION A
+════════════════════════════════════════════════ -->
+<div>
+  <div class="option-title">Option A — Total time hero, split times, count row</div>
+  <div class="option-desc">Total time gets display-size prominence.<br>Movie/TV time secondary. Counts anchored at bottom.</div>
+  <div class="phone">
+    <div class="screen">
+      <div class="page-header">
+        <div class="page-header-title">Stats</div>
+        <div class="settings-btn">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="6" stroke="white" stroke-width="1.5"/>
+            <circle cx="8" cy="8" r="2" fill="white"/>
+          </svg>
+        </div>
+      </div>
+      <div class="filter-row">
+        <div class="pill pill-active">All</div>
+        <div class="pill pill-inactive">Movies</div>
+        <div class="pill pill-inactive">TV Shows</div>
+      </div>
+
+      <!-- Total time hero -->
+      <div class="a-hero">
+        <div class="a-total-value tabnum">14d 3h</div>
+        <div class="a-total-label">Total time</div>
+      </div>
+
+      <!-- Movie / TV time split -->
+      <div class="a-split-row">
+        <div class="a-split-item">
+          <div class="a-split-value tabnum" style="color: rgba(255,255,255,0.6)">10d 2h</div>
+          <div class="a-split-label">Movie time</div>
+        </div>
+        <div class="a-split-item" style="padding-left:14px; margin-left:14px; border-left:1px solid rgba(255,255,255,0.08)">
+          <div class="a-split-value tabnum" style="color: rgba(255,255,255,0.6)">4d 1h</div>
+          <div class="a-split-label">TV time</div>
+        </div>
+      </div>
+
+      <!-- Counts -->
+      <div class="a-counts">
+        <div class="a-count-item">
+          <div class="a-count-value tabnum">142</div>
+          <div class="a-count-label">Movies</div>
+        </div>
+        <div class="a-count-item">
+          <div class="a-count-value tabnum">38</div>
+          <div class="a-count-label">Shows</div>
+        </div>
+        <div class="a-count-item">
+          <div class="a-count-value tabnum">1,204</div>
+          <div class="a-count-label">Episodes</div>
+        </div>
+      </div>
+      <div class="divider"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     OPTION B
+════════════════════════════════════════════════ -->
+<div>
+  <div class="option-title">Option B — Time bar showing movie vs TV split</div>
+  <div class="option-desc">Proportional bar makes the split visual.<br>No text truncation — times in bar labels.</div>
+  <div class="phone">
+    <div class="screen">
+      <div class="page-header">
+        <div class="page-header-title">Stats</div>
+        <div class="settings-btn"></div>
+      </div>
+      <div class="filter-row">
+        <div class="pill pill-active">All</div>
+        <div class="pill pill-inactive">Movies</div>
+        <div class="pill pill-inactive">TV Shows</div>
+      </div>
+      <div class="b-wrap">
+        <!-- Total -->
+        <div class="b-total">
+          <div class="b-total-value tabnum">14d 3h 20m</div>
+          <div class="b-total-label">total time watched</div>
+        </div>
+
+        <!-- Bar -->
+        <div class="b-bar-wrap">
+          <div class="b-bar-movie">
+            <span class="b-bar-icon">
+              <!-- clapperboard icon -->
+              <svg width="14" height="13" viewBox="0 0 18 16" fill="none">
+                <!-- board body -->
+                <rect x="1" y="5" width="16" height="10" rx="1.5" fill="white" opacity="0.9"/>
+                <!-- clapper top bar -->
+                <rect x="1" y="1.5" width="16" height="4" rx="1" fill="white"/>
+                <!-- clapper stripe lines (diagonal) -->
+                <line x1="4.5" y1="1.5" x2="3" y2="5.5" stroke="black" stroke-width="1.2" opacity="0.45"/>
+                <line x1="8" y1="1.5" x2="6.5" y2="5.5" stroke="black" stroke-width="1.2" opacity="0.45"/>
+                <line x1="11.5" y1="1.5" x2="10" y2="5.5" stroke="black" stroke-width="1.2" opacity="0.45"/>
+                <line x1="15" y1="1.5" x2="13.5" y2="5.5" stroke="black" stroke-width="1.2" opacity="0.45"/>
+              </svg>
+            </span>
+            <span class="b-bar-label">10d 2h</span>
+          </div>
+          <div class="b-bar-tv">
+            <span class="b-bar-icon">
+              <!-- TV icon with antennae -->
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none">
+                <!-- left antenna -->
+                <line x1="6" y1="5.5" x2="3.5" y2="1" stroke="white" stroke-width="1.4" stroke-linecap="round" opacity="0.9"/>
+                <!-- right antenna -->
+                <line x1="12" y1="5.5" x2="14.5" y2="1" stroke="white" stroke-width="1.4" stroke-linecap="round" opacity="0.9"/>
+                <!-- TV body -->
+                <rect x="1" y="5.5" width="16" height="10" rx="2" fill="white" opacity="0.9"/>
+                <!-- screen -->
+                <rect x="2.5" y="7" width="13" height="7" rx="1" fill="black" opacity="0.25"/>
+                <!-- feet -->
+                <rect x="4" y="15.5" width="3" height="1.5" rx="0.75" fill="white" opacity="0.75"/>
+                <rect x="11" y="15.5" width="3" height="1.5" rx="0.75" fill="white" opacity="0.75"/>
+              </svg>
+            </span>
+            <span class="b-bar-label">4d 1h</span>
+          </div>
+        </div>
+        <div class="b-bar-sublabels">
+          <span class="b-bar-sub">Movie time</span>
+          <span class="b-bar-sub">TV time</span>
+        </div>
+
+        <!-- Counts -->
+        <div class="b-counts">
+          <div class="b-count-item">
+            <div class="b-count-value tabnum">142</div>
+            <div class="b-count-label">Movies</div>
+          </div>
+          <div class="b-count-item">
+            <div class="b-count-value tabnum">38</div>
+            <div class="b-count-label">Shows</div>
+          </div>
+          <div class="b-count-item">
+            <div class="b-count-value tabnum">1,204</div>
+            <div class="b-count-label">Episodes</div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     OPTION C — Compact 2-row with smaller font
+════════════════════════════════════════════════ -->
+<div>
+  <div class="option-title">Option C — Compact 2×3 grid, smaller font</div>
+  <div class="option-desc">Keeps the current 2-row structure.<br>Shorter format (days+hours only) + 19px font solves truncation.</div>
+  <div class="phone">
+    <div class="screen">
+      <div class="page-header">
+        <div class="page-header-title">Stats</div>
+        <div class="settings-btn"></div>
+      </div>
+      <div class="filter-row">
+        <div class="pill pill-active">All</div>
+        <div class="pill pill-inactive">Movies</div>
+        <div class="pill pill-inactive">TV Shows</div>
+      </div>
+
+      <div class="c-row1">
+        <div class="c-item">
+          <div class="c-val-lg tabnum accent">14d 3h</div>
+          <div class="c-lbl">Total time</div>
+        </div>
+        <div class="c-item" style="padding-left:10px">
+          <div class="c-val-lg tabnum text2">10d 2h</div>
+          <div class="c-lbl">Movie time</div>
+        </div>
+        <div class="c-item" style="padding-left:10px">
+          <div class="c-val-lg tabnum text2">4d 1h</div>
+          <div class="c-lbl">TV time</div>
+        </div>
+      </div>
+
+      <div class="c-row2">
+        <div class="c-item">
+          <div class="c-val-sm tabnum fg">142</div>
+          <div class="c-lbl">Movies</div>
+        </div>
+        <div class="c-item" style="padding-left:10px">
+          <div class="c-val-sm tabnum fg">38</div>
+          <div class="c-lbl">Shows</div>
+        </div>
+        <div class="c-item" style="padding-left:10px">
+          <div class="c-val-sm tabnum fg">1,204</div>
+          <div class="c-lbl">Episodes</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     OPTION D — Two grouped cards
+════════════════════════════════════════════════ -->
+<div>
+  <div class="option-title">Option D — Two cards: Time card + Count card</div>
+  <div class="option-desc">Grouped by theme. Card surface adds visual separation.<br>Each card has room for its own label.</div>
+  <div class="phone">
+    <div class="screen">
+      <div class="page-header">
+        <div class="page-header-title">Stats</div>
+        <div class="settings-btn"></div>
+      </div>
+      <div class="filter-row">
+        <div class="pill pill-active">All</div>
+        <div class="pill pill-inactive">Movies</div>
+        <div class="pill pill-inactive">TV Shows</div>
+      </div>
+
+      <div class="d-wrap">
+        <!-- Time card -->
+        <div class="d-card">
+          <div class="d-card-label">Time watched</div>
+          <div class="d-card-row">
+            <div class="d-card-item">
+              <div class="d-card-val tabnum">14d 3h</div>
+              <div class="d-card-sub">Total</div>
+            </div>
+            <div class="d-card-item">
+              <div class="d-card-val-sm tabnum">10d 2h</div>
+              <div class="d-card-sub">Movies</div>
+            </div>
+            <div class="d-card-item">
+              <div class="d-card-val-sm tabnum">4d 1h</div>
+              <div class="d-card-sub">TV</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Count card -->
+        <div class="d-card">
+          <div class="d-card-label">Library</div>
+          <div class="d-card-row">
+            <div class="d-card-item">
+              <div class="d-card-val-count tabnum fg">142</div>
+              <div class="d-card-sub">Movies</div>
+            </div>
+            <div class="d-card-item">
+              <div class="d-card-val-count tabnum fg">38</div>
+              <div class="d-card-sub">Shows</div>
+            </div>
+            <div class="d-card-item">
+              <div class="d-card-val-count tabnum fg">1,204</div>
+              <div class="d-card-sub">Episodes</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     OPTION E — Left/right column split
+════════════════════════════════════════════════ -->
+<div>
+  <div class="option-title">Option E — Left column times, right column counts</div>
+  <div class="option-desc">Vertical divider separates concepts.<br>Each column has full half-width — zero truncation risk.</div>
+  <div class="phone">
+    <div class="screen">
+      <div class="page-header">
+        <div class="page-header-title">Stats</div>
+        <div class="settings-btn"></div>
+      </div>
+      <div class="filter-row">
+        <div class="pill pill-active">All</div>
+        <div class="pill pill-inactive">Movies</div>
+        <div class="pill pill-inactive">TV Shows</div>
+      </div>
+
+      <div class="e-wrap">
+        <!-- Left: times -->
+        <div class="e-left">
+          <div class="e-item">
+            <div class="e-val tabnum accent">14d 3h 20m</div>
+            <div class="e-lbl">Total time</div>
+          </div>
+          <div class="e-item">
+            <div class="e-val-sm tabnum text2">10d 2h 10m</div>
+            <div class="e-lbl">Movie time</div>
+          </div>
+          <div class="e-item">
+            <div class="e-val-sm tabnum text2">4d 1h 10m</div>
+            <div class="e-lbl">TV time</div>
+          </div>
+        </div>
+
+        <!-- Right: counts -->
+        <div class="e-right">
+          <div class="e-item">
+            <div class="e-val tabnum fg">142</div>
+            <div class="e-lbl">Movies</div>
+          </div>
+          <div class="e-item">
+            <div class="e-val tabnum fg">38</div>
+            <div class="e-lbl">Shows</div>
+          </div>
+          <div class="e-item">
+            <div class="e-val tabnum fg">1,204</div>
+            <div class="e-lbl">Episodes</div>
+          </div>
+        </div>
+      </div>
+      <div class="divider"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     OPTION F — Inline list (key → value)
+════════════════════════════════════════════════ -->
+<div>
+  <div class="option-title">Option F — Inline list rows</div>
+  <div class="option-desc">Label on the left, value right-aligned.<br>Plenty of room for long durations. Dense but very legible.</div>
+  <div class="phone">
+    <div class="screen">
+      <div class="page-header">
+        <div class="page-header-title">Stats</div>
+        <div class="settings-btn"></div>
+      </div>
+      <div class="filter-row">
+        <div class="pill pill-active">All</div>
+        <div class="pill pill-inactive">Movies</div>
+        <div class="pill pill-inactive">TV Shows</div>
+      </div>
+
+      <div class="f-wrap">
+        <div class="f-row">
+          <span class="f-key">Total time</span>
+          <span class="f-val-accent tabnum">14d 3h 20m</span>
+        </div>
+        <div class="f-row">
+          <span class="f-key">Movie time</span>
+          <span class="f-val tabnum" style="color:rgba(255,255,255,0.6)">10d 2h 10m</span>
+        </div>
+        <div class="f-row">
+          <span class="f-key">TV time</span>
+          <span class="f-val tabnum" style="color:rgba(255,255,255,0.6)">4d 1h 10m</span>
+        </div>
+        <div class="f-row" style="border-top: 1px solid rgba(255,255,255,0.12); margin-top:2px">
+          <span class="f-key">Movies</span>
+          <span class="f-val tabnum">142</span>
+        </div>
+        <div class="f-row">
+          <span class="f-key">Shows</span>
+          <span class="f-val tabnum">38</span>
+        </div>
+        <div class="f-row">
+          <span class="f-key">Episodes</span>
+          <span class="f-val tabnum">1,204</span>
+        </div>
+      </div>
+      <div class="divider"></div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

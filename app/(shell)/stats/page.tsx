@@ -277,7 +277,6 @@ function AllStatsHero({ stats, hasData }: { stats: LibraryStats; hasData: boolea
         <p className="tabnum text-accent leading-[1.1]" style={{ fontSize: 34, fontWeight: 700, letterSpacing: "-0.5px" }}>
           {formatRuntime(stats.runtimeMinutes)}
         </p>
-        <p className="text-[11px] text-text-muted mt-0.5">Total time watched</p>
       </div>
 
       {/* Split bar */}
@@ -320,30 +319,38 @@ function AllStatsHero({ stats, hasData }: { stats: LibraryStats; hasData: boolea
             </div>
           </div>
 
-          <div className="flex justify-between mb-4">
-            <p className="text-[11px] text-text-faint">Movie time</p>
-            <p className="text-[11px] text-text-faint">TV time</p>
-          </div>
+          <div className="mb-4" />
         </>
       )}
 
-      {/* Counts */}
-      <div className="grid border-t border-divider pt-3.5" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
+      {/* Counts + avg rating */}
+      <div className="grid border-t border-divider pt-3.5" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
         {[
-          { value: stats.movieCount.toString(), label: "Movies" },
-          { value: stats.showCount.toString(), label: "Shows" },
-          { value: stats.episodeWatchCount.toString(), label: "Episodes" },
-        ].map(({ value, label }, index) => (
+          { value: stats.movieCount.toString(), label: "Movies", valueClass: "text-foreground" },
+          { value: stats.showCount.toString(), label: "Shows", valueClass: "text-foreground" },
+          { value: stats.episodeWatchCount.toString(), label: "Episodes", valueClass: "text-foreground" },
+        ].map(({ value, label, valueClass }, index) => (
           <div
             key={label}
             className={index > 0 ? "border-l border-divider pl-3" : ""}
           >
-            <p className="tabnum text-foreground leading-[1.1]" style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.5px" }}>
+            <p className={`tabnum leading-[1.1] ${valueClass}`} style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.5px" }}>
               {value}
             </p>
             <p className="text-[11px] text-text-muted mt-0.5">{label}</p>
           </div>
         ))}
+        <div className="border-l border-divider pl-3">
+          <p
+            className={`tabnum leading-[1.1] ${stats.avgRating !== null ? "text-watched" : "text-text-faint"}`}
+            style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.5px" }}
+          >
+            {stats.avgRating !== null ? (
+              <><span style={{ fontSize: 14, lineHeight: 1 }}>♥</span>{` ${stats.avgRating}`}</>
+            ) : "—"}
+          </p>
+          <p className="text-[11px] text-text-muted mt-0.5">Avg rating</p>
+        </div>
       </div>
     </div>
   );

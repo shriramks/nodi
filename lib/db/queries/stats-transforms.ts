@@ -249,6 +249,26 @@ export function buildMediaLibraryStats(
   });
   const favGenreItem = genreBreakdown.find((g) => g.key !== unknownKey);
 
+  // For the "over time" chart, count movies (each watch event) + shows (one entry
+  // per unique watched show, timestamped by completed_at / last_watched_at).
+  const showStateRows = filteredStateRows.filter((row) => row.media_items?.type === "show");
+  const showChartRows: TimeBucketSourceRow[] = [];
+  const seenShowIds = new Set<string>();
+  for (const row of showStateRows) {
+    if (seenShowIds.has(row.media_id)) continue;
+    const watchedAt = stateWatchedAt(row);
+    if (watchedAt) {
+      showChartRows.push({ watched_at: watchedAt, media_items: row.media_items });
+      seenShowIds.add(row.media_id);
+    }
+  }
+  const chartRows: TimeBucketSourceRow[] =
+    typeFilter === "movie"
+      ? movieWatchRows
+      : typeFilter === "show"
+        ? showChartRows
+        : [...movieWatchRows, ...showChartRows];
+
   return {
     watchedCount: watchedMedia.length,
     watchEventCount: filteredWatchRows.length,
@@ -269,8 +289,8 @@ export function buildMediaLibraryStats(
     favGenreCount: favGenreItem?.count ?? null,
     favDecade: buildFavMediaDecade(typeFilter === "show" ? showSummaries : movieSummaries),
     availableYearBuckets,
-    monthBuckets: yearFilter ? buildMonthBucketsForYear(filteredWatchRows, yearFilter) : buildMonthBuckets(filteredWatchRows),
-    yearBuckets: buildYearBuckets(filteredWatchRows),
+    monthBuckets: yearFilter ? buildMonthBucketsForYear(chartRows, yearFilter) : buildMonthBuckets(chartRows),
+    yearBuckets: buildYearBuckets(chartRows),
     genreBreakdown,
     languageBreakdown: buildMediaBreakdown(watchedMedia, (media) => {
       const language = media.originalLanguage?.trim();
