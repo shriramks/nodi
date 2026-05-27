@@ -135,6 +135,11 @@ type PullResult = {
   watchlistRemoved: number;
 };
 
+type PullMode = "full" | "shows";
+type PullTraktSyncOptions = {
+  mode?: PullMode;
+};
+
 type SyncProgressPayload = {
   current: number;
   itemCurrent?: number | null;
@@ -149,11 +154,13 @@ type CursorMap = Map<string, string>;
 type SyncRunTerminalStatus = Exclude<SyncRunStatus, "running">;
 type SyncRunContext = { runId: string; userId: string };
 type ProviderCandidate = { id: string; provider: ProviderMappingProvider };
+type TraktListItemKind = "movie" | "show";
 type RemoteHistoryState = {
   item: TraktHistoryMovie;
   movie: RemoteTraktMovieState;
 };
 type TraktListImport = {
+  cursorKey: string;
   itemFetchSkipped: boolean;
   itemFetchComplete: boolean;
   listKey: string;
@@ -178,6 +185,7 @@ type TraktListFetchResult = {
 };
 type RemoteTraktListState = {
   changed: boolean;
+  cursorKey: string;
   itemFetchSkipped: boolean;
   itemFetchComplete: boolean;
   listKey: string;
@@ -472,15 +480,25 @@ export async function pushTraktSync(origin: string, limit = 50): Promise<PushRes
 }
 
 export async function pullTraktSync(origin: string): Promise<PullResult> {
+  return pullTraktSyncWithOptions(origin);
+}
+
+export async function pullTraktSyncWithOptions(
+  origin: string,
+  options: PullTraktSyncOptions = {},
+): Promise<PullResult> {
   const user = await requireUser();
+  const mode = options.mode ?? "full";
+  const includeMovies = mode === "full";
+  const fetchTotal = includeMovies ? 8 : 5;
   const run = await createTraktSyncRun(user.id, "pull", {
     current: 0,
     label: "Connecting to Trakt",
     phase: "connect",
-    total: 8,
+    total: fetchTotal,
   });
   let progressCurrent = 0;
-  let progressTotal = 8;
+  let progressTotal = fetchTotal;
 
   try {
     await assertTraktSyncRunActive(user.id, run.id);
@@ -489,82 +507,91 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
 
     const cursors = await loadCursorMap(user.id);
     const result = createPullResult();
+    const runContext = { runId: run.id, userId: user.id };
+    let fetchCurrent = 0;
+    let historyItems: TraktHistoryMovie[] = [];
+    let watchlistItems: TraktWatchlistMovie[] = [];
+    let ratingItems: TraktRatedMovie[] = [];
 
     const historyCursor = cursors.get(historyLastWatchedCursorKey) ?? null;
-    await updateTraktSyncRunProgress(user.id, run.id, {
-      current: 0,
-      label: "Loading history",
-      phase: "fetch",
-      total: 8,
-    });
-    const runContext = { runId: run.id, userId: user.id };
-    const historyItems = await listAllHistory(
-      connection,
-      historyCursor,
-      runContext,
-      async (count, total) => {
+    if (includeMovies) {
+      await updateTraktSyncRunProgress(user.id, run.id, {
+        current: fetchCurrent,
+        label: "Loading history",
+        phase: "fetch",
+        total: fetchTotal,
+      });
+      historyItems = await listAllHistory(
+        connection,
+        historyCursor,
+        runContext,
+        async (count, total) => {
+          await updateTraktSyncRunProgress(user.id, run.id, {
+            current: fetchCurrent,
+            itemCurrent: count,
+            itemLabel: "history items",
+            itemTotal: total,
+            label: `Loaded ${count} history item(s)`,
+            phase: "fetch",
+            total: fetchTotal,
+          });
+        },
+      );
+      fetchCurrent += 1;
+      await updateTraktSyncRunProgress(user.id, run.id, {
+        current: fetchCurrent,
+        itemCurrent: historyItems.length,
+        itemLabel: "history items",
+        itemTotal: historyItems.length,
+        label: `Loaded ${historyItems.length} history item(s)`,
+        phase: "fetch",
+        total: fetchTotal,
+      });
+
+      watchlistItems = await listAllWatchlist(connection, runContext, async (count, total) => {
         await updateTraktSyncRunProgress(user.id, run.id, {
-          current: 0,
+          current: fetchCurrent,
           itemCurrent: count,
-          itemLabel: "history items",
+          itemLabel: "watchlist items",
           itemTotal: total,
-          label: `Loaded ${count} history item(s)`,
+          label: `Loaded ${count} watchlist item(s)`,
           phase: "fetch",
-          total: 8,
+          total: fetchTotal,
         });
-      },
-    );
-    await updateTraktSyncRunProgress(user.id, run.id, {
-      current: 1,
-      itemCurrent: historyItems.length,
-      itemLabel: "history items",
-      itemTotal: historyItems.length,
-      label: `Loaded ${historyItems.length} history item(s)`,
-      phase: "fetch",
-      total: 8,
-    });
-
-    const watchlistItems = await listAllWatchlist(connection, runContext, async (count, total) => {
+      });
+      fetchCurrent += 1;
       await updateTraktSyncRunProgress(user.id, run.id, {
-        current: 1,
-        itemCurrent: count,
+        current: fetchCurrent,
+        itemCurrent: watchlistItems.length,
         itemLabel: "watchlist items",
-        itemTotal: total,
-        label: `Loaded ${count} watchlist item(s)`,
+        itemTotal: watchlistItems.length,
+        label: `Loaded ${watchlistItems.length} watchlist item(s)`,
         phase: "fetch",
-        total: 8,
+        total: fetchTotal,
       });
-    });
-    await updateTraktSyncRunProgress(user.id, run.id, {
-      current: 2,
-      itemCurrent: watchlistItems.length,
-      itemLabel: "watchlist items",
-      itemTotal: watchlistItems.length,
-      label: `Loaded ${watchlistItems.length} watchlist item(s)`,
-      phase: "fetch",
-      total: 8,
-    });
 
-    const ratingItems = await listAllRatings(connection, runContext, async (count, total) => {
-      await updateTraktSyncRunProgress(user.id, run.id, {
-        current: 2,
-        itemCurrent: count,
-        itemLabel: "ratings",
-        itemTotal: total,
-        label: `Loaded ${count} rating(s)`,
-        phase: "fetch",
-        total: 8,
+      ratingItems = await listAllRatings(connection, runContext, async (count, total) => {
+        await updateTraktSyncRunProgress(user.id, run.id, {
+          current: fetchCurrent,
+          itemCurrent: count,
+          itemLabel: "ratings",
+          itemTotal: total,
+          label: `Loaded ${count} rating(s)`,
+          phase: "fetch",
+          total: fetchTotal,
+        });
       });
-    });
-    await updateTraktSyncRunProgress(user.id, run.id, {
-      current: 3,
-      itemCurrent: ratingItems.length,
-      itemLabel: "ratings",
-      itemTotal: ratingItems.length,
-      label: `Loaded ${ratingItems.length} rating(s)`,
-      phase: "fetch",
-      total: 8,
-    });
+      fetchCurrent += 1;
+      await updateTraktSyncRunProgress(user.id, run.id, {
+        current: fetchCurrent,
+        itemCurrent: ratingItems.length,
+        itemLabel: "ratings",
+        itemTotal: ratingItems.length,
+        label: `Loaded ${ratingItems.length} rating(s)`,
+        phase: "fetch",
+        total: fetchTotal,
+      });
+    }
 
     const showHistoryCursor = cursors.get(showHistoryLastWatchedCursorKey) ?? null;
     const showHistoryItems = await listAllShowHistory(
@@ -573,66 +600,69 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       runContext,
       async (count, total) => {
         await updateTraktSyncRunProgress(user.id, run.id, {
-          current: 3,
+          current: fetchCurrent,
           itemCurrent: count,
           itemLabel: "episode history items",
           itemTotal: total,
           label: `Loaded ${count} episode history item(s)`,
           phase: "fetch",
-          total: 8,
+          total: fetchTotal,
         });
       },
     );
+    fetchCurrent += 1;
     await updateTraktSyncRunProgress(user.id, run.id, {
-      current: 4,
+      current: fetchCurrent,
       itemCurrent: showHistoryItems.length,
       itemLabel: "episode history items",
       itemTotal: showHistoryItems.length,
       label: `Loaded ${showHistoryItems.length} episode history item(s)`,
       phase: "fetch",
-      total: 8,
+      total: fetchTotal,
     });
 
     const showWatchlistItems = await listAllShowWatchlist(connection, runContext, async (count, total) => {
       await updateTraktSyncRunProgress(user.id, run.id, {
-        current: 4,
+        current: fetchCurrent,
         itemCurrent: count,
         itemLabel: "show watchlist items",
         itemTotal: total,
         label: `Loaded ${count} show watchlist item(s)`,
         phase: "fetch",
-        total: 8,
+        total: fetchTotal,
       });
     });
+    fetchCurrent += 1;
     await updateTraktSyncRunProgress(user.id, run.id, {
-      current: 5,
+      current: fetchCurrent,
       itemCurrent: showWatchlistItems.length,
       itemLabel: "show watchlist items",
       itemTotal: showWatchlistItems.length,
       label: `Loaded ${showWatchlistItems.length} show watchlist item(s)`,
       phase: "fetch",
-      total: 8,
+      total: fetchTotal,
     });
 
     const showRatingItems = await listAllShowRatings(connection, runContext, async (count, total) => {
       await updateTraktSyncRunProgress(user.id, run.id, {
-        current: 5,
+        current: fetchCurrent,
         itemCurrent: count,
         itemLabel: "show ratings",
         itemTotal: total,
         label: `Loaded ${count} show rating(s)`,
         phase: "fetch",
-        total: 8,
+        total: fetchTotal,
       });
     });
+    fetchCurrent += 1;
     await updateTraktSyncRunProgress(user.id, run.id, {
-      current: 6,
+      current: fetchCurrent,
       itemCurrent: showRatingItems.length,
       itemLabel: "show ratings",
       itemTotal: showRatingItems.length,
       label: `Loaded ${showRatingItems.length} show rating(s)`,
       phase: "fetch",
-      total: 8,
+      total: fetchTotal,
     });
 
     const listFetch = await listAllListsWithTaggableItems(
@@ -640,22 +670,24 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       cursors,
       result,
       runContext,
+      { itemKinds: includeMovies ? ["movie", "show"] : ["show"] },
       async (counts) => {
         await updateTraktSyncRunProgress(user.id, run.id, {
-          current: 6,
+          current: fetchCurrent,
           itemCurrent: counts.itemCount,
           itemLabel: "list items",
           itemTotal: counts.totalItemCount,
           label: formatListFetchProgressLabel(counts),
           phase: "fetch",
-          total: 8,
+          total: fetchTotal,
         });
       },
     );
     const listImports = listFetch.imports;
     result.listItemFetchesSkipped = listFetch.skippedListCount;
+    fetchCurrent += 1;
     await updateTraktSyncRunProgress(user.id, run.id, {
-      current: 7,
+      current: fetchCurrent,
       itemCurrent: listFetch.itemCount,
       itemLabel: "list items",
       itemTotal: listFetch.totalItemCount ?? listFetch.itemCount,
@@ -666,7 +698,7 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
         totalItemCount: listFetch.totalItemCount,
       }),
       phase: "fetch",
-      total: 8,
+      total: fetchTotal,
     });
 
     const historyStates = normalizeHistoryStates(historyItems, result);
@@ -680,36 +712,47 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       (list) => list.movieStatesToTag.length > 0 || list.showStatesToTag.length > 0,
     );
     const changedListCount = listStates.filter((list) => list.changed).length;
-    const currentWatchlistKeys = new Set(watchlistStates.map((item) => item.key));
-    const rawWatchlistSnapshot = cursors.get(snapshotCursorKey("watchlist"));
-    const watchlistSnapshot = serializeStringSnapshot(currentWatchlistKeys);
-    const previousWatchlistSnapshot = serializeStringSnapshot(
-      parseStringArrayCursor(rawWatchlistSnapshot),
-    );
-    const watchlistChanged = rawWatchlistSnapshot === undefined ||
-      watchlistSnapshot !== previousWatchlistSnapshot;
-    const previousWatchlistKeys = parseStringArrayCursor(
-      rawWatchlistSnapshot,
-    );
-    const removedWatchlistKeys = previousWatchlistKeys.filter(
-      (key) => !currentWatchlistKeys.has(key),
-    );
-    const currentRatings = new Map(ratingStates.map((item) => [item.key, item.rating]));
-    const rawRatingSnapshot = cursors.get(snapshotCursorKey("ratings"));
-    const ratingSnapshot = serializeRatingSnapshot(currentRatings.entries());
-    const previousRatingSnapshot = serializeRatingSnapshot(
-      Object.entries(parseRatingSnapshot(rawRatingSnapshot)),
-    );
-    const ratingsChanged = rawRatingSnapshot === undefined ||
-      ratingSnapshot !== previousRatingSnapshot;
-    const previousRatingKeys = Object.keys(
-      parseRatingSnapshot(rawRatingSnapshot),
-    );
-    const removedRatingKeys = previousRatingKeys.filter((key) => !currentRatings.has(key));
-    const activeWatchlistStates = watchlistChanged ? watchlistStates : [];
-    const activeRemovedWatchlistKeys = watchlistChanged ? removedWatchlistKeys : [];
-    const activeRatingStates = ratingsChanged ? ratingStates : [];
-    const activeRemovedRatingKeys = ratingsChanged ? removedRatingKeys : [];
+    let watchlistSnapshot = serializeStringSnapshot([]);
+    let watchlistChanged = false;
+    let ratingSnapshot = serializeRatingSnapshot([]);
+    let ratingsChanged = false;
+    let activeWatchlistStates: RemoteTraktWatchlistState[] = [];
+    let activeRemovedWatchlistKeys: string[] = [];
+    let activeRatingStates: RemoteTraktRatingState[] = [];
+    let activeRemovedRatingKeys: string[] = [];
+
+    if (includeMovies) {
+      const currentWatchlistKeys = new Set(watchlistStates.map((item) => item.key));
+      const rawWatchlistSnapshot = cursors.get(snapshotCursorKey("watchlist"));
+      watchlistSnapshot = serializeStringSnapshot(currentWatchlistKeys);
+      const previousWatchlistSnapshot = serializeStringSnapshot(
+        parseStringArrayCursor(rawWatchlistSnapshot),
+      );
+      watchlistChanged = rawWatchlistSnapshot === undefined ||
+        watchlistSnapshot !== previousWatchlistSnapshot;
+      const previousWatchlistKeys = parseStringArrayCursor(
+        rawWatchlistSnapshot,
+      );
+      const removedWatchlistKeys = previousWatchlistKeys.filter(
+        (key) => !currentWatchlistKeys.has(key),
+      );
+      const currentRatings = new Map(ratingStates.map((item) => [item.key, item.rating]));
+      const rawRatingSnapshot = cursors.get(snapshotCursorKey("ratings"));
+      ratingSnapshot = serializeRatingSnapshot(currentRatings.entries());
+      const previousRatingSnapshot = serializeRatingSnapshot(
+        Object.entries(parseRatingSnapshot(rawRatingSnapshot)),
+      );
+      ratingsChanged = rawRatingSnapshot === undefined ||
+        ratingSnapshot !== previousRatingSnapshot;
+      const previousRatingKeys = Object.keys(
+        parseRatingSnapshot(rawRatingSnapshot),
+      );
+      const removedRatingKeys = previousRatingKeys.filter((key) => !currentRatings.has(key));
+      activeWatchlistStates = watchlistChanged ? watchlistStates : [];
+      activeRemovedWatchlistKeys = watchlistChanged ? removedWatchlistKeys : [];
+      activeRatingStates = ratingsChanged ? ratingStates : [];
+      activeRemovedRatingKeys = ratingsChanged ? removedRatingKeys : [];
+    }
     const currentShowWatchlistKeys = new Set(showWatchlistStates.map((item) => item.key));
     const rawShowWatchlistSnapshot = cursors.get(snapshotCursorKey("shows.watchlist"));
     const showWatchlistSnapshot = serializeStringSnapshot(currentShowWatchlistKeys);
@@ -753,51 +796,59 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       );
     const reconcileBatchCount = Math.ceil(activeReconcileItemCount / dbWriteChunkSize);
 
-    progressTotal = 9 + reconcileBatchCount;
+    progressTotal = (includeMovies ? 9 : 4) + reconcileBatchCount;
     progressCurrent = 0;
     await updateTraktSyncRunProgress(user.id, run.id, {
       current: progressCurrent,
       itemCurrent: 0,
       itemLabel: "items",
       itemTotal: activeReconcileItemCount,
-      label: "Resolving Trakt movies",
+      label: includeMovies ? "Resolving Trakt movies" : "Resolving Trakt shows",
       phase: "reconcile",
       total: progressTotal,
     });
 
-    const movieResolution = await resolveRemoteMovies({
-      remoteKeys: [...activeRemovedWatchlistKeys, ...activeRemovedRatingKeys],
-      remoteMovies: [
-        ...historyStates.map((state) => state.movie),
-        ...activeWatchlistStates,
-        ...activeRatingStates,
-        ...listStatesToTag.flatMap((list) => list.movieStatesToTag),
-      ],
-      result,
-      run: runContext,
-    });
-    progressCurrent += 1;
-    await updateTraktSyncRunProgress(user.id, run.id, {
-      current: progressCurrent,
-      itemCurrent: 0,
-      itemLabel: "items",
-      itemTotal: activeReconcileItemCount,
-      label: `Resolved ${movieResolution.movieIdByRemoteKey.size} movie key(s)`,
-      phase: "reconcile",
-      total: progressTotal,
-    });
+    let movieResolution: MovieResolutionResult = {
+      failedRemoteKeys: new Map(),
+      movieIdByRemoteKey: new Map(),
+      remoteMoviesByKey: new Map(),
+    };
 
-    await upsertResolvedProviderMappings(movieResolution, result, runContext);
-    progressCurrent += 1;
-    await updateTraktSyncRunProgress(user.id, run.id, {
-      current: progressCurrent,
-      itemCurrent: 0,
-      itemLabel: "items",
-      itemTotal: activeReconcileItemCount,
-      label: "Prepared provider mappings",
-      phase: "reconcile",
-      total: progressTotal,
-    });
+    if (includeMovies) {
+      movieResolution = await resolveRemoteMovies({
+        remoteKeys: [...activeRemovedWatchlistKeys, ...activeRemovedRatingKeys],
+        remoteMovies: [
+          ...historyStates.map((state) => state.movie),
+          ...activeWatchlistStates,
+          ...activeRatingStates,
+          ...listStatesToTag.flatMap((list) => list.movieStatesToTag),
+        ],
+        result,
+        run: runContext,
+      });
+      progressCurrent += 1;
+      await updateTraktSyncRunProgress(user.id, run.id, {
+        current: progressCurrent,
+        itemCurrent: 0,
+        itemLabel: "items",
+        itemTotal: activeReconcileItemCount,
+        label: `Resolved ${movieResolution.movieIdByRemoteKey.size} movie key(s)`,
+        phase: "reconcile",
+        total: progressTotal,
+      });
+
+      await upsertResolvedProviderMappings(movieResolution, result, runContext);
+      progressCurrent += 1;
+      await updateTraktSyncRunProgress(user.id, run.id, {
+        current: progressCurrent,
+        itemCurrent: 0,
+        itemLabel: "items",
+        itemTotal: activeReconcileItemCount,
+        label: "Prepared provider mappings",
+        phase: "reconcile",
+        total: progressTotal,
+      });
+    }
 
     const showResolution = await resolveRemoteShows({
       remoteKeys: [...activeRemovedShowWatchlistKeys, ...activeRemovedShowRatingKeys],
@@ -828,13 +879,15 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       total: progressTotal,
     });
 
-    const pendingMovieIds = await loadPendingPushMovieIds(user.id);
+    const pendingMovieIds = includeMovies ? await loadPendingPushMovieIds(user.id) : new Set<string>();
     const pendingMediaIds = await loadPendingPushMediaIds(user.id);
-    const existingUserMovies = await loadUserMovieMap(
-      user.id,
-      movieResolution.movieIdByRemoteKey.values(),
-      runContext,
-    );
+    const existingUserMovies = includeMovies
+      ? await loadUserMovieMap(
+        user.id,
+        movieResolution.movieIdByRemoteKey.values(),
+        runContext,
+      )
+      : new Map<string, UserMovieDraft>();
     const existingUserMedia = await loadUserMediaMap(
       user.id,
       showResolution.mediaIdByRemoteKey.values(),
@@ -851,107 +904,109 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
       total: progressTotal,
     });
 
-    const historyPlan = planPullUserMovieWrites({
-      existingUserMovies,
-      historyStates,
-      movieResolution,
-      pendingMovieIds,
-      ratingStates: [],
-      removedRatingKeys: [],
-      removedWatchlistKeys: [],
-      result,
-      watchlistStates: [],
-    });
+    if (includeMovies) {
+      const historyPlan = planPullUserMovieWrites({
+        existingUserMovies,
+        historyStates,
+        movieResolution,
+        pendingMovieIds,
+        ratingStates: [],
+        removedRatingKeys: [],
+        removedWatchlistKeys: [],
+        result,
+        watchlistStates: [],
+      });
 
-    await upsertUserMovieDrafts(user.id, historyPlan.upserts, result, runContext);
-    applyUserMoviePlanToMap(existingUserMovies, historyPlan);
-    const historyLogs = buildWatchLogInserts(user.id, historyStates, movieResolution);
-    await insertWatchLogs(user.id, historyLogs, result, runContext);
-    await flushPendingPullItemFailures(runContext, result);
-    await storeHistoryCheckpoint(runContext, {
-      changed: historyStates.length > 0,
-      itemCount: historyStates.length,
-      newestWatchedAt: historyPlan.newestWatchedAt ?? historyCursor,
-    });
-    progressCurrent += 1;
-    await updateTraktSyncRunProgress(user.id, run.id, {
-      current: progressCurrent,
-      itemCurrent: historyStates.length,
-      itemLabel: "items",
-      itemTotal: activeReconcileItemCount,
-      label: `History checkpoint saved (${historyStates.length} item(s))`,
-      phase: "reconcile",
-      total: progressTotal,
-    });
+      await upsertUserMovieDrafts(user.id, historyPlan.upserts, result, runContext);
+      applyUserMoviePlanToMap(existingUserMovies, historyPlan);
+      const historyLogs = buildWatchLogInserts(user.id, historyStates, movieResolution);
+      await insertWatchLogs(user.id, historyLogs, result, runContext);
+      await flushPendingPullItemFailures(runContext, result);
+      await storeHistoryCheckpoint(runContext, {
+        changed: historyStates.length > 0,
+        itemCount: historyStates.length,
+        newestWatchedAt: historyPlan.newestWatchedAt ?? historyCursor,
+      });
+      progressCurrent += 1;
+      await updateTraktSyncRunProgress(user.id, run.id, {
+        current: progressCurrent,
+        itemCurrent: historyStates.length,
+        itemLabel: "items",
+        itemTotal: activeReconcileItemCount,
+        label: `History checkpoint saved (${historyStates.length} item(s))`,
+        phase: "reconcile",
+        total: progressTotal,
+      });
 
-    const watchlistPlan = planPullUserMovieWrites({
-      existingUserMovies,
-      historyStates: [],
-      movieResolution,
-      pendingMovieIds,
-      ratingStates: [],
-      removedRatingKeys: [],
-      removedWatchlistKeys: activeRemovedWatchlistKeys,
-      result,
-      watchlistStates: activeWatchlistStates,
-    });
+      const watchlistPlan = planPullUserMovieWrites({
+        existingUserMovies,
+        historyStates: [],
+        movieResolution,
+        pendingMovieIds,
+        ratingStates: [],
+        removedRatingKeys: [],
+        removedWatchlistKeys: activeRemovedWatchlistKeys,
+        result,
+        watchlistStates: activeWatchlistStates,
+      });
 
-    await deleteUserMovies(user.id, watchlistPlan.deleteMovieIds, result, runContext);
-    await upsertUserMovieDrafts(user.id, watchlistPlan.upserts, result, runContext);
-    applyUserMoviePlanToMap(existingUserMovies, watchlistPlan);
-    await flushPendingPullItemFailures(runContext, result);
-    await storeSnapshotCheckpoint("watchlist", runContext, {
-      changed: watchlistChanged,
-      itemCount: activeWatchlistStates.length + activeRemovedWatchlistKeys.length,
-      snapshot: watchlistSnapshot,
-    });
-    progressCurrent += 1;
-    await updateTraktSyncRunProgress(user.id, run.id, {
-      current: progressCurrent,
-      itemCurrent: historyStates.length +
-        activeWatchlistStates.length +
-        activeRemovedWatchlistKeys.length,
-      itemLabel: "items",
-      itemTotal: activeReconcileItemCount,
-      label: watchlistChanged ? "Watchlist checkpoint saved" : "Watchlist unchanged",
-      phase: "reconcile",
-      total: progressTotal,
-    });
+      await deleteUserMovies(user.id, watchlistPlan.deleteMovieIds, result, runContext);
+      await upsertUserMovieDrafts(user.id, watchlistPlan.upserts, result, runContext);
+      applyUserMoviePlanToMap(existingUserMovies, watchlistPlan);
+      await flushPendingPullItemFailures(runContext, result);
+      await storeSnapshotCheckpoint("watchlist", runContext, {
+        changed: watchlistChanged,
+        itemCount: activeWatchlistStates.length + activeRemovedWatchlistKeys.length,
+        snapshot: watchlistSnapshot,
+      });
+      progressCurrent += 1;
+      await updateTraktSyncRunProgress(user.id, run.id, {
+        current: progressCurrent,
+        itemCurrent: historyStates.length +
+          activeWatchlistStates.length +
+          activeRemovedWatchlistKeys.length,
+        itemLabel: "items",
+        itemTotal: activeReconcileItemCount,
+        label: watchlistChanged ? "Watchlist checkpoint saved" : "Watchlist unchanged",
+        phase: "reconcile",
+        total: progressTotal,
+      });
 
-    const ratingPlan = planPullUserMovieWrites({
-      existingUserMovies,
-      historyStates: [],
-      movieResolution,
-      pendingMovieIds,
-      ratingStates: activeRatingStates,
-      removedRatingKeys: activeRemovedRatingKeys,
-      removedWatchlistKeys: [],
-      result,
-      watchlistStates: [],
-    });
+      const ratingPlan = planPullUserMovieWrites({
+        existingUserMovies,
+        historyStates: [],
+        movieResolution,
+        pendingMovieIds,
+        ratingStates: activeRatingStates,
+        removedRatingKeys: activeRemovedRatingKeys,
+        removedWatchlistKeys: [],
+        result,
+        watchlistStates: [],
+      });
 
-    await upsertUserMovieDrafts(user.id, ratingPlan.upserts, result, runContext);
-    applyUserMoviePlanToMap(existingUserMovies, ratingPlan);
-    await flushPendingPullItemFailures(runContext, result);
-    await storeSnapshotCheckpoint("ratings", runContext, {
-      changed: ratingsChanged,
-      itemCount: activeRatingStates.length + activeRemovedRatingKeys.length,
-      snapshot: ratingSnapshot,
-    });
-    progressCurrent += 1;
-    await updateTraktSyncRunProgress(user.id, run.id, {
-      current: progressCurrent,
-      itemCurrent: historyStates.length +
-        activeWatchlistStates.length +
-        activeRemovedWatchlistKeys.length +
-        activeRatingStates.length +
-        activeRemovedRatingKeys.length,
-      itemLabel: "items",
-      itemTotal: activeReconcileItemCount,
-      label: ratingsChanged ? "Ratings checkpoint saved" : "Ratings unchanged",
-      phase: "reconcile",
-      total: progressTotal,
-    });
+      await upsertUserMovieDrafts(user.id, ratingPlan.upserts, result, runContext);
+      applyUserMoviePlanToMap(existingUserMovies, ratingPlan);
+      await flushPendingPullItemFailures(runContext, result);
+      await storeSnapshotCheckpoint("ratings", runContext, {
+        changed: ratingsChanged,
+        itemCount: activeRatingStates.length + activeRemovedRatingKeys.length,
+        snapshot: ratingSnapshot,
+      });
+      progressCurrent += 1;
+      await updateTraktSyncRunProgress(user.id, run.id, {
+        current: progressCurrent,
+        itemCurrent: historyStates.length +
+          activeWatchlistStates.length +
+          activeRemovedWatchlistKeys.length +
+          activeRatingStates.length +
+          activeRemovedRatingKeys.length,
+        itemLabel: "items",
+        itemTotal: activeReconcileItemCount,
+        label: ratingsChanged ? "Ratings checkpoint saved" : "Ratings unchanged",
+        phase: "reconcile",
+        total: progressTotal,
+      });
+    }
 
     const showPlan = planPullUserMediaWrites({
       episodeResolution,
@@ -1007,14 +1062,16 @@ export async function pullTraktSync(origin: string): Promise<PullResult> {
     });
 
     const tagsByListKey = await upsertTraktListTags(user.id, listStatesToTag, result, runContext);
-    await upsertTraktListMovieTags(
-      user.id,
-      listStatesToTag,
-      tagsByListKey,
-      movieResolution,
-      result,
-      runContext,
-    );
+    if (includeMovies) {
+      await upsertTraktListMovieTags(
+        user.id,
+        listStatesToTag,
+        tagsByListKey,
+        movieResolution,
+        result,
+        runContext,
+      );
+    }
     await upsertTraktListMediaTags(
       user.id,
       listStatesToTag,
@@ -1742,8 +1799,12 @@ async function listAllListsWithTaggableItems(
   cursors: CursorMap,
   result: PullResult,
   run: SyncRunContext,
+  options: { itemKinds?: TraktListItemKind[] } = {},
   onProgress?: (counts: TraktListFetchProgress) => Promise<void>,
 ): Promise<TraktListFetchResult> {
+  const itemKinds = normalizeListItemKinds(options.itemKinds);
+  const includeMovies = itemKinds.includes("movie");
+  const includeShows = itemKinds.includes("show");
   const lists = await listAllUserLists(auth, run, async (listCount) => {
     await onProgress?.({
       itemCount: 0,
@@ -1767,14 +1828,15 @@ async function listAllListsWithTaggableItems(
       continue;
     }
 
+    const cursorKey = listCursorKey(listKey, itemKinds);
     const metadataCursor = serializeListMetadataCursor({
-      itemKinds: ["movie", "show"],
+      itemKinds,
       itemCount: list.item_count,
       tagName,
       updatedAt: list.updated_at,
     });
-    const previousSnapshot = cursors.get(snapshotCursorKey(`lists.${listKey}`));
-    const previousMetadataCursor = cursors.get(listMetadataCursorKey(listKey));
+    const previousSnapshot = cursors.get(snapshotCursorKey(`lists.${cursorKey}`));
+    const previousMetadataCursor = cursors.get(listMetadataCursorKey(cursorKey));
     const canReuseSnapshot = canSkipListItemFetch({
       currentMetadataCursor: metadataCursor,
       hasStableMetadata: hasStableTraktListMetadata(list),
@@ -1785,6 +1847,7 @@ async function listAllListsWithTaggableItems(
     if (canReuseSnapshot) {
       skippedListCount += 1;
       imports.push({
+        cursorKey,
         itemFetchComplete: true,
         itemFetchSkipped: true,
         listKey,
@@ -1808,42 +1871,47 @@ async function listAllListsWithTaggableItems(
     let movieItems: TraktListMovie[] = [];
     let showItems: TraktListShow[] = [];
 
-    try {
-      movieItems = await listAllListMovieItems(auth, listKey, run, async (count) => {
+    if (includeMovies) {
+      try {
+        movieItems = await listAllListMovieItems(auth, listKey, run, async (count) => {
+          await onProgress?.({
+            itemCount: itemCount + count,
+            listCount: imports.length + 1,
+            skippedListCount,
+            totalItemCount,
+          });
+        });
+      } catch (error) {
+        recordPullFailure(result, "list", listKey, error);
         await onProgress?.({
-          itemCount: itemCount + count,
-          listCount: imports.length + 1,
+          itemCount,
+          listCount: imports.length,
           skippedListCount,
           totalItemCount,
         });
-      });
-    } catch (error) {
-      recordPullFailure(result, "list", listKey, error);
-      await onProgress?.({
-        itemCount,
-        listCount: imports.length,
-        skippedListCount,
-        totalItemCount,
-      });
-      continue;
+        continue;
+      }
     }
 
-    try {
-      showItems = await listAllListShowItems(auth, listKey, run, async (count) => {
-        await onProgress?.({
-          itemCount: itemCount + movieItems.length + count,
-          listCount: imports.length + 1,
-          skippedListCount,
-          totalItemCount,
+    if (includeShows) {
+      try {
+        showItems = await listAllListShowItems(auth, listKey, run, async (count) => {
+          await onProgress?.({
+            itemCount: itemCount + movieItems.length + count,
+            listCount: imports.length + 1,
+            skippedListCount,
+            totalItemCount,
+          });
         });
-      });
-    } catch (error) {
-      itemFetchComplete = false;
-      recordPullFailure(result, "list", `${listKey}:shows`, error);
+      } catch (error) {
+        itemFetchComplete = false;
+        recordPullFailure(result, "list", includeMovies ? `${listKey}:shows` : listKey, error);
+      }
     }
 
     itemCount += movieItems.length + showItems.length;
     imports.push({
+      cursorKey,
       itemFetchComplete,
       itemFetchSkipped: false,
       listKey,
@@ -2098,6 +2166,7 @@ function normalizeListStates(
     if (listImport.itemFetchSkipped) {
       states.push({
         changed: false,
+        cursorKey: listImport.cursorKey,
         itemFetchComplete: true,
         itemFetchSkipped: true,
         listKey: listImport.listKey,
@@ -2155,13 +2224,14 @@ function normalizeListStates(
         ...Array.from(movieStatesByKey.keys()).map((key) => `movie:${key}`),
         ...Array.from(showStatesByKey.keys()).map((key) => `show:${key}`),
       ],
-      listImport.previousSnapshot ?? cursors.get(snapshotCursorKey(`lists.${listImport.listKey}`)),
+      listImport.previousSnapshot ?? cursors.get(snapshotCursorKey(`lists.${listImport.cursorKey}`)),
     );
     const movieStatesToTag: RemoteTraktMovieState[] = Array.from(movieStatesByKey.values());
     const showStatesToTag: RemoteTraktShowState[] = Array.from(showStatesByKey.values());
 
     states.push({
       changed: delta.changed,
+      cursorKey: listImport.cursorKey,
       itemFetchComplete: listImport.itemFetchComplete,
       itemFetchSkipped: false,
       listKey: listImport.listKey,
@@ -2181,6 +2251,21 @@ function normalizeListStates(
   ).length;
 
   return states;
+}
+
+function normalizeListItemKinds(itemKinds: TraktListItemKind[] | undefined) {
+  const normalized = new Set<TraktListItemKind>(itemKinds ?? ["movie", "show"]);
+
+  if (normalized.size === 0) {
+    normalized.add("movie");
+    normalized.add("show");
+  }
+
+  return Array.from(normalized).sort((left, right) => left.localeCompare(right));
+}
+
+function listCursorKey(listKey: string, itemKinds: TraktListItemKind[]) {
+  return itemKinds.length === 1 ? `${listKey}.${itemKinds[0]}s` : listKey;
 }
 
 async function resolveRemoteMovies({
@@ -3645,12 +3730,12 @@ async function storeListSnapshots(
 
     await upsertSyncCursor(
       provider,
-      snapshotCursorKey(`lists.${listState.listKey}`),
+      snapshotCursorKey(`lists.${listState.cursorKey}`),
       listState.snapshot,
     );
     await upsertSyncCursor(
       provider,
-      listMetadataCursorKey(listState.listKey),
+      listMetadataCursorKey(listState.cursorKey),
       listState.metadataCursor,
     );
   }

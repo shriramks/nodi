@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/server";
 import { createSyncEvent } from "@/lib/db/mutations";
 import { getErrorMessage, isAppError } from "@/lib/errors";
-import { isTraktSyncControlError, pullTraktSync } from "@/lib/providers/trakt/sync";
+import { isTraktSyncControlError, pullTraktSyncWithOptions } from "@/lib/providers/trakt/sync";
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -37,7 +37,9 @@ export async function POST(request: NextRequest) {
       return rateLimitResponse(retryAfter);
     }
 
-    const result = await pullTraktSync(request.nextUrl.origin);
+    const result = await pullTraktSyncWithOptions(request.nextUrl.origin, {
+      mode: await readPullMode(request),
+    });
 
     revalidatePath("/library");
     revalidatePath("/wishlist");
@@ -56,6 +58,31 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: "Failed to pull Trakt sync." }, { status: 500 });
   }
+}
+
+async function readPullMode(request: NextRequest) {
+  const queryMode = request.nextUrl.searchParams.get("mode");
+
+  if (queryMode === "shows") {
+    return "shows" as const;
+  }
+
+  try {
+    const body = await request.json() as unknown;
+
+    if (
+      body &&
+      typeof body === "object" &&
+      !Array.isArray(body) &&
+      (body as { mode?: unknown }).mode === "shows"
+    ) {
+      return "shows" as const;
+    }
+  } catch {
+    // Empty request bodies keep the default full pull mode.
+  }
+
+  return "full" as const;
 }
 
 async function logSyncRouteFailure(direction: "pull", message: string) {

@@ -155,6 +155,7 @@ describe("Trakt sync list imports", () => {
 
     expect(fetch.imports).toHaveLength(1);
     expect(fetch.imports[0]).toMatchObject({
+      cursorKey: "123",
       itemFetchComplete: false,
       movieItems: [{
         movie: { ids: { tmdb: 437 }, title: "Perfect Blue", year: 1997 },
@@ -173,6 +174,72 @@ describe("Trakt sync list imports", () => {
     expect(mocks.upsertSyncCursor).not.toHaveBeenCalledWith(
       "trakt",
       listMetadataCursorKey("123"),
+      expect.any(String),
+    );
+  });
+
+  it("fetches only show list items with TV-only list cursors", async () => {
+    const result = __traktSyncTestHooks.createPullResult();
+    const list = {
+      ids: { slug: "favorites", trakt: 123 },
+      item_count: 2,
+      name: "Favorites",
+      updated_at: "2026-05-27T00:00:00.000Z",
+    };
+
+    createSupabaseWithQueues({});
+    mocks.listTraktUserListsPage.mockResolvedValue({
+      items: [list],
+      pagination: { itemCount: 1, limit: 100, page: 1, pageCount: 1 },
+    });
+    mocks.listTraktListShowItemsPage.mockResolvedValue({
+      items: [{
+        show: { ids: { tmdb: 1396, trakt: 456 }, title: "Breaking Bad", year: 2008 },
+        type: "show",
+      }],
+      pagination: { itemCount: 1, limit: 100, page: 1, pageCount: 1 },
+    });
+
+    const fetch = await __traktSyncTestHooks.listAllListsWithTaggableItems(
+      auth,
+      new Map([
+        [snapshotCursorKey("lists.123"), "[\"movie:tmdb:437\"]"],
+        [listMetadataCursorKey("123"), "{\"itemKinds\":[\"movie\",\"show\"]}"],
+      ]),
+      result,
+      run,
+      { itemKinds: ["show"] },
+    );
+    const listStates = __traktSyncTestHooks.normalizeListStates(
+      fetch.imports,
+      new Map(),
+      result,
+    );
+
+    await __traktSyncTestHooks.storeListSnapshots(listStates, run);
+
+    expect(mocks.listTraktListMovieItemsPage).not.toHaveBeenCalled();
+    expect(mocks.listTraktListShowItemsPage).toHaveBeenCalledWith(auth, {
+      limit: 100,
+      listId: "123",
+      page: 1,
+    });
+    expect(fetch.imports[0]).toMatchObject({
+      cursorKey: "123.shows",
+      movieItems: [],
+      showItems: [{
+        show: { ids: { tmdb: 1396, trakt: 456 }, title: "Breaking Bad", year: 2008 },
+        type: "show",
+      }],
+    });
+    expect(mocks.upsertSyncCursor).toHaveBeenCalledWith(
+      "trakt",
+      snapshotCursorKey("lists.123.shows"),
+      "[\"show:trakt:456\"]",
+    );
+    expect(mocks.upsertSyncCursor).not.toHaveBeenCalledWith(
+      "trakt",
+      snapshotCursorKey("lists.123"),
       expect.any(String),
     );
   });
@@ -221,6 +288,7 @@ describe("Trakt sync list imports", () => {
 
     const listStates = __traktSyncTestHooks.normalizeListStates(
       [{
+        cursorKey: "tv-favorites",
         itemFetchComplete: true,
         itemFetchSkipped: false,
         listKey: "tv-favorites",

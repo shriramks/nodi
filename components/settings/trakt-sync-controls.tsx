@@ -7,6 +7,7 @@ import { SettingsPanel } from "@/components/ui/settings";
 import type { ProviderSyncSettings } from "@/lib/db/queries/sync";
 
 type SyncAction = "pull" | "push";
+type PullMode = "full" | "shows";
 
 type TraktSyncControlsProps = {
   initialSync: ProviderSyncSettings;
@@ -16,6 +17,7 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
   const router = useRouter();
   const [syncState, setSyncState] = useState(initialSync);
   const [runningAction, setRunningAction] = useState<SyncAction | null>(null);
+  const [pullMode, setPullMode] = useState<PullMode>("full");
   const [stopping, setStopping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const connected = syncState.connection?.status === "active";
@@ -67,7 +69,10 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
     setRunningAction(action);
 
     try {
+      const body = action === "pull" ? JSON.stringify({ mode: pullMode }) : undefined;
       const response = await fetch(`/api/sync/trakt/${action}`, {
+        body,
+        headers: body ? { "content-type": "application/json" } : undefined,
         method: "POST",
       });
       const payload = (await response.json()) as { error?: string };
@@ -213,22 +218,50 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
           )}
           Push to Trakt
         </button>
-        <button
-          type="button"
-          disabled={!connected || stopping || runningAction !== null || Boolean(progress)}
-          onClick={() => runSync("pull")}
-          className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl border border-border bg-surface px-3 text-[13px] font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          {runningAction === "pull" || progress?.direction === "pull" ? (
-            <RefreshCcw aria-hidden="true" className="h-5 w-5 animate-spin" />
-          ) : (
-            <DownloadCloud aria-hidden="true" className="h-5 w-5" />
-          )}
-          Pull from Trakt
-        </button>
+        <div className="flex min-h-16 flex-col gap-2 rounded-2xl border border-border bg-surface p-2">
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-background p-1">
+            <button
+              type="button"
+              disabled={stopping || runningAction !== null || Boolean(progress)}
+              onClick={() => setPullMode("full")}
+              className={pullModeButtonClass(pullMode === "full")}
+            >
+              Movies + TV
+            </button>
+            <button
+              type="button"
+              disabled={stopping || runningAction !== null || Boolean(progress)}
+              onClick={() => setPullMode("shows")}
+              className={pullModeButtonClass(pullMode === "shows")}
+            >
+              TV only
+            </button>
+          </div>
+          <button
+            type="button"
+            disabled={!connected || stopping || runningAction !== null || Boolean(progress)}
+            onClick={() => runSync("pull")}
+            className="flex min-h-8 items-center justify-center gap-1 rounded-xl px-2 text-[13px] font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {runningAction === "pull" || progress?.direction === "pull" ? (
+              <RefreshCcw aria-hidden="true" className="h-5 w-5 animate-spin" />
+            ) : (
+              <DownloadCloud aria-hidden="true" className="h-5 w-5" />
+            )}
+            {pullMode === "shows" ? "Pull TV only" : "Pull movies + TV"}
+          </button>
+        </div>
       </div>
     </section>
   );
+}
+
+function pullModeButtonClass(active: boolean) {
+  return [
+    "h-8 rounded-lg px-2 text-[12px] font-semibold transition-colors",
+    "disabled:cursor-not-allowed disabled:opacity-45",
+    active ? "bg-surface text-foreground shadow-sm" : "text-text-muted",
+  ].join(" ");
 }
 
 async function loadSyncStatus() {
