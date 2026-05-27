@@ -284,10 +284,12 @@ export function buildMediaLibraryStats(
       runtimeMinutes,
       typeFilter,
     }),
-    avgRating: computeAvgMediaRating(filteredRatingRows),
+    avgRating: computeAvgMediaRating(filteredRatingRows.filter((row) => watchedMediaIds.has(row.media_id))),
     favGenre: favGenreItem?.label ?? null,
     favGenreCount: favGenreItem?.count ?? null,
-    favDecade: buildFavMediaDecade(typeFilter === "show" ? showSummaries : movieSummaries),
+    favDecade: buildFavMediaDecade(
+      typeFilter === "show" ? showSummaries : typeFilter === "all" ? [...movieSummaries, ...showSummaries] : movieSummaries,
+    ),
     availableYearBuckets,
     monthBuckets: yearFilter ? buildMonthBucketsForYear(chartRows, yearFilter) : buildMonthBuckets(chartRows),
     yearBuckets: buildYearBuckets(chartRows),
@@ -300,7 +302,9 @@ export function buildMediaLibraryStats(
       };
     }),
     tagBreakdown: buildMediaTagBreakdown(tagRows, watchedMediaIds, watchedMedia.length),
-    ratingBreakdown: buildMediaRatingBreakdown(filteredRatingRows),
+    ratingBreakdown: buildMediaRatingBreakdown(
+      filteredRatingRows.filter((row) => watchedMediaIds.has(row.media_id)),
+    ),
   };
 }
 
