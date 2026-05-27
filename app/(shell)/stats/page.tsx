@@ -346,7 +346,7 @@ function AllStatsHero({ stats, hasData }: { stats: LibraryStats; hasData: boolea
             style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.5px" }}
           >
             {stats.avgRating !== null ? (
-              <><span style={{ fontSize: 14, lineHeight: 1 }}>♥</span>{` ${stats.avgRating}`}</>
+              <><span style={{ fontSize: 14, lineHeight: 1 }}>♥</span>{` ${stats.avgRating.toFixed(1)}`}</>
             ) : "—"}
           </p>
           <p className="text-[11px] text-text-muted mt-0.5">Avg rating</p>
@@ -413,7 +413,7 @@ function ratingMetric(avgRating: number | null, secondary = false): HeroMetricCo
     value: avgRating !== null ? (
       <>
         <span style={{ fontSize: secondary ? 12 : 14, lineHeight: 1 }}>♥</span>
-        {` ${avgRating}`}
+        {` ${avgRating.toFixed(1)}`}
       </>
     ) : (
       "—"
