@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 
 import { ShowEpisodeListView } from "@/components/show/show-episode-list-view";
+import { ShowRatingSheet } from "@/components/show/show-state-actions";
 import { getShowDetail, type ShowDetail } from "@/lib/db/queries";
 import { ingestTmdbShow, refreshShowWatchedState } from "@/lib/db/mutations";
 import { isAppError } from "@/lib/errors";
@@ -52,6 +53,9 @@ export default async function ShowEpisodesPage({
     }
   }
 
+  const personalRating = show.userMedia?.personal_rating ?? null;
+  const userStatus = show.userMedia?.status ?? null;
+
   return (
     <ShowEpisodeListView
       episodeWatchControl={(episode) => (
@@ -61,6 +65,11 @@ export default async function ShowEpisodesPage({
           showId={show.id}
         />
       )}
+      ratingPicker={
+        userStatus ? (
+          <ShowRatingSheet currentRating={personalRating} showId={show.id} />
+        ) : null
+      }
       seasonWatchControl={(season) => (
         <SeasonWatchButton
           seasonNumber={season.seasonNumber}
@@ -72,8 +81,8 @@ export default async function ShowEpisodesPage({
       )}
       show={{
         ...show,
-        userStatus: show.userMedia?.status ?? null,
-        personalRating: show.userMedia?.personal_rating ?? null,
+        userStatus,
+        personalRating,
       }}
     />
   );

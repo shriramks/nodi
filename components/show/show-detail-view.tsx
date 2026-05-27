@@ -266,7 +266,7 @@ function ShowCastMemberLink({ member }: { member: ShowCastMember }) {
   );
 }
 
-function PersonalRating({ rating }: { rating: number | null }) {
+export function PersonalRating({ rating }: { rating: number | null }) {
   return (
     <span
       className={[
@@ -289,7 +289,7 @@ function PersonalRating({ rating }: { rating: number | null }) {
   );
 }
 
-function TmdbRatingBadge({ rating }: { rating: { value: number; voteCount: number | null } }) {
+export function TmdbRatingBadge({ rating }: { rating: { value: number; voteCount: number | null } }) {
   const voteLabel = rating.voteCount
     ? ` from ${rating.voteCount.toLocaleString()} votes`
     : "";
@@ -308,7 +308,7 @@ function TmdbRatingBadge({ rating }: { rating: { value: number; voteCount: numbe
   );
 }
 
-function getTmdbRating(show: DetailShow) {
+export function getTmdbRating(show: { tmdb_vote_average: number | null; tmdb_vote_count: number | null }) {
   if (show.tmdb_vote_average !== null && show.tmdb_vote_average !== undefined) {
     return {
       value: show.tmdb_vote_average,
@@ -370,7 +370,7 @@ function statusColourFor(status: MediaStatus) {
   return "text-accent";
 }
 
-function languageDisplayName(code: string): string {
+export function languageDisplayName(code: string): string {
   try {
     return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code.toUpperCase();
   } catch {

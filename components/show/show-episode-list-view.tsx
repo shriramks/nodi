@@ -5,6 +5,12 @@ import { Check } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
 import { CollapsibleSeason } from "@/components/show/collapsible-season";
+import {
+  getTmdbRating,
+  languageDisplayName,
+  PersonalRating,
+  TmdbRatingBadge,
+} from "@/components/show/show-detail-view";
 import type { Episode, MediaStatus, MediaWatchActivity, Tag } from "@/lib/db/types";
 import { tmdbImage } from "@/lib/providers/tmdb/images";
 
@@ -34,12 +40,14 @@ type EpisodeListShow = {
 
 type ShowEpisodeListViewProps = {
   episodeWatchControl?: (episode: ShowEpisode) => ReactNode;
+  ratingPicker?: ReactNode;
   seasonWatchControl?: (season: ShowSeason) => ReactNode;
   show: EpisodeListShow;
 };
 
 export function ShowEpisodeListView({
   episodeWatchControl,
+  ratingPicker,
   seasonWatchControl,
   show,
 }: ShowEpisodeListViewProps) {
@@ -66,6 +74,14 @@ export function ShowEpisodeListView({
       : totalCount > 0
         ? `${totalCount} episodes`
         : null;
+  const metaLine = [
+    show.release_year,
+    show.original_language ? languageDisplayName(show.original_language) : null,
+    show.primary_genre_name,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const tmdbRating = getTmdbRating(show);
 
   return (
     <main className="-mx-4 -mt-6 pb-4">
@@ -85,36 +101,30 @@ export function ShowEpisodeListView({
 
       <section className="grid grid-cols-[74px_minmax(0,1fr)] gap-3 border-b border-divider px-4 py-4">
         <ShowPosterSmall posterPath={show.poster_path} title={show.title} />
-        <div className="min-w-0 self-center">
+        <div className="min-w-0 self-center space-y-1">
           <p className="text-[18px] font-bold leading-[1.2]">{headingLabel}</p>
           {countLine ? (
-            <p className="mt-1 text-[13px] leading-[1.35] text-text-2">{countLine}</p>
+            <p className="text-[13px] leading-[1.35] text-text-2">{countLine}</p>
           ) : null}
-          <div className="mt-2 flex flex-wrap gap-2">
-            {show.tmdb_vote_average !== null && show.tmdb_vote_average !== undefined ? (
-              <span
-                className="inline-flex h-6 max-w-full shrink-0 items-center gap-1.5 overflow-hidden rounded-md border border-border bg-background px-2 align-middle text-[11px] font-medium leading-none text-text-muted"
-                title={
-                  show.tmdb_vote_count
-                    ? `TMDB rating: ${show.tmdb_vote_average} from ${show.tmdb_vote_count.toLocaleString()} votes`
-                    : `TMDB rating: ${show.tmdb_vote_average}`
-                }
-              >
-                <span className="text-[9px] font-semibold uppercase tracking-normal text-text-faint">
-                  TMDB
-                </span>
-                <span className="tabnum text-text-2">{show.tmdb_vote_average}</span>
-              </span>
-            ) : null}
-            {tags.map((tag) => (
-              <span
-                className="inline-flex min-h-7 items-center rounded-lg bg-surface px-2 text-[12px] font-semibold text-text-2"
-                key={tag.id}
-              >
-                {tag.name}
-              </span>
-            ))}
+          {metaLine ? (
+            <p className="text-[12px] leading-[1.35] text-text-muted">{metaLine}</p>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
+            {ratingPicker ?? <PersonalRating rating={show.personalRating ?? null} />}
+            {tmdbRating ? <TmdbRatingBadge rating={tmdbRating} /> : null}
           </div>
+          {tags.length > 0 ? (
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {tags.map((tag) => (
+                <span
+                  className="rounded-lg border border-accent/25 bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent"
+                  key={tag.id}
+                >
+                  {tag.name}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       </section>
 
