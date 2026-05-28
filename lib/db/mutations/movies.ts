@@ -3,6 +3,7 @@ import "server-only";
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError, throwNotFound } from "@/lib/db/errors";
 import type {
+  MediaStatus,
   Movie,
   MovieCastMemberInsert,
   ProviderMappingInsert,
@@ -134,6 +135,37 @@ export async function ingestPreparedTmdbMovie(
     throwDatabaseError("Failed to upsert movie provider mappings.", mappingError);
   }
 
+  const { error: mediaItemError } = await supabase
+    .from("media_items")
+    .upsert(
+      {
+        id: data.id,
+        type: "movie",
+        title: data.title,
+        original_title: data.original_title ?? null,
+        release_date: data.release_date ?? null,
+        first_air_date: null,
+        primary_genre_id: data.primary_genre_id ?? null,
+        primary_genre_name: data.primary_genre_name ?? null,
+        original_language: data.original_language ?? null,
+        overview: data.overview ?? null,
+        poster_path: data.poster_path ?? null,
+        backdrop_path: data.backdrop_path ?? null,
+        runtime_minutes: data.runtime_minutes ?? null,
+        tmdb_vote_average: data.tmdb_vote_average ?? null,
+        tmdb_vote_count: data.tmdb_vote_count ?? null,
+        popularity: data.popularity ?? null,
+        metadata_updated_at: data.metadata_updated_at,
+        tmdb_enriched_at: data.tmdb_enriched_at ?? null,
+        created_at: data.created_at,
+      },
+      { onConflict: "id" },
+    );
+
+  if (mediaItemError) {
+    throwDatabaseError("Failed to sync movie to media_items.", mediaItemError);
+  }
+
   return data;
 }
 
@@ -157,6 +189,8 @@ export async function setMovieWatchStatus(payload: unknown): Promise<{
   if (error) {
     throwDatabaseError("Failed to update movie watch status.", error);
   }
+
+  await syncUserMovieToUserMedia(supabase, data.user_movie);
 
   return {
     userMovie: data.user_movie,
@@ -199,6 +233,8 @@ export async function addMovieWatchDate(
     });
   }
 
+  await syncUserMovieToUserMedia(supabase, data.user_movie);
+
   return {
     userMovie: data.user_movie,
     watchLog: data.watch_log,
@@ -230,6 +266,12 @@ export async function removeUserMovie(movieId: string): Promise<void> {
   if (error) {
     throwDatabaseError("Failed to remove movie from library.", error);
   }
+
+  await supabase
+    .from("user_media")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("media_id", id);
 
   if (existingUserMovie?.status === "to_watch") {
     await queueTraktPushEvent("movie.remove_from_watchlist", {
@@ -309,5 +351,37 @@ export async function updateWatchLogDate(movieId: string, logId: string, watched
 
   if (error) {
     throwDatabaseError("Failed to update watch log.", error);
+  }
+}
+
+async function syncUserMovieToUserMedia(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userMovie: UserMovie,
+) {
+  const mediaStatus: MediaStatus =
+    userMovie.status === "to_watch" ? "wishlist" : "done";
+  const completedAt = userMovie.status === "watched" ? userMovie.last_watched_at : null;
+  const completionMode = userMovie.status === "watched" ? "manual" : null;
+
+  const { error } = await supabase
+    .from("user_media")
+    .upsert(
+      {
+        user_id: userMovie.user_id,
+        media_id: userMovie.movie_id,
+        status: mediaStatus,
+        personal_rating: userMovie.personal_rating ?? null,
+        added_at: userMovie.added_at,
+        watchlisted_at: userMovie.watchlisted_at ?? null,
+        last_watched_at: userMovie.last_watched_at ?? null,
+        completed_at: completedAt ?? null,
+        completion_mode: completionMode,
+        updated_at: userMovie.updated_at,
+      },
+      { onConflict: "user_id,media_id" },
+    );
+
+  if (error) {
+    throwDatabaseError("Failed to sync movie watch state to user_media.", error);
   }
 }

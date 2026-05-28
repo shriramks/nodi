@@ -600,6 +600,7 @@ async function getShowAutoCompletionState({
     .from("episodes")
     .select("id")
     .eq("show_id", mediaId)
+    .neq("season_number", 0)
     .or(`air_date.is.null,air_date.lte.${today}`);
 
   if (episodesError) {

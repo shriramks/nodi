@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Check } from "lucide-react";
@@ -52,6 +55,12 @@ export function ShowEpisodeListView({
   seasonWatchControl,
   show,
 }: ShowEpisodeListViewProps) {
+  const [showSpecials, setShowSpecials] = useState(false);
+  const regularSeasons = show.seasons.filter((s) => s.seasonNumber !== 0);
+  const specialsSeasons = show.seasons.filter((s) => s.seasonNumber === 0);
+  const hasSpecials = specialsSeasons.some((s) => s.episodes.length > 0);
+  const visibleSeasons = showSpecials ? show.seasons : regularSeasons;
+
   const { watched: watchedCount, total: totalCount } = countShowProgress(show.seasons);
   const tags = (show.tags ?? []).slice(0, 2);
 
@@ -126,15 +135,15 @@ export function ShowEpisodeListView({
         </div>
       </section>
 
-      {show.seasons.length > 0 ? (
+      {regularSeasons.length > 0 ? (
         <div>
-          {show.seasons.map((season) => {
+          {visibleSeasons.map((season) => {
             const seasonWatched = season.episodes.filter(
               (ep) => (ep.watchActivity?.length ?? 0) > 0,
             ).length;
             return (
               <CollapsibleSeason
-                defaultExpanded={season.seasonNumber === currentSeasonNumber(show.seasons)}
+                defaultExpanded={season.seasonNumber === currentSeasonNumber(regularSeasons)}
                 episodeCount={season.episodes.length}
                 key={season.seasonNumber}
                 seasonNumber={season.seasonNumber}
@@ -152,6 +161,15 @@ export function ShowEpisodeListView({
               </CollapsibleSeason>
             );
           })}
+          {hasSpecials ? (
+            <button
+              className="w-full px-4 py-3 text-left text-[14px] text-text-muted active:opacity-70"
+              onClick={() => setShowSpecials((v) => !v)}
+              type="button"
+            >
+              {showSpecials ? "Hide Specials" : "Show Specials"}
+            </button>
+          ) : null}
         </div>
       ) : (
         <p className="px-4 py-5 text-[15px] leading-[1.4] text-text-muted">
