@@ -86,9 +86,10 @@ start with the listed files and only expand outward if those files point elsewhe
 | Supabase clients and env wiring | `lib/supabase/server.ts`, `lib/supabase/client.ts` | `lib/env/`, `.env.example` |
 | Database schema, RLS, grants | `supabase/db_guide.md`, `supabase/migrations/` | `lib/db/types.ts` |
 | DB validation | `lib/db/validation.ts` | calling mutation or route handler |
-| Movie read queries and stats basics | `lib/db/queries/movies.ts` | `lib/db/queries/tags.ts`, `lib/db/queries/sync.ts` |
-| Movie write mutations | `lib/db/mutations/movies.ts` | `lib/db/mutations/tags.ts`, `lib/db/mutations/sync.ts` |
-| Tags | `lib/db/mutations/tags.ts`, `lib/db/queries/tags.ts` | movie detail client/page files |
+| Movie/media read queries and stats | `lib/db/queries/media.ts` | `lib/db/queries/movies.ts` (legacy), `lib/db/queries/tags.ts`, `lib/db/queries/sync.ts` |
+| Movie/media write mutations | `lib/db/mutations/media.ts` | `lib/db/mutations/movies.ts` (legacy), `lib/db/mutations/tags.ts`, `lib/db/mutations/sync.ts` |
+| Show detail, episode mutations | `lib/db/mutations/media.ts`, `app/(shell)/show/actions.ts` | `lib/db/queries/media.ts`, `components/show/` |
+| Tags | `lib/db/mutations/tags.ts`, `lib/db/queries/tags.ts` | `lib/db/mutations/media.ts` (media tag ops), movie/show detail client files |
 | Sync events and provider connection state | `lib/db/mutations/sync.ts`, `lib/db/queries/sync.ts` | `supabase/migrations/`, future `app/api/sync/` routes |
 | TMDB provider logic | `lib/providers/tmdb/client.ts`, `lib/providers/tmdb/adapters.ts` | search/detail routes that call them |
 | TMDB images | `lib/providers/tmdb/images.ts` | components rendering TMDB images |
@@ -98,7 +99,8 @@ start with the listed files and only expand outward if those files point elsewhe
 | Shared detail presentation | `components/ui/detail.tsx`, `components/movie/movie-detail-view.tsx` | `components/movie/overview-text.tsx`, `components/media/credit-poster-card.tsx` |
 | TMDB person detail | `app/(shell)/person/tmdb/[personId]/page.tsx` | `components/person/person-detail-view.tsx`, `components/media/credit-poster-card.tsx`, `components/ui/detail.tsx` |
 | Library page | `app/(shell)/library/page.tsx` | `components/library/library-grid.tsx`, `components/movie/poster-card.tsx` |
-| To Watch page | `app/(shell)/to-watch/page.tsx` | `components/movie/poster-card.tsx` |
+| Wishlist page | `app/(shell)/wishlist/page.tsx` | `components/library/library-grid.tsx`, `components/movie/poster-card.tsx` |
+| Route redirects (legacy) | `app/(shell)/movies/page.tsx` → `/library`, `app/(shell)/to-watch/page.tsx` → `/wishlist` | `app/(shell)/library/library-route.ts` |
 | Poster grid/card behavior | `components/movie/poster-card.tsx`, `components/library/library-grid.tsx` | `components/search/movie-search.tsx` if search posters are involved |
 | Stats page | `app/(shell)/stats/page.tsx` | `lib/db/queries/movies.ts` |
 | PWA manifest and icons | `app/manifest.ts`, `public/` | `app/layout.tsx` |
@@ -114,14 +116,17 @@ files, then inspect only direct imports, direct callers, or the relevant route b
 ### Library
 
 - Library route: `app/(shell)/library/page.tsx`
-  - Loads watched user titles with `listLibraryMoviesPage({ status: "watched" })`.
-  - Loads the lightweight watched summary with `getWatchedLibrarySummary()` for header and filter options.
+  - Loads watched media with `listMediaLibraryMoviesPage({ status: "watched", type })`.
+  - Loads the lightweight watched summary with `getMediaWatchedMovieLibrarySummary()` for header and filter options.
   - Loads `listTags()` because the watched filter sheet renders tag options immediately.
   - Renders `LibraryGrid`.
-- To Watch route: `app/(shell)/to-watch/page.tsx`
-  - Loads queued movies with `listLibraryMoviesPage({ status: "to_watch" })`.
+  - `/movies` redirects here via `app/(shell)/movies/page.tsx`.
+- Wishlist route: `app/(shell)/wishlist/page.tsx`
+  - Loads queued media with `listMediaLibraryMoviesPage({ status: "to_watch", type })`.
   - Defers `listTags()` until the user opens the bulk tag sheet.
-  - Reuses `LibraryGrid` with `pageStatus="to_watch"`.
+  - Reuses `LibraryGrid`.
+  - `/to-watch` redirects here via `app/(shell)/to-watch/page.tsx`.
+- Route params and filter parsing shared: `app/(shell)/library/library-route.ts`.
 - Grid UI, sorting, local filter sheet, grouping, selection: `components/library/library-grid.tsx`
   - Client component.
   - Sorts watched by watched date, rating, or title.
@@ -136,24 +141,27 @@ files, then inspect only direct imports, direct callers, or the relevant route b
 - Poster card navigation/selection: `components/movie/poster-card.tsx`
 - Bulk actions from a grid selection: `components/movie/bulk-actions-bar.tsx`
 
-### Movie read data
+### Movie and media read data
 
-- Library query owner: `lib/db/queries/movies.ts`
-  - `listLibraryMoviesPage()` joins `user_movies` to a minimal `movies` projection for grids.
-  - Paged library grid reads execute through the `list_library_movies_page(...)` RPC so watched-date
-    and tag filters stay in Postgres instead of intersecting movie-id sets in application memory.
+- Active library query owner: `lib/db/queries/media.ts`
+  - `listMediaLibraryMoviesPage()` calls the `list_media_library_movies_page(...)` RPC, which supports
+    both movie and show rows from `user_media` + `media_items`. This is the path the Library and
+    Wishlist pages use.
+  - `getMediaDetail()` loads a single `media_items` row plus `user_media`, `media_watch_activity`,
+    `user_media_tags`, and `media_provider_mappings` for detail screens.
+  - `getShowDetail()` wraps `getMediaDetail()` and appends episode + watch-activity data.
+  - `getEpisodeDetail()` loads a single episode plus its show context.
+  - `getMediaStatsInput()` loads analytics rows for stats.
+- Legacy movie query owner: `lib/db/queries/movies.ts`
+  - `listLibraryMoviesPage()` calls the `list_library_movies_page(...)` RPC against the legacy
+    `user_movies` + `movies` tables. Still used internally by some bulk/sync paths.
+  - `getMovieDetail()` hydrates per-movie tags through `user_movie_tags`.
   - `listUserMovies()` joins `user_movies` to full `movies` rows without hydrating tags.
-  - Both read helpers accept status, limit, offset, and watched-library filters.
-  - Genre/language/rating filters apply directly to `user_movies`/`movies`.
-  - The full-row `listUserMovies()` helper still resolves tag and watched year/month filters through
-    movie-id prefilters; the paged grid path does not.
   - Month filter keys are `YYYY-MM`; year filter keys are `YYYY`; month takes precedence.
-  - Watched date stays in a compact filter-sheet row and opens a date subview so rating and tags remain near the top.
-  - `getMovieDetail()` hydrates per-movie tags through `user_movie_tags` for tag-aware detail screens.
-  - If a route-level library filter is needed, this is the server query to extend.
-- Shared movie/user/tag types: `lib/db/types.ts`
+- Shared types: `lib/db/types.ts`
   - `LibraryMovie` is the shape passed to `LibraryGrid`.
-  - `Movie` includes `primary_genre_name`, `original_language`, `release_year`, and poster metadata.
+  - `MediaItem` is the shared show/movie metadata row.
+  - `Movie` is the legacy movie-only metadata row.
 - Tags query owner: `lib/db/queries/tags.ts`
 
 ### Stats
@@ -163,7 +171,7 @@ files, then inspect only direct imports, direct callers, or the relevant route b
   - Loads `getLibraryStats(tagFilter, yearFilter)` and `listTags()`.
   - Renders hero metrics, `MoviesOverTime`, genre breakdown, rating distribution, language breakdown, and tag breakdown.
   - Genre and language visual components currently live in this file.
-  - Genre and language breakdown items link to `/movies` with matching filters, the active watched year if present, and `from=stats`.
+  - Genre and language breakdown items link to `/library` with matching filters, the active watched year if present, and `from=stats`.
 - Time chart: `app/(shell)/stats/movies-over-time.tsx`
   - Client component.
   - Toggles month/year view internally for all-time stats.

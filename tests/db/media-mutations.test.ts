@@ -19,6 +19,14 @@ vi.mock("@/lib/supabase/server", () => ({
 
 vi.mock("@/lib/db/mutations/sync", () => ({
   createSyncEvent: mocks.createSyncEvent,
+  queueTraktPushEvent: (eventType: string, payload: Record<string, unknown>) =>
+    mocks.createSyncEvent({
+      direction: "push",
+      eventType,
+      payload,
+      provider: "trakt",
+      status: "pending",
+    }),
 }));
 
 vi.mock("@/lib/db/mutations/tags", () => ({

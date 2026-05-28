@@ -14,42 +14,8 @@ import {
   updateMovieRating,
   updateWatchLogDate,
 } from "@/lib/db/mutations";
-import { AppError } from "@/lib/errors";
 import type { TmdbMovieIngestPayload } from "@/lib/providers/tmdb/adapters";
-
-function normalizeTmdbId(value: number) {
-  if (!Number.isInteger(value) || value < 1) {
-    throw new AppError("Invalid TMDB movie id.", {
-      code: "VALIDATION_ERROR",
-      status: 400,
-    });
-  }
-
-  return value;
-}
-
-function watchDateToTimestamp(value: string) {
-  if (typeof value !== "string") {
-    throw new AppError("Invalid watch date.", {
-      code: "VALIDATION_ERROR",
-      status: 400,
-    });
-  }
-
-  const watchedDate = value.trim();
-
-  if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(watchedDate) ||
-    Number.isNaN(Date.parse(`${watchedDate}T00:00:00.000Z`))
-  ) {
-    throw new AppError("Invalid watch date.", {
-      code: "VALIDATION_ERROR",
-      status: 400,
-    });
-  }
-
-  return `${watchedDate}T12:00:00.000Z`;
-}
+import { normalizeTmdbId, watchDateToTimestamp } from "../action-utils";
 
 function revalidateMovieState(movieId: string) {
   revalidatePath(`/movie/${movieId}`);

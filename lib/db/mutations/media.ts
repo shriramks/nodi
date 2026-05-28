@@ -8,7 +8,6 @@ import {
 import type {
   Episode,
   EpisodeInsert,
-  Json,
   MediaItem,
   MediaItemInsert,
   MediaProviderMappingInsert,
@@ -31,10 +30,9 @@ import {
 } from "@/lib/providers/tmdb/adapters";
 import type { TmdbTvDetails, TmdbTvSeasonDetails } from "@/lib/providers/tmdb/client";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSyncEvent } from "./sync";
+import { objectPayload } from "@/lib/utils/invariant";
+import { queueTraktPushEvent } from "./sync";
 import { upsertTag } from "./tags";
-
-type TraktSyncPayload = Record<string, Json>;
 
 type MediaMovieWatchStatusResult = {
   userMedia: UserMedia;
@@ -57,22 +55,6 @@ type ExistingEpisodeMappingRow = {
   episode_id: string | null;
   provider_id: string;
 };
-
-function objectPayload(payload: unknown): Record<string, unknown> {
-  return payload && typeof payload === "object" && !Array.isArray(payload)
-    ? (payload as Record<string, unknown>)
-    : {};
-}
-
-async function queueTraktSyncEvent(eventType: string, payload: TraktSyncPayload) {
-  await createSyncEvent({
-    provider: "trakt",
-    direction: "push",
-    eventType,
-    status: "pending",
-    payload,
-  });
-}
 
 function buildUserMediaMovieStatusPayload({
   action,
@@ -369,7 +351,7 @@ export async function setMediaShowStatus(
   }
 
   if (status === "wishlist") {
-    await queueTraktSyncEvent("show.add_to_watchlist", {
+    await queueTraktPushEvent("show.add_to_watchlist", {
       showId: id,
       userMediaId: data.id,
       watchlistedAt: data.watchlisted_at ?? now,
@@ -406,7 +388,7 @@ export async function removeUserMediaShow(showId: string): Promise<void> {
   }
 
   if (existingUserMedia?.status === "wishlist") {
-    await queueTraktSyncEvent("show.remove_from_watchlist", {
+    await queueTraktPushEvent("show.remove_from_watchlist", {
       showId: id,
       userMediaId: existingUserMedia.id,
     });
@@ -718,7 +700,7 @@ export async function markMediaEpisodeWatched(
   });
 
   if (shouldQueueOutboundSync(payload.source)) {
-    await queueTraktSyncEvent("episode.mark_watched", {
+    await queueTraktPushEvent("episode.mark_watched", {
       episodeId: id,
       showId: mediaId,
       userMediaId: userMedia.id,
@@ -817,7 +799,7 @@ export async function markMediaSeasonWatched(
 
     await Promise.all(
       rows.map((row) =>
-        queueTraktSyncEvent("episode.mark_watched", {
+        queueTraktPushEvent("episode.mark_watched", {
           episodeId: row.episode_id,
           showId: mediaId,
           watchedAt,
@@ -853,7 +835,7 @@ export async function markMediaEpisodeUnwatched(
     throwDatabaseError("Failed to mark episode unwatched.", error);
   }
 
-  await queueTraktSyncEvent("episode.remove_from_history", {
+  await queueTraktPushEvent("episode.remove_from_history", {
     episodeId: id,
     showId: mediaId,
   });
@@ -978,7 +960,7 @@ export async function setMediaMovieWatchStatus(
 
   if (action.status === "to_watch") {
     if (shouldQueueOutboundSync(action.source)) {
-      await queueTraktSyncEvent("movie.add_to_watchlist", {
+      await queueTraktPushEvent("movie.add_to_watchlist", {
         movieId: action.movieId,
         userMovieId: initialUserMedia.id,
         watchlistedAt: initialUserMedia.watchlisted_at ?? now,
@@ -1019,7 +1001,7 @@ export async function setMediaMovieWatchStatus(
   }
 
   if (shouldQueueOutboundSync(action.source)) {
-    await queueTraktSyncEvent("movie.mark_watched", {
+    await queueTraktPushEvent("movie.mark_watched", {
       movieId: action.movieId,
       userMovieId: userMedia.id,
       watchLogId: watchActivity.id,
@@ -1096,7 +1078,7 @@ export async function addMediaMovieWatchDate(
   }
 
   if (shouldQueueOutboundSync(action.source)) {
-    await queueTraktSyncEvent("movie.add_watch_date", {
+    await queueTraktPushEvent("movie.add_watch_date", {
       movieId: id,
       userMovieId: userMedia.id,
       watchLogId: watchActivity.id,
@@ -1137,25 +1119,35 @@ export async function removeUserMediaMovie(movieId: string): Promise<void> {
   }
 
   if (existingUserMedia?.status === "wishlist") {
-    await queueTraktSyncEvent("movie.remove_from_watchlist", {
+    await queueTraktPushEvent("movie.remove_from_watchlist", {
       movieId: id,
       userMovieId: existingUserMedia.id,
     });
   } else if (existingUserMedia?.status === "watched") {
-    await queueTraktSyncEvent("movie.remove_from_library", {
+    await queueTraktPushEvent("movie.remove_from_library", {
       movieId: id,
       userMovieId: existingUserMedia.id,
     });
   }
 }
 
-export async function updateMediaMovieRating(
-  movieId: string,
+type MediaRatingSyncSpec = {
+  idKey: string;
+  userIdKey: string;
+  setEvent: string;
+  clearEvent: string;
+  notFoundMessage: string;
+};
+
+async function updateMediaRating(
+  mediaId: string,
+  idLabel: string,
   payload: unknown,
+  spec: MediaRatingSyncSpec,
 ): Promise<UserMedia> {
   const user = await requireUser();
   const supabase = await createSupabaseServerClient();
-  const id = validateUuid(movieId, "movieId");
+  const id = validateUuid(mediaId, idLabel);
   const rating = validateRatingPayload(payload);
 
   const { data, error } = await supabase
@@ -1171,62 +1163,51 @@ export async function updateMediaMovieRating(
   }
 
   if (!data) {
-    throwNotFound("Media item is not in the user's library.");
+    throwNotFound(spec.notFoundMessage);
   }
 
-  await queueTraktSyncEvent(
-    rating.personalRating === null ? "movie.rating.clear" : "movie.rating.set",
+  await queueTraktPushEvent(
+    rating.personalRating === null ? spec.clearEvent : spec.setEvent,
     {
-      movieId: id,
-      userMovieId: data.id,
+      [spec.idKey]: id,
+      [spec.userIdKey]: data.id,
       personalRating: rating.personalRating,
     },
   );
 
   return data;
+}
+
+export async function updateMediaMovieRating(
+  movieId: string,
+  payload: unknown,
+): Promise<UserMedia> {
+  return updateMediaRating(movieId, "movieId", payload, {
+    idKey: "movieId",
+    userIdKey: "userMovieId",
+    setEvent: "movie.rating.set",
+    clearEvent: "movie.rating.clear",
+    notFoundMessage: "Media item is not in the user's library.",
+  });
 }
 
 export async function updateMediaShowRating(
   showId: string,
   payload: unknown,
 ): Promise<UserMedia> {
-  const user = await requireUser();
-  const supabase = await createSupabaseServerClient();
-  const id = validateUuid(showId, "showId");
-  const rating = validateRatingPayload(payload);
-
-  const { data, error } = await supabase
-    .from("user_media")
-    .update({ personal_rating: rating.personalRating })
-    .eq("user_id", user.id)
-    .eq("media_id", id)
-    .select("*")
-    .maybeSingle();
-
-  if (error) {
-    throwDatabaseError("Failed to update show rating.", error);
-  }
-
-  if (!data) {
-    throwNotFound("Show is not in the user's library.");
-  }
-
-  await queueTraktSyncEvent(
-    rating.personalRating === null ? "show.rating.clear" : "show.rating.set",
-    {
-      personalRating: rating.personalRating,
-      showId: id,
-      userMediaId: data.id,
-    },
-  );
-
-  return data;
+  return updateMediaRating(showId, "showId", payload, {
+    idKey: "showId",
+    userIdKey: "userMediaId",
+    setEvent: "show.rating.set",
+    clearEvent: "show.rating.clear",
+    notFoundMessage: "Show is not in the user's library.",
+  });
 }
 
-export async function attachTagToMediaMovie(movieId: string, tagId: string) {
+async function attachTagToMedia(mediaId: string, tagId: string) {
   const user = await requireUser();
   const supabase = await createSupabaseServerClient();
-  const validatedMovieId = validateUuid(movieId, "movieId");
+  const validatedMediaId = validateUuid(mediaId, "mediaId");
   const validatedTagId = validateUuid(tagId, "tagId");
 
   const { data, error } = await supabase
@@ -1234,7 +1215,7 @@ export async function attachTagToMediaMovie(movieId: string, tagId: string) {
     .upsert(
       {
         user_id: user.id,
-        media_id: validatedMovieId,
+        media_id: validatedMediaId,
         tag_id: validatedTagId,
       },
       { onConflict: "user_id,media_id,tag_id" },
@@ -1249,97 +1230,65 @@ export async function attachTagToMediaMovie(movieId: string, tagId: string) {
   return data;
 }
 
-export async function createAndAttachTagToMediaMovie(movieId: string, payload: unknown) {
-  const tag = await upsertTag(payload);
-  const userMediaTag = await attachTagToMediaMovie(movieId, tag.id);
-
-  await queueTraktSyncEvent("movie.tag.add", {
-    movieId,
-    tagId: tag.id,
-    tagName: tag.name,
-  });
-
-  return {
-    tag,
-    userMediaTag,
-  };
-}
-
-export async function detachTagFromMediaMovie(movieId: string, tagId: string) {
+async function detachTagFromMedia(mediaId: string, tagId: string) {
   const user = await requireUser();
   const supabase = await createSupabaseServerClient();
-  const validatedMovieId = validateUuid(movieId, "movieId");
+  const validatedMediaId = validateUuid(mediaId, "mediaId");
   const validatedTagId = validateUuid(tagId, "tagId");
 
   const { error } = await supabase
     .from("user_media_tags")
     .delete()
     .eq("user_id", user.id)
-    .eq("media_id", validatedMovieId)
+    .eq("media_id", validatedMediaId)
     .eq("tag_id", validatedTagId);
 
   if (error) {
     throwDatabaseError("Failed to detach tag from media.", error);
   }
 
-  await queueTraktSyncEvent("movie.tag.remove", {
-    movieId: validatedMovieId,
+  return { validatedMediaId, validatedTagId };
+}
+
+export async function attachTagToMediaMovie(movieId: string, tagId: string) {
+  return attachTagToMedia(movieId, tagId);
+}
+
+export async function createAndAttachTagToMediaMovie(movieId: string, payload: unknown) {
+  const tag = await upsertTag(payload);
+  const userMediaTag = await attachTagToMedia(movieId, tag.id);
+
+  await queueTraktPushEvent("movie.tag.add", {
+    movieId,
+    tagId: tag.id,
+    tagName: tag.name,
+  });
+
+  return { tag, userMediaTag };
+}
+
+export async function detachTagFromMediaMovie(movieId: string, tagId: string) {
+  const { validatedMediaId, validatedTagId } = await detachTagFromMedia(movieId, tagId);
+
+  await queueTraktPushEvent("movie.tag.remove", {
+    movieId: validatedMediaId,
     tagId: validatedTagId,
   });
 }
 
 export async function attachTagToMediaShow(showId: string, tagId: string) {
-  const user = await requireUser();
-  const supabase = await createSupabaseServerClient();
-  const validatedShowId = validateUuid(showId, "showId");
-  const validatedTagId = validateUuid(tagId, "tagId");
-
-  const { data, error } = await supabase
-    .from("user_media_tags")
-    .upsert(
-      {
-        user_id: user.id,
-        media_id: validatedShowId,
-        tag_id: validatedTagId,
-      },
-      { onConflict: "user_id,media_id,tag_id" },
-    )
-    .select("*")
-    .single();
-
-  if (error) {
-    throwDatabaseError("Failed to attach tag to show.", error);
-  }
-
-  return data;
+  return attachTagToMedia(showId, tagId);
 }
 
 export async function createAndAttachTagToMediaShow(showId: string, payload: unknown) {
   const tag = await upsertTag(payload);
-  const userMediaTag = await attachTagToMediaShow(showId, tag.id);
+  const userMediaTag = await attachTagToMedia(showId, tag.id);
 
-  return {
-    tag,
-    userMediaTag,
-  };
+  return { tag, userMediaTag };
 }
 
 export async function detachTagFromMediaShow(showId: string, tagId: string) {
-  const user = await requireUser();
-  const supabase = await createSupabaseServerClient();
-  const validatedShowId = validateUuid(showId, "showId");
-  const validatedTagId = validateUuid(tagId, "tagId");
-
-  const { error } = await supabase
-    .from("user_media_tags")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("media_id", validatedShowId)
-    .eq("tag_id", validatedTagId);
-
-  if (error) {
-    throwDatabaseError("Failed to detach tag from show.", error);
-  }
+  await detachTagFromMedia(showId, tagId);
 }
 
 export async function deleteMediaMovieWatchActivity(

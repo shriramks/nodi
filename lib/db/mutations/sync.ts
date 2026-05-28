@@ -143,6 +143,19 @@ export async function createSyncEvent(payload: unknown): Promise<SyncEvent> {
   return data;
 }
 
+export async function queueTraktPushEvent(
+  eventType: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  await createSyncEvent({
+    provider: "trakt",
+    direction: "push",
+    eventType,
+    status: "pending",
+    payload,
+  });
+}
+
 export async function updateSyncEventStatus(
   eventId: string,
   payload: {

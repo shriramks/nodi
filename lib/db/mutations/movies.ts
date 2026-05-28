@@ -3,7 +3,6 @@ import "server-only";
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError, throwNotFound } from "@/lib/db/errors";
 import type {
-  Json,
   Movie,
   MovieCastMemberInsert,
   ProviderMappingInsert,
@@ -26,25 +25,8 @@ import {
 } from "@/lib/providers/tmdb/adapters";
 import type { TmdbMovieCredits, TmdbMovieDetails } from "@/lib/providers/tmdb/client";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSyncEvent } from "./sync";
-
-type TraktSyncPayload = Record<string, Json>;
-
-async function queueTraktSyncEvent(eventType: string, payload: TraktSyncPayload) {
-  await createSyncEvent({
-    provider: "trakt",
-    direction: "push",
-    eventType,
-    status: "pending",
-    payload,
-  });
-}
-
-function objectPayload(payload: unknown): Record<string, unknown> {
-  return payload && typeof payload === "object" && !Array.isArray(payload)
-    ? (payload as Record<string, unknown>)
-    : {};
-}
+import { objectPayload } from "@/lib/utils/invariant";
+import { queueTraktPushEvent } from "./sync";
 
 type MovieWatchStateMutationRow = {
   user_movie: UserMovie;
@@ -250,12 +232,12 @@ export async function removeUserMovie(movieId: string): Promise<void> {
   }
 
   if (existingUserMovie?.status === "to_watch") {
-    await queueTraktSyncEvent("movie.remove_from_watchlist", {
+    await queueTraktPushEvent("movie.remove_from_watchlist", {
       movieId: id,
       userMovieId: existingUserMovie.id,
     });
   } else if (existingUserMovie?.status === "watched") {
-    await queueTraktSyncEvent("movie.remove_from_library", {
+    await queueTraktPushEvent("movie.remove_from_library", {
       movieId: id,
       userMovieId: existingUserMovie.id,
     });
@@ -284,7 +266,7 @@ export async function updateMovieRating(movieId: string, payload: unknown): Prom
     throwNotFound("Movie is not in the user's library.");
   }
 
-  await queueTraktSyncEvent(
+  await queueTraktPushEvent(
     rating.personalRating === null ? "movie.rating.clear" : "movie.rating.set",
     {
       movieId: id,

@@ -2,25 +2,13 @@ import "server-only";
 
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError } from "@/lib/db/errors";
-import type { Json, Tag } from "@/lib/db/types";
+import type { Tag } from "@/lib/db/types";
 import { validateTagPayload, validateUuid } from "@/lib/db/validation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSyncEvent } from "./sync";
-
-type TraktSyncPayload = Record<string, Json>;
+import { queueTraktPushEvent } from "./sync";
 
 function normalizeTagName(name: string) {
   return name.trim().replace(/\s+/g, " ").toLowerCase();
-}
-
-async function queueTraktSyncEvent(eventType: string, payload: TraktSyncPayload) {
-  await createSyncEvent({
-    provider: "trakt",
-    direction: "push",
-    eventType,
-    status: "pending",
-    payload,
-  });
 }
 
 export async function upsertTag(payload: unknown): Promise<Tag> {
@@ -78,7 +66,7 @@ export async function createAndAttachTag(movieId: string, payload: unknown) {
   const tag = await upsertTag(payload);
   const userMovieTag = await attachTagToMovie(movieId, tag.id);
 
-  await queueTraktSyncEvent("movie.tag.add", {
+  await queueTraktPushEvent("movie.tag.add", {
     movieId,
     tagId: tag.id,
     tagName: tag.name,
@@ -107,7 +95,7 @@ export async function detachTagFromMovie(movieId: string, tagId: string) {
     throwDatabaseError("Failed to detach tag from movie.", error);
   }
 
-  await queueTraktSyncEvent("movie.tag.remove", {
+  await queueTraktPushEvent("movie.tag.remove", {
     movieId: validatedMovieId,
     tagId: validatedTagId,
   });
