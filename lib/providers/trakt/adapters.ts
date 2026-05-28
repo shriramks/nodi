@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Episode, MediaItem, MediaProviderMapping, Movie, ProviderMapping } from "@/lib/db/types";
+import type { Episode, MediaItem, MediaProviderMapping } from "@/lib/db/types";
 import type {
   TraktEpisode,
   TraktEpisodeIds,
@@ -18,10 +18,7 @@ import type {
   TraktWatchlistShow,
 } from "@/lib/providers/trakt/client";
 
-export type LocalMovieForTrakt = Pick<
-  Movie,
-  "id" | "imdb_id" | "release_year" | "title" | "tmdb_id"
->;
+export type LocalMovieForTrakt = Pick<MediaItem, "id" | "release_year" | "title">;
 
 export type LocalShowForTrakt = Pick<
   MediaItem,
@@ -86,28 +83,21 @@ export type RemoteTraktEpisodeHistoryState = {
 };
 
 export function toTraktMovieIds(
-  movie: LocalMovieForTrakt,
-  mappings: ProviderMapping[] = [],
+  mappings: MediaProviderMapping[] = [],
 ): TraktMovieIds {
-  const ids: TraktMovieIds = {
-    tmdb: movie.tmdb_id,
-  };
-
-  if (movie.imdb_id) {
-    ids.imdb = movie.imdb_id;
-  }
+  const ids: TraktMovieIds = {};
 
   mappings.forEach((mapping) => {
     if (mapping.provider === "trakt") {
-      const traktId = Number(mapping.provider_movie_id);
+      const traktId = Number(mapping.provider_id);
 
       if (Number.isInteger(traktId) && traktId > 0) {
         ids.trakt = traktId;
       }
-    } else if (mapping.provider === "imdb" && mapping.provider_movie_id) {
-      ids.imdb = mapping.provider_movie_id;
+    } else if (mapping.provider === "imdb" && mapping.provider_id) {
+      ids.imdb = mapping.provider_id;
     } else if (mapping.provider === "tmdb") {
-      const tmdbId = Number(mapping.provider_movie_id);
+      const tmdbId = Number(mapping.provider_id);
 
       if (Number.isInteger(tmdbId) && tmdbId > 0) {
         ids.tmdb = tmdbId;
@@ -173,12 +163,12 @@ export function toTraktEpisodeIds(
 
 export function toTraktSyncMovie(
   movie: LocalMovieForTrakt,
-  mappings: ProviderMapping[] = [],
+  mappings: MediaProviderMapping[] = [],
 ): TraktSyncMovie {
   return {
     title: movie.title,
     year: movie.release_year,
-    ids: toTraktMovieIds(movie, mappings),
+    ids: toTraktMovieIds(mappings),
   };
 }
 
@@ -223,7 +213,7 @@ export function toTraktHistoryEpisode(
 export function toTraktHistoryMovie(
   movie: LocalMovieForTrakt,
   watchedAt: string,
-  mappings: ProviderMapping[] = [],
+  mappings: MediaProviderMapping[] = [],
 ): TraktSyncMovie {
   return {
     ...toTraktSyncMovie(movie, mappings),
@@ -235,7 +225,7 @@ export function toTraktRatedMovie(
   movie: LocalMovieForTrakt,
   rating: number,
   ratedAt: string,
-  mappings: ProviderMapping[] = [],
+  mappings: MediaProviderMapping[] = [],
 ): TraktSyncMovie {
   return {
     ...toTraktSyncMovie(movie, mappings),

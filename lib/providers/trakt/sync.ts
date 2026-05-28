@@ -9,15 +9,11 @@ import type {
   Json,
   Episode,
   MediaItem,
+  MediaItemInsert,
   MediaProviderMapping,
   MediaProviderMappingInsert,
   MediaStatus,
   MediaWatchActivityInsert,
-  Movie,
-  MovieInsert,
-  ProviderMapping,
-  ProviderMappingInsert,
-  ProviderMappingProvider,
   SyncDirection,
   SyncEvent,
   SyncItemFailure,
@@ -25,9 +21,6 @@ import type {
   SyncRunStatus,
   Tag,
   TagInsert,
-  UserMovie,
-  UserMovieInsert,
-  WatchLogInsert,
 } from "@/lib/db/types";
 import { AppError, getErrorMessage, isAppError } from "@/lib/errors";
 import {
@@ -154,7 +147,7 @@ type SyncProgressPayload = {
 type CursorMap = Map<string, string>;
 type SyncRunTerminalStatus = Exclude<SyncRunStatus, "running">;
 type SyncRunContext = { runId: string; userId: string };
-type ProviderCandidate = { id: string; provider: ProviderMappingProvider };
+type ProviderCandidate = { id: string; provider: "imdb" | "tmdb" | "trakt" };
 type TraktListItemKind = "movie" | "show";
 type RemoteHistoryState = {
   item: TraktHistoryMovie;
@@ -231,13 +224,6 @@ type EpisodeResolutionResult = {
   episodeIdByRemoteKey: Map<string, string>;
   failedRemoteKeys: Map<string, string>;
   remoteEpisodesByKey: Map<string, RemoteTraktEpisodeState>;
-};
-type UserMovieDraft = {
-  lastWatchedAt: string | null;
-  movieId: string;
-  personalRating: number | null;
-  status: "to_watch" | "watched";
-  watchlistedAt: string | null;
 };
 type UserMediaDraft = {
   completedAt: string | null;
@@ -838,7 +824,7 @@ export async function pullTraktSyncWithOptions(
         total: progressTotal,
       });
 
-      await upsertResolvedProviderMappings(movieResolution, result, runContext);
+      await upsertResolvedMovieProviderMappings(movieResolution, result, runContext);
       progressCurrent += 1;
       await updateTraktSyncRunProgress(user.id, run.id, {
         current: progressCurrent,
@@ -888,7 +874,7 @@ export async function pullTraktSyncWithOptions(
         movieResolution.movieIdByRemoteKey.values(),
         runContext,
       )
-      : new Map<string, UserMovieDraft>();
+      : new Map<string, UserMediaDraft>();
     const existingUserMedia = await loadUserMediaMap(
       user.id,
       showResolution.mediaIdByRemoteKey.values(),
@@ -920,8 +906,7 @@ export async function pullTraktSyncWithOptions(
 
       await upsertUserMovieDrafts(user.id, historyPlan.upserts, result, runContext);
       applyUserMoviePlanToMap(existingUserMovies, historyPlan);
-      const historyLogs = buildWatchLogInserts(user.id, historyStates, movieResolution);
-      await insertWatchLogs(user.id, historyLogs, result, runContext);
+      await insertMediaWatchActivity(user.id, historyPlan.watchActivityRows, result, runContext);
       await flushPendingPullItemFailures(runContext, result);
       await storeHistoryCheckpoint(runContext, {
         changed: historyStates.length > 0,
@@ -951,7 +936,7 @@ export async function pullTraktSyncWithOptions(
         watchlistStates: activeWatchlistStates,
       });
 
-      await deleteUserMovies(user.id, watchlistPlan.deleteMovieIds, result, runContext);
+      await deleteUserMedia(user.id, watchlistPlan.deleteMediaIds, result, runContext);
       await upsertUserMovieDrafts(user.id, watchlistPlan.upserts, result, runContext);
       applyUserMoviePlanToMap(existingUserMovies, watchlistPlan);
       await flushPendingPullItemFailures(runContext, result);
@@ -2342,74 +2327,45 @@ async function resolveRemoteMovies({
     }
   }
 
-  const providerMappings = await loadProviderMappingMap(
+  const mappings = await loadMediaProviderMappingMap(
     Array.from(remoteMoviesByKey.values()),
     remoteKeys,
+    "movie",
     run,
   );
-  const mappedMovieIds = new Set(
-    Array.from(providerMappings.values()).map((mapping) => mapping.movie_id),
+  const mediaIds = new Set(
+    Array.from(mappings.values()).flatMap((mapping) => mapping.media_id ? [mapping.media_id] : []),
   );
-  const moviesById = await loadMovieMapByIds(mappedMovieIds, run);
-  const moviesByTmdb = await loadMovieMapByTmdbIds(
-    Array.from(remoteMoviesByKey.values())
-      .map((movie) => movie.tmdbId)
-      .filter((tmdbId): tmdbId is number => tmdbId !== null),
-    run,
-  );
-  const moviesByImdb = await loadMovieMapByImdbIds(
-    Array.from(remoteMoviesByKey.values())
-      .map((movie) => movie.imdbId)
-      .filter((imdbId): imdbId is string => imdbId !== null),
-    run,
-  );
+  const moviesById = await loadMediaItemMapByIds(mediaIds, run);
   const movieIdByRemoteKey = new Map<string, string>();
   const failedRemoteKeys = new Map<string, string>();
-  const unknownByTmdb = new Map<number, RemoteTraktMovieState>();
+  const unknownMovies: RemoteTraktMovieState[] = [];
 
   for (const key of remoteKeys) {
     const candidate = parseRemoteKey(key);
-    const mappedMovieId = candidate
-      ? providerMappings.get(candidateMapKey(candidate))?.movie_id
+    const mediaId = candidate
+      ? mappings.get(candidateMapKey(candidate))?.media_id
       : null;
 
-    if (mappedMovieId && moviesById.has(mappedMovieId)) {
-      movieIdByRemoteKey.set(key, mappedMovieId);
+    if (mediaId && moviesById.has(mediaId)) {
+      movieIdByRemoteKey.set(key, mediaId);
     }
   }
 
   for (const movie of remoteMoviesByKey.values()) {
-    const mappedMovie = findMappedMovie(movie, providerMappings, moviesById);
+    const mappedItem = findMappedMediaItem(movie, mappings, moviesById);
 
-    if (mappedMovie) {
-      movieIdByRemoteKey.set(movie.key, mappedMovie.id);
+    if (mappedItem) {
+      movieIdByRemoteKey.set(movie.key, mappedItem.id);
       continue;
     }
 
-    const movieByTmdb = movie.tmdbId ? moviesByTmdb.get(movie.tmdbId) : null;
-
-    if (movieByTmdb) {
-      movieIdByRemoteKey.set(movie.key, movieByTmdb.id);
-      continue;
-    }
-
-    const movieByImdb = movie.imdbId ? moviesByImdb.get(movie.imdbId) : null;
-
-    if (movieByImdb) {
-      movieIdByRemoteKey.set(movie.key, movieByImdb.id);
-      continue;
-    }
-
-    if (movie.tmdbId && !unknownByTmdb.has(movie.tmdbId)) {
-      unknownByTmdb.set(movie.tmdbId, movie);
+    if (movie.tmdbId && !unknownMovies.some((m) => m.tmdbId === movie.tmdbId)) {
+      unknownMovies.push(movie);
     }
   }
 
-  const insertedMoviesByTmdb = await upsertMinimalTraktMovies(
-    Array.from(unknownByTmdb.values()),
-    result,
-    run,
-  );
+  const insertedMoviesByTmdb = await upsertMinimalTraktMovies(unknownMovies, result, run);
 
   for (const movie of remoteMoviesByKey.values()) {
     if (movieIdByRemoteKey.has(movie.key)) {
@@ -2420,7 +2376,7 @@ async function resolveRemoteMovies({
 
     if (insertedMovie) {
       movieIdByRemoteKey.set(movie.key, insertedMovie.id);
-    } else if (movie.tmdbId && unknownByTmdb.has(movie.tmdbId)) {
+    } else if (movie.tmdbId && unknownMovies.some((m) => m.tmdbId === movie.tmdbId)) {
       failedRemoteKeys.set(movie.key, `Failed to create TMDB ${movie.tmdbId}.`);
     }
   }
@@ -2432,284 +2388,120 @@ async function resolveRemoteMovies({
   };
 }
 
-async function loadProviderMappingMap(
-  remoteMovies: RemoteTraktMovieState[],
-  remoteKeys: string[],
-  run: SyncRunContext,
-) {
-  const candidates = new Map<string, ProviderCandidate>();
-
-  for (const movie of remoteMovies) {
-    for (const candidate of providerCandidates(movie)) {
-      candidates.set(candidateMapKey(candidate), candidate);
-    }
-  }
-
-  for (const key of remoteKeys) {
-    const candidate = parseRemoteKey(key);
-
-    if (candidate) {
-      candidates.set(candidateMapKey(candidate), candidate);
-    }
-  }
-
-  const idsByProvider = new Map<ProviderMappingProvider, Set<string>>();
-
-  for (const candidate of candidates.values()) {
-    const ids = idsByProvider.get(candidate.provider) ?? new Set<string>();
-
-    ids.add(candidate.id);
-    idsByProvider.set(candidate.provider, ids);
-  }
-
-  const mappings = new Map<string, ProviderMapping>();
-  const supabase = createSupabaseAdminClient();
-
-  for (const [providerName, ids] of idsByProvider.entries()) {
-    for (const idChunk of chunkArray(Array.from(ids), dbReadChunkSize)) {
-      await assertTraktSyncRunActive(run.userId, run.runId);
-      const { data, error } = await supabase
-        .from("provider_mappings")
-        .select("*")
-        .eq("provider", providerName)
-        .in("provider_movie_id", idChunk);
-
-      if (error) {
-        throwDatabaseError("Failed to bulk load provider mappings.", error);
-      }
-
-      for (const mapping of data ?? []) {
-        mappings.set(
-          candidateMapKey({
-            id: mapping.provider_movie_id,
-            provider: mapping.provider,
-          }),
-          mapping,
-        );
-      }
-    }
-  }
-
-  return mappings;
-}
-
-async function loadMovieMapByIds(ids: Iterable<string>, run: SyncRunContext) {
-  const movies = new Map<string, Movie>();
-  const supabase = createSupabaseAdminClient();
-
-  for (const idChunk of chunkArray(uniqueArray(ids), dbReadChunkSize)) {
-    await assertTraktSyncRunActive(run.userId, run.runId);
-    const { data, error } = await supabase.from("movies").select("*").in("id", idChunk);
-
-    if (error) {
-      throwDatabaseError("Failed to bulk load mapped movies.", error);
-    }
-
-    for (const movie of data ?? []) {
-      movies.set(movie.id, movie);
-    }
-  }
-
-  return movies;
-}
-
-async function loadMovieMapByTmdbIds(ids: Iterable<number>, run: SyncRunContext) {
-  const movies = new Map<number, Movie>();
-  const supabase = createSupabaseAdminClient();
-
-  for (const idChunk of chunkArray(uniqueArray(ids), dbReadChunkSize)) {
-    await assertTraktSyncRunActive(run.userId, run.runId);
-    const { data, error } = await supabase.from("movies").select("*").in("tmdb_id", idChunk);
-
-    if (error) {
-      throwDatabaseError("Failed to bulk load TMDB movies.", error);
-    }
-
-    for (const movie of data ?? []) {
-      movies.set(movie.tmdb_id, movie);
-    }
-  }
-
-  return movies;
-}
-
-async function loadMovieMapByImdbIds(ids: Iterable<string>, run: SyncRunContext) {
-  const movies = new Map<string, Movie>();
-  const supabase = createSupabaseAdminClient();
-
-  for (const idChunk of chunkArray(uniqueArray(ids), dbReadChunkSize)) {
-    await assertTraktSyncRunActive(run.userId, run.runId);
-    const { data, error } = await supabase.from("movies").select("*").in("imdb_id", idChunk);
-
-    if (error) {
-      throwDatabaseError("Failed to bulk load IMDb movies.", error);
-    }
-
-    for (const movie of data ?? []) {
-      if (movie.imdb_id) {
-        movies.set(movie.imdb_id, movie);
-      }
-    }
-  }
-
-  return movies;
-}
 
 async function upsertMinimalTraktMovies(
   remoteMovies: RemoteTraktMovieState[],
   result: PullResult,
   run: SyncRunContext,
 ) {
-  const movies = new Map<number, Movie>();
-  const rows: MovieInsert[] = remoteMovies
-    .filter((movie): movie is RemoteTraktMovieState & { tmdbId: number } => movie.tmdbId !== null)
-    .map((movie) => ({
-      imdb_id: movie.imdbId,
-      title: movie.title?.trim() || `TMDB ${movie.tmdbId}`,
-      tmdb_id: movie.tmdbId,
-    }));
+  const mediaByTmdb = new Map<number, MediaItem>();
+  const moviesWithTmdb = remoteMovies.filter(
+    (movie): movie is RemoteTraktMovieState & { tmdbId: number } => movie.tmdbId !== null,
+  );
+  const rows: MediaItemInsert[] = moviesWithTmdb.map((movie) => ({
+    metadata_updated_at: new Date().toISOString(),
+    release_year: movie.year,
+    title: movie.title?.trim() || `TMDB ${movie.tmdbId}`,
+    type: "movie" as const,
+  }));
   const supabase = createSupabaseAdminClient();
 
-  for (const rowChunk of chunkArray(rows, dbWriteChunkSize)) {
+  for (const [chunkIndex, rowChunk] of chunkArray(rows, dbWriteChunkSize).entries()) {
     await assertTraktSyncRunActive(run.userId, run.runId);
-    const { data, error } = await supabase
-      .from("movies")
-      .upsert(rowChunk, { onConflict: "tmdb_id" })
-      .select("*");
+    const { data, error } = await supabase.from("media_items").insert(rowChunk).select("*");
 
-    if (!error) {
-      for (const movie of data ?? []) {
-        movies.set(movie.tmdb_id, movie);
-      }
+    if (error) {
+      recordPullFailure(result, "metadata", "minimal-movies", error);
       continue;
     }
 
-    for (const row of rowChunk) {
-      await assertTraktSyncRunActive(run.userId, run.runId);
-      const { data: fallbackMovie, error: fallbackError } = await supabase
-        .from("movies")
-        .upsert(row, { onConflict: "tmdb_id" })
-        .select("*")
-        .single();
+    data?.forEach((item, index) => {
+      const remoteMovie = moviesWithTmdb[(chunkIndex * dbWriteChunkSize) + index];
 
-      if (fallbackError) {
-        recordPullFailure(result, "metadata", `tmdb:${row.tmdb_id}`, fallbackError);
-      } else {
-        movies.set(fallbackMovie.tmdb_id, fallbackMovie);
+      if (remoteMovie) {
+        mediaByTmdb.set(remoteMovie.tmdbId, item as MediaItem);
       }
-    }
+    });
   }
 
-  return movies;
-}
+  const mappingRows: MediaProviderMappingInsert[] = [];
 
-function findMappedMovie(
-  remoteMovie: RemoteTraktMovieState,
-  mappings: Map<string, ProviderMapping>,
-  moviesById: Map<string, Movie>,
-) {
-  for (const candidate of providerCandidates(remoteMovie)) {
-    const movieId = mappings.get(candidateMapKey(candidate))?.movie_id;
+  for (const [tmdbId, item] of mediaByTmdb.entries()) {
+    const remoteMovie = moviesWithTmdb.find((m) => m.tmdbId === tmdbId);
 
-    if (movieId) {
-      const movie = moviesById.get(movieId);
-
-      if (movie) {
-        return movie;
-      }
-    }
-  }
-
-  return null;
-}
-
-async function upsertResolvedProviderMappings(
-  resolution: MovieResolutionResult,
-  result: PullResult,
-  run: SyncRunContext,
-) {
-  const mappings = buildProviderMappingInserts(resolution);
-  const movieIdsByProvider = new Map<ProviderMappingProvider, Set<string>>();
-  const supabase = createSupabaseAdminClient();
-
-  for (const mapping of mappings) {
-    const ids = movieIdsByProvider.get(mapping.provider) ?? new Set<string>();
-
-    ids.add(mapping.movie_id);
-    movieIdsByProvider.set(mapping.provider, ids);
-  }
-
-  for (const [providerName, movieIds] of movieIdsByProvider.entries()) {
-    for (const movieIdChunk of chunkArray(Array.from(movieIds), dbWriteChunkSize)) {
-      await assertTraktSyncRunActive(run.userId, run.runId);
-      const { error } = await supabase
-        .from("provider_mappings")
-        .delete()
-        .eq("provider", providerName)
-        .in("movie_id", movieIdChunk);
-
-      if (error) {
-        throwDatabaseError("Failed to replace Trakt provider mappings.", error);
-      }
-    }
-  }
-
-  for (const mappingChunk of chunkArray(mappings, dbWriteChunkSize)) {
-    await assertTraktSyncRunActive(run.userId, run.runId);
-    const { error } = await supabase
-      .from("provider_mappings")
-      .upsert(mappingChunk, { onConflict: "provider,provider_movie_id" });
-
-    if (!error) {
+    if (!remoteMovie) {
       continue;
     }
 
-    for (const mapping of mappingChunk) {
-      await assertTraktSyncRunActive(run.userId, run.runId);
-      const { error: fallbackError } = await supabase
-        .from("provider_mappings")
-        .upsert(mapping, { onConflict: "provider,provider_movie_id" });
+    mappingRows.push({
+      episode_id: null,
+      media_id: item.id,
+      provider: "tmdb",
+      provider_id: String(tmdbId),
+      provider_media_type: "movie",
+    });
 
-      if (fallbackError) {
-        recordPullFailure(
-          result,
-          "mapping",
-          `${mapping.provider}:${mapping.provider_movie_id}`,
-          fallbackError,
-        );
-      }
-    }
-  }
-}
-
-function buildProviderMappingInserts(resolution: MovieResolutionResult) {
-  const mappings = new Map<string, ProviderMappingInsert>();
-  const usedMovieProviderKeys = new Set<string>();
-
-  for (const movie of resolution.remoteMoviesByKey.values()) {
-    const movieId = resolution.movieIdByRemoteKey.get(movie.key);
-
-    if (!movieId) {
-      continue;
+    if (remoteMovie.imdbId) {
+      mappingRows.push({
+        episode_id: null,
+        media_id: item.id,
+        provider: "imdb",
+        provider_id: remoteMovie.imdbId,
+        provider_media_type: "movie",
+      });
     }
 
-    for (const candidate of providerCandidates(movie)) {
-      const movieProviderKey = `${movieId}:${candidate.provider}`;
-
-      if (usedMovieProviderKeys.has(movieProviderKey)) {
-        continue;
-      }
-
-      usedMovieProviderKeys.add(movieProviderKey);
-      mappings.set(candidateMapKey(candidate), {
-        movie_id: movieId,
-        provider: candidate.provider,
-        provider_movie_id: candidate.id,
+    if (remoteMovie.traktId) {
+      mappingRows.push({
+        episode_id: null,
+        media_id: item.id,
+        provider: "trakt",
+        provider_id: remoteMovie.traktId,
+        provider_media_type: "movie",
       });
     }
   }
 
-  return Array.from(mappings.values());
+  for (const rowChunk of chunkArray(mappingRows, dbWriteChunkSize)) {
+    await assertTraktSyncRunActive(run.userId, run.runId);
+    const { error } = await supabase
+      .from("media_provider_mappings")
+      .upsert(rowChunk, { onConflict: "provider,provider_media_type,provider_id" });
+
+    if (error) {
+      recordPullFailure(result, "mapping", "minimal-movie-mappings", error);
+    }
+  }
+
+  return mediaByTmdb;
+}
+
+async function upsertResolvedMovieProviderMappings(
+  resolution: MovieResolutionResult,
+  result: PullResult,
+  run: SyncRunContext,
+) {
+  const rows: MediaProviderMappingInsert[] = [];
+
+  for (const movie of resolution.remoteMoviesByKey.values()) {
+    const mediaId = resolution.movieIdByRemoteKey.get(movie.key);
+
+    if (!mediaId) {
+      continue;
+    }
+
+    for (const candidate of providerCandidates(movie)) {
+      rows.push({
+        episode_id: null,
+        media_id: mediaId,
+        provider: candidate.provider,
+        provider_id: candidate.id,
+        provider_media_type: "movie",
+      });
+    }
+  }
+
+  await upsertMediaProviderMappings(rows, result, run);
 }
 
 async function resolveRemoteShows({
@@ -2883,14 +2675,14 @@ async function resolveRemoteEpisodes({
 }
 
 async function loadMediaProviderMappingMap(
-  remoteShows: RemoteTraktShowState[],
+  remoteItems: (RemoteTraktMovieState | RemoteTraktShowState)[],
   remoteKeys: string[],
-  providerMediaType: "show",
+  providerMediaType: "movie" | "show",
   run: SyncRunContext,
 ) {
   const candidates = new Map<string, ProviderCandidate>();
 
-  for (const show of remoteShows) {
+  for (const show of remoteItems) {
     for (const candidate of providerCandidates(show)) {
       candidates.set(candidateMapKey(candidate), candidate);
     }
@@ -3313,23 +3105,23 @@ async function loadUserMovieMap(
   movieIds: Iterable<string>,
   run: SyncRunContext,
 ) {
-  const userMovies = new Map<string, UserMovieDraft>();
+  const userMovies = new Map<string, UserMediaDraft>();
   const supabase = createSupabaseAdminClient();
 
-  for (const movieIdChunk of chunkArray(uniqueArray(movieIds), dbReadChunkSize)) {
+  for (const mediaIdChunk of chunkArray(uniqueArray(movieIds), dbReadChunkSize)) {
     await assertTraktSyncRunActive(run.userId, run.runId);
     const { data, error } = await supabase
-      .from("user_movies")
+      .from("user_media")
       .select("*")
       .eq("user_id", userId)
-      .in("movie_id", movieIdChunk);
+      .in("media_id", mediaIdChunk);
 
     if (error) {
       throwDatabaseError("Failed to bulk load user movie state.", error);
     }
 
-    for (const userMovie of data ?? []) {
-      userMovies.set(userMovie.movie_id, draftFromUserMovie(userMovie));
+    for (const row of data ?? []) {
+      userMovies.set(row.media_id, draftFromUserMedia(row));
     }
   }
 
@@ -3347,7 +3139,7 @@ function planPullUserMovieWrites({
   result,
   watchlistStates,
 }: {
-  existingUserMovies: Map<string, UserMovieDraft>;
+  existingUserMovies: Map<string, UserMediaDraft>;
   historyStates: RemoteHistoryState[];
   movieResolution: MovieResolutionResult;
   pendingMovieIds: Set<string>;
@@ -3357,115 +3149,130 @@ function planPullUserMovieWrites({
   result: PullResult;
   watchlistStates: RemoteTraktWatchlistState[];
 }) {
-  const drafts = new Map<string, UserMovieDraft>();
-  const deletedMovieIds = new Set<string>();
+  const drafts = new Map<string, UserMediaDraft>();
+  const deletedMediaIds = new Set<string>();
+  const watchActivityRows = new Map<string, MediaWatchActivityInsert>();
   let newestWatchedAt: string | null = null;
 
-  function readDraft(movieId: string): UserMovieDraft | null {
-    if (drafts.has(movieId)) {
-      return drafts.get(movieId) ?? null;
+  function readDraft(mediaId: string): UserMediaDraft | null {
+    if (drafts.has(mediaId)) {
+      return drafts.get(mediaId) ?? null;
     }
 
-    if (deletedMovieIds.has(movieId)) {
+    if (deletedMediaIds.has(mediaId)) {
       return null;
     }
 
-    return existingUserMovies.get(movieId) ?? null;
+    return existingUserMovies.get(mediaId) ?? null;
   }
 
-  function writeDraft(draft: UserMovieDraft) {
-    deletedMovieIds.delete(draft.movieId);
-    drafts.set(draft.movieId, draft);
+  function writeDraft(draft: UserMediaDraft) {
+    deletedMediaIds.delete(draft.mediaId);
+    drafts.set(draft.mediaId, draft);
   }
 
   for (const state of historyStates) {
-    const movieId = resolveImportedMovieId(state.movie, movieResolution, result, "history");
+    const mediaId = resolveImportedMovieId(state.movie, movieResolution, result, "history");
 
-    if (!movieId) {
+    if (!mediaId) {
       continue;
     }
 
-    const existingDraft = readDraft(movieId);
+    const existingDraft = readDraft(mediaId);
 
     writeDraft({
+      completedAt: existingDraft?.completedAt ?? null,
+      completionMode: existingDraft?.completionMode ?? null,
       lastWatchedAt: latestTimestamp(existingDraft?.lastWatchedAt, state.item.watched_at),
-      movieId,
+      mediaId,
       personalRating: existingDraft?.personalRating ?? null,
-      status: "watched",
+      status: "done",
       watchlistedAt: null,
     });
     newestWatchedAt = latestTimestamp(newestWatchedAt, state.item.watched_at);
+    watchActivityRows.set(`trakt:history:${state.item.id}`, {
+      episode_id: null,
+      media_id: mediaId,
+      provider_event_id: `trakt:history:${state.item.id}`,
+      source: "trakt_sync",
+      user_id: "",
+      watched_at: state.item.watched_at,
+    });
     result.historyImported += 1;
   }
 
   for (const state of watchlistStates) {
-    const movieId = resolveImportedMovieId(state, movieResolution, result, "watchlist");
+    const mediaId = resolveImportedMovieId(state, movieResolution, result, "watchlist");
 
-    if (!movieId) {
+    if (!mediaId) {
       continue;
     }
 
-    const existingDraft = readDraft(movieId);
+    const existingDraft = readDraft(mediaId);
 
-    if (existingDraft?.status === "watched") {
+    if (existingDraft?.status === "done") {
       continue;
     }
 
     writeDraft({
+      completedAt: null,
+      completionMode: null,
       lastWatchedAt: null,
-      movieId,
+      mediaId,
       personalRating: existingDraft?.personalRating ?? null,
-      status: "to_watch",
+      status: "wishlist",
       watchlistedAt: state.listedAt,
     });
     result.watchlistImported += 1;
   }
 
   for (const key of removedWatchlistKeys) {
-    const movieId = movieResolution.movieIdByRemoteKey.get(key);
+    const mediaId = movieResolution.movieIdByRemoteKey.get(key);
 
-    if (!movieId || pendingMovieIds.has(movieId)) {
+    if (!mediaId || pendingMovieIds.has(mediaId)) {
       continue;
     }
 
-    const existingDraft = readDraft(movieId);
+    const existingDraft = readDraft(mediaId);
 
-    if (existingDraft?.status !== "to_watch") {
+    if (existingDraft?.status !== "wishlist") {
       continue;
     }
 
-    drafts.delete(movieId);
-    deletedMovieIds.add(movieId);
+    drafts.delete(mediaId);
+    deletedMediaIds.add(mediaId);
     result.watchlistRemoved += 1;
   }
 
   for (const state of ratingStates) {
-    const movieId = resolveImportedMovieId(state, movieResolution, result, "rating");
+    const mediaId = resolveImportedMovieId(state, movieResolution, result, "rating");
 
-    if (!movieId) {
+    if (!mediaId) {
       continue;
     }
 
-    const existingDraft = readDraft(movieId);
+    const existingDraft = readDraft(mediaId);
 
     writeDraft({
+      completedAt: existingDraft?.completedAt ?? null,
+      completionMode: existingDraft?.completionMode ?? null,
       lastWatchedAt: existingDraft?.lastWatchedAt ?? null,
-      movieId,
+      mediaId,
       personalRating: state.rating,
-      status: existingDraft?.status ?? "watched",
+      status: existingDraft?.status ?? "done",
       watchlistedAt: existingDraft?.watchlistedAt ?? null,
     });
     result.ratingsImported += 1;
   }
 
   for (const key of removedRatingKeys) {
-    const movieId = movieResolution.movieIdByRemoteKey.get(key);
+    const mediaId = movieResolution.movieIdByRemoteKey.get(key);
 
-    if (!movieId || pendingMovieIds.has(movieId)) {
+    if (!mediaId || pendingMovieIds.has(mediaId)) {
       continue;
     }
 
-    const existingDraft = readDraft(movieId);
+    const existingDraft = readDraft(mediaId);
 
     if (!existingDraft || existingDraft.personalRating === null) {
       continue;
@@ -3479,22 +3286,23 @@ function planPullUserMovieWrites({
   }
 
   return {
-    deleteMovieIds: Array.from(deletedMovieIds),
+    deleteMediaIds: Array.from(deletedMediaIds),
     newestWatchedAt,
     upserts: Array.from(drafts.values()),
+    watchActivityRows: Array.from(watchActivityRows.values()),
   };
 }
 
 function applyUserMoviePlanToMap(
-  userMovies: Map<string, UserMovieDraft>,
-  plan: { deleteMovieIds: string[]; upserts: UserMovieDraft[] },
+  userMovies: Map<string, UserMediaDraft>,
+  plan: { deleteMediaIds: string[]; upserts: UserMediaDraft[] },
 ) {
-  for (const movieId of plan.deleteMovieIds) {
-    userMovies.delete(movieId);
+  for (const mediaId of plan.deleteMediaIds) {
+    userMovies.delete(mediaId);
   }
 
   for (const draft of plan.upserts) {
-    userMovies.set(draft.movieId, draft);
+    userMovies.set(draft.mediaId, draft);
   }
 }
 
@@ -3951,7 +3759,7 @@ async function upsertTraktListMovieTags(
   result: PullResult,
   run: SyncRunContext,
 ) {
-  const rowsByKey = new Map<string, { movie_id: string; tag_id: string; user_id: string }>();
+  const rowsByKey = new Map<string, { media_id: string; tag_id: string; user_id: string }>();
   const supabase = createSupabaseAdminClient();
 
   for (const listState of listStates) {
@@ -3963,14 +3771,14 @@ async function upsertTraktListMovieTags(
     }
 
     for (const movieState of listState.movieStatesToTag) {
-      const movieId = resolveImportedMovieId(movieState, movieResolution, result, "list");
+      const mediaId = resolveImportedMovieId(movieState, movieResolution, result, "list");
 
-      if (!movieId) {
+      if (!mediaId) {
         continue;
       }
 
-      rowsByKey.set(`${movieId}:${tag.id}`, {
-        movie_id: movieId,
+      rowsByKey.set(`${mediaId}:${tag.id}`, {
+        media_id: mediaId,
         tag_id: tag.id,
         user_id: userId,
       });
@@ -3980,8 +3788,8 @@ async function upsertTraktListMovieTags(
   for (const rowChunk of chunkArray(Array.from(rowsByKey.values()), dbWriteChunkSize)) {
     await assertTraktSyncRunActive(run.userId, run.runId);
     const { error } = await supabase
-      .from("user_movie_tags")
-      .upsert(rowChunk, { onConflict: "user_id,movie_id,tag_id" });
+      .from("user_media_tags")
+      .upsert(rowChunk, { onConflict: "user_id,media_id,tag_id" });
 
     if (!error) {
       result.listItemsTagged += rowChunk.length;
@@ -3991,11 +3799,11 @@ async function upsertTraktListMovieTags(
     for (const row of rowChunk) {
       await assertTraktSyncRunActive(run.userId, run.runId);
       const { error: fallbackError } = await supabase
-        .from("user_movie_tags")
-        .upsert(row, { onConflict: "user_id,movie_id,tag_id" });
+        .from("user_media_tags")
+        .upsert(row, { onConflict: "user_id,media_id,tag_id" });
 
       if (fallbackError) {
-        recordPullFailure(result, "tag", `${row.movie_id}:${row.tag_id}`, fallbackError);
+        recordPullFailure(result, "tag", `${row.media_id}:${row.tag_id}`, fallbackError);
       } else {
         result.listItemsTagged += 1;
       }
@@ -4063,62 +3871,29 @@ async function upsertTraktListMediaTags(
   }
 }
 
-async function deleteUserMovies(
-  userId: string,
-  movieIds: string[],
-  result: PullResult,
-  run: SyncRunContext,
-) {
-  const supabase = createSupabaseAdminClient();
-
-  for (const movieIdChunk of chunkArray(movieIds, dbWriteChunkSize)) {
-    await assertTraktSyncRunActive(run.userId, run.runId);
-    const { error } = await supabase
-      .from("user_movies")
-      .delete()
-      .eq("user_id", userId)
-      .in("movie_id", movieIdChunk);
-
-    if (!error) {
-      continue;
-    }
-
-    for (const movieId of movieIdChunk) {
-      await assertTraktSyncRunActive(run.userId, run.runId);
-      const { error: fallbackError } = await supabase
-        .from("user_movies")
-        .delete()
-        .eq("user_id", userId)
-        .eq("movie_id", movieId);
-
-      if (fallbackError) {
-        recordPullFailure(result, "watchlist", movieId, fallbackError);
-      }
-    }
-  }
-}
-
 async function upsertUserMovieDrafts(
   userId: string,
-  drafts: UserMovieDraft[],
+  drafts: UserMediaDraft[],
   result: PullResult,
   run: SyncRunContext,
 ) {
   const supabase = createSupabaseAdminClient();
-  const rows = drafts.map((draft): UserMovieInsert => ({
-    user_id: userId,
-    movie_id: draft.movieId,
-    status: draft.status,
-    personal_rating: draft.personalRating,
-    watchlisted_at: draft.watchlistedAt,
+  const rows = drafts.map((draft) => ({
+    completed_at: draft.completedAt,
+    completion_mode: draft.completionMode,
     last_watched_at: draft.lastWatchedAt,
+    media_id: draft.mediaId,
+    personal_rating: draft.personalRating,
+    status: draft.status,
+    user_id: userId,
+    watchlisted_at: draft.watchlistedAt,
   }));
 
   for (const rowChunk of chunkArray(rows, dbWriteChunkSize)) {
     await assertTraktSyncRunActive(run.userId, run.runId);
     const { error } = await supabase
-      .from("user_movies")
-      .upsert(rowChunk, { onConflict: "user_id,movie_id" });
+      .from("user_media")
+      .upsert(rowChunk, { onConflict: "user_id,media_id" });
 
     if (!error) {
       continue;
@@ -4127,11 +3902,11 @@ async function upsertUserMovieDrafts(
     for (const row of rowChunk) {
       await assertTraktSyncRunActive(run.userId, run.runId);
       const { error: fallbackError } = await supabase
-        .from("user_movies")
-        .upsert(row, { onConflict: "user_id,movie_id" });
+        .from("user_media")
+        .upsert(row, { onConflict: "user_id,media_id" });
 
       if (fallbackError) {
-        recordPullFailure(result, "library", row.movie_id, fallbackError);
+        recordPullFailure(result, "library", row.media_id, fallbackError);
       }
     }
   }
@@ -4247,102 +4022,6 @@ async function loadExistingMediaWatchActivityEventIds(
   return existing;
 }
 
-function buildWatchLogInserts(
-  userId: string,
-  historyStates: RemoteHistoryState[],
-  movieResolution: MovieResolutionResult,
-) {
-  const logs = new Map<string, WatchLogInsert>();
-
-  for (const state of historyStates) {
-    const movieId = movieResolution.movieIdByRemoteKey.get(state.movie.key);
-
-    if (!movieId) {
-      continue;
-    }
-
-    const providerEventId = `trakt:history:${state.item.id}`;
-
-    logs.set(providerEventId, {
-      user_id: userId,
-      movie_id: movieId,
-      watched_at: state.item.watched_at,
-      source: "trakt_sync",
-      provider_event_id: providerEventId,
-    });
-  }
-
-  return Array.from(logs.values());
-}
-
-async function insertWatchLogs(
-  userId: string,
-  logs: WatchLogInsert[],
-  result: PullResult,
-  run: SyncRunContext,
-) {
-  const existingEventIds = await loadExistingWatchLogEventIds(
-    userId,
-    logs
-      .map((log) => log.provider_event_id)
-      .filter((eventId): eventId is string => eventId !== null && eventId !== undefined),
-    run,
-  );
-  const supabase = createSupabaseAdminClient();
-  const rows = logs.filter(
-    (log) => log.provider_event_id && !existingEventIds.has(log.provider_event_id),
-  );
-
-  for (const rowChunk of chunkArray(rows, dbWriteChunkSize)) {
-    await assertTraktSyncRunActive(run.userId, run.runId);
-    const { error } = await supabase.from("watch_logs").insert(rowChunk);
-
-    if (!error) {
-      continue;
-    }
-
-    for (const row of rowChunk) {
-      await assertTraktSyncRunActive(run.userId, run.runId);
-      const { error: fallbackError } = await supabase.from("watch_logs").insert(row);
-
-      if (!fallbackError || isUniqueConstraintError(fallbackError)) {
-        continue;
-      }
-
-      recordPullFailure(result, "watch-log", row.provider_event_id ?? row.movie_id, fallbackError);
-    }
-  }
-}
-
-async function loadExistingWatchLogEventIds(
-  userId: string,
-  providerEventIds: string[],
-  run: SyncRunContext,
-) {
-  const existing = new Set<string>();
-  const supabase = createSupabaseAdminClient();
-
-  for (const eventIdChunk of chunkArray(uniqueArray(providerEventIds), dbReadChunkSize)) {
-    await assertTraktSyncRunActive(run.userId, run.runId);
-    const { data, error } = await supabase
-      .from("watch_logs")
-      .select("provider_event_id")
-      .eq("user_id", userId)
-      .in("provider_event_id", eventIdChunk);
-
-    if (error) {
-      throwDatabaseError("Failed to bulk load Trakt watch logs.", error);
-    }
-
-    for (const row of data ?? []) {
-      if (row.provider_event_id) {
-        existing.add(row.provider_event_id);
-      }
-    }
-  }
-
-  return existing;
-}
 
 function resolveImportedMovieId(
   remoteMovie: RemoteTraktMovieState,
@@ -4487,16 +4166,6 @@ function pullItemFailureMapKey(phase: PullFailurePhase, itemKey: string) {
   return `${phase}:${itemKey}`;
 }
 
-function draftFromUserMovie(userMovie: UserMovie): UserMovieDraft {
-  return {
-    lastWatchedAt: userMovie.last_watched_at,
-    movieId: userMovie.movie_id,
-    personalRating: userMovie.personal_rating,
-    status: userMovie.status,
-    watchlistedAt: userMovie.watchlisted_at,
-  };
-}
-
 function draftFromUserMedia(userMedia: {
   completed_at: string | null;
   completion_mode: "manual" | "auto_all_aired" | null;
@@ -4584,7 +4253,7 @@ function providerCandidates(
 }
 
 function idsByProvider(candidates: Iterable<ProviderCandidate>) {
-  const idsByProviderName = new Map<ProviderMappingProvider, Set<string>>();
+  const idsByProviderName = new Map<"imdb" | "tmdb" | "trakt", Set<string>>();
 
   for (const candidate of candidates) {
     const ids = idsByProviderName.get(candidate.provider) ?? new Set<string>();
@@ -4600,7 +4269,7 @@ function entityIdsByProvider(
   rows: MediaProviderMappingInsert[],
   key: "episode_id" | "media_id",
 ) {
-  const idsByProviderName = new Map<ProviderMappingProvider, Set<string>>();
+  const idsByProviderName = new Map<MediaProviderMappingInsert["provider"], Set<string>>();
 
   for (const row of rows) {
     const id = row[key];
@@ -4725,9 +4394,10 @@ function uniqueArray<T>(items: Iterable<T>) {
 async function loadMovieForPush(movieId: string) {
   const supabase = createSupabaseAdminClient();
   const { data: movie, error: movieError } = await supabase
-    .from("movies")
+    .from("media_items")
     .select("*")
     .eq("id", movieId)
+    .eq("type", "movie")
     .single();
 
   if (movieError) {
@@ -4735,17 +4405,18 @@ async function loadMovieForPush(movieId: string) {
   }
 
   const { data: mappings, error: mappingsError } = await supabase
-    .from("provider_mappings")
+    .from("media_provider_mappings")
     .select("*")
-    .eq("movie_id", movieId);
+    .eq("media_id", movieId)
+    .eq("provider_media_type", "movie");
 
   if (mappingsError) {
     throwDatabaseError("Failed to load movie provider mappings.", mappingsError);
   }
 
   return {
-    mappings: (mappings ?? []) as ProviderMapping[],
-    movie,
+    mappings: (mappings ?? []) as MediaProviderMapping[],
+    movie: movie as MediaItem,
   };
 }
 

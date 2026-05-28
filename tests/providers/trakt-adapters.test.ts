@@ -14,34 +14,44 @@ import {
   toTraktSyncShow,
   toTraktSyncMovie,
 } from "@/lib/providers/trakt/adapters";
-import type { MediaProviderMapping, ProviderMapping } from "@/lib/db/types";
+import type { MediaProviderMapping } from "@/lib/db/types";
 
 const movie = {
   id: "movie-1",
-  imdb_id: "tt001",
   release_year: 1997,
   title: "Perfect Blue",
-  tmdb_id: 437,
 };
+
+const movieMappings: MediaProviderMapping[] = [
+  {
+    created_at: "2026-01-01T00:00:00.000Z",
+    episode_id: null,
+    media_id: "movie-1",
+    provider: "trakt",
+    provider_id: "123",
+    provider_media_type: "movie",
+  },
+  {
+    created_at: "2026-01-01T00:00:00.000Z",
+    episode_id: null,
+    media_id: "movie-1",
+    provider: "tmdb",
+    provider_id: "999",
+    provider_media_type: "movie",
+  },
+  {
+    created_at: "2026-01-01T00:00:00.000Z",
+    episode_id: null,
+    media_id: "movie-1",
+    provider: "imdb",
+    provider_id: "tt001",
+    provider_media_type: "movie",
+  },
+];
 
 describe("Trakt adapters", () => {
   it("builds sync ids from local movie metadata and provider mappings", () => {
-    const mappings: ProviderMapping[] = [
-      {
-        created_at: "2026-01-01T00:00:00.000Z",
-        movie_id: "movie-1",
-        provider: "trakt",
-        provider_movie_id: "123",
-      },
-      {
-        created_at: "2026-01-01T00:00:00.000Z",
-        movie_id: "movie-1",
-        provider: "tmdb",
-        provider_movie_id: "999",
-      },
-    ];
-
-    expect(toTraktMovieIds(movie, mappings)).toEqual({
+    expect(toTraktMovieIds(movieMappings)).toEqual({
       imdb: "tt001",
       tmdb: 999,
       trakt: 123,
@@ -49,10 +59,11 @@ describe("Trakt adapters", () => {
   });
 
   it("builds the outbound sync movie payload", () => {
-    expect(toTraktSyncMovie(movie)).toEqual({
+    expect(toTraktSyncMovie(movie, movieMappings)).toEqual({
       ids: {
         imdb: "tt001",
-        tmdb: 437,
+        tmdb: 999,
+        trakt: 123,
       },
       title: "Perfect Blue",
       year: 1997,
