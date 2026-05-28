@@ -269,6 +269,13 @@ function TvIcon() {
 function AllStatsHero({ stats, hasData }: { stats: LibraryStats; hasData: boolean }) {
   const movieFlex = Math.max(stats.movieRuntimeMinutes, 1);
   const tvFlex = Math.max(stats.showRuntimeMinutes, 1);
+  const metrics = [
+    plainMetric(stats.movieCount.toString(), "Movies", "text-foreground"),
+    plainMetric(stats.showCount.toString(), "Shows", "text-foreground"),
+    plainMetric(stats.episodeWatchCount.toString(), "Episodes", "text-foreground"),
+    plainMetric(stats.favDecade ?? "—", "Fav decade", stats.favDecade ? "text-text-2" : "text-text-faint"),
+    ratingMetric(stats.avgRating),
+  ];
 
   return (
     <div className="pb-5">
@@ -324,33 +331,17 @@ function AllStatsHero({ stats, hasData }: { stats: LibraryStats; hasData: boolea
       )}
 
       {/* Counts + avg rating */}
-      <div className="grid border-t border-divider pt-3.5" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
-        {[
-          { value: stats.movieCount.toString(), label: "Movies", valueClass: "text-foreground" },
-          { value: stats.showCount.toString(), label: "Shows", valueClass: "text-foreground" },
-          { value: stats.episodeWatchCount.toString(), label: "Episodes", valueClass: "text-foreground" },
-        ].map(({ value, label, valueClass }, index) => (
-          <div
-            key={label}
-            className={index > 0 ? "border-l border-divider pl-3" : ""}
-          >
-            <p className={`tabnum leading-[1.1] ${valueClass}`} style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.5px" }}>
-              {value}
-            </p>
-            <p className="text-[11px] text-text-muted mt-0.5">{label}</p>
-          </div>
+      <div className="grid border-t border-divider pt-3.5" style={{ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" }}>
+        {metrics.map((metric, index) => (
+          <HeroMetric
+            key={metric.label}
+            value={metric.value}
+            label={metric.label}
+            valueClass={metric.valueClass}
+            fontSize={metric.fontSize}
+            border={index > 0}
+          />
         ))}
-        <div className="border-l border-divider pl-3">
-          <p
-            className={`tabnum leading-[1.1] ${stats.avgRating !== null ? "text-watched" : "text-text-faint"}`}
-            style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.5px" }}
-          >
-            {stats.avgRating !== null ? (
-              <><span style={{ fontSize: 14, lineHeight: 1 }}>♥</span>{` ${stats.avgRating.toFixed(1)}`}</>
-            ) : "—"}
-          </p>
-          <p className="text-[11px] text-text-muted mt-0.5">Avg rating</p>
-        </div>
       </div>
     </div>
   );
