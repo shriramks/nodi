@@ -39,7 +39,7 @@ type MediaMovieWatchStatusResult = {
   watchActivity: MediaWatchActivity | null;
 };
 
-type ShowSaveStatus = Extract<UserMedia["status"], "watching" | "watched" | "wishlist">;
+type ShowSaveStatus = Extract<UserMedia["status"], "watching" | "done" | "stopped" | "wishlist">;
 type EpisodeWatchPayload = {
   notes?: string | null;
   providerEventId?: string | null;
@@ -68,7 +68,7 @@ function buildUserMediaMovieStatusPayload({
   const userMediaPayload: UserMediaInsert = {
     user_id: userId,
     media_id: action.movieId,
-    status: action.status === "to_watch" ? "wishlist" : "watched",
+    status: action.status === "to_watch" ? "wishlist" : "done",
   };
 
   if (action.status === "watched") {
@@ -328,7 +328,7 @@ export async function setMediaShowStatus(
           mediaId: id,
           userId: user.id,
         });
-  const manualCompletedAt = status === "watched" ? new Date().toISOString() : null;
+  const manualCompletedAt = status === "done" ? new Date().toISOString() : null;
   const { data, error } = await supabase
     .from("user_media")
     .upsert(
@@ -339,7 +339,7 @@ export async function setMediaShowStatus(
         watchlisted_at: status === "wishlist" ? now : null,
         last_watched_at: status === "wishlist" ? null : latestWatchedAt ?? manualCompletedAt,
         completed_at: manualCompletedAt,
-        completion_mode: status === "watched" ? "manual" : null,
+        completion_mode: status === "done" ? "manual" : null,
       },
       { onConflict: "user_id,media_id" },
     )
@@ -515,7 +515,7 @@ async function refreshShowMediaLastWatchedAt({
 
   const currentUserMedia = (currentResult.data as UserMedia | null) ?? null;
   const isManualCompletion =
-    currentUserMedia?.status === "watched" &&
+    currentUserMedia?.status === "done" &&
     currentUserMedia.completion_mode === "manual";
   const completedAt = autoCompletion.isComplete
     ? autoCompletion.completedAt
@@ -523,9 +523,10 @@ async function refreshShowMediaLastWatchedAt({
       ? currentUserMedia.completed_at
       : null;
   const status: MediaStatus = autoCompletion.isComplete || isManualCompletion
-    ? "watched"
+    ? "done"
     : currentUserMedia?.status === "wishlist" ||
-        currentUserMedia?.status === "watched" ||
+        currentUserMedia?.status === "done" ||
+        currentUserMedia?.status === "stopped" ||
         currentUserMedia?.status === undefined
       ? "watching"
       : currentUserMedia.status;
@@ -1123,7 +1124,7 @@ export async function removeUserMediaMovie(movieId: string): Promise<void> {
       movieId: id,
       userMovieId: existingUserMedia.id,
     });
-  } else if (existingUserMedia?.status === "watched") {
+  } else if (existingUserMedia?.status === "done") {
     await queueTraktPushEvent("movie.remove_from_library", {
       movieId: id,
       userMovieId: existingUserMedia.id,

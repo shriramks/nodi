@@ -23,8 +23,10 @@ import {
 } from "@/lib/providers/tmdb/client";
 import {
   addShowToWishlistAction,
-  markShowWatchedAction,
+  markShowDoneAction,
+  markShowStoppedAction,
   removeShowFromLibraryAction,
+  resumeShowAction,
   saveShowToLibraryAction,
 } from "../actions";
 
@@ -57,11 +59,12 @@ export default async function ShowDetailPage({ params }: ShowDetailPageProps) {
       actions={
         <LocalShowStateActions
           addToWishlist={addShowToWishlistAction.bind(null, show.id)}
-          isWatched={isShowWatched(show)}
-          markWatched={markShowWatchedAction.bind(null, show.id)}
+          markDone={markShowDoneAction.bind(null, show.id)}
+          markStopped={markShowStoppedAction.bind(null, show.id)}
           removeFromLibrary={removeShowFromLibraryAction.bind(null, show.id)}
+          resume={resumeShowAction.bind(null, show.id)}
           saveToLibrary={saveShowToLibraryAction.bind(null, show.id)}
-          status={status}
+          status={isShowDone(show) ? "done" : status}
         />
       }
       ratingPicker={
@@ -78,8 +81,8 @@ export default async function ShowDetailPage({ params }: ShowDetailPageProps) {
   );
 }
 
-function isShowWatched(show: ShowDetail) {
-  if (show.userMedia?.status === "watched") {
+function isShowDone(show: ShowDetail) {
+  if (show.userMedia?.status === "done") {
     return true;
   }
 

@@ -71,7 +71,7 @@ describe("show episode hydration", () => {
             last_watched_at: "2026-05-28T00:00:00.000Z",
             media_id: "00000000-0000-4000-8000-000000000001",
             personal_rating: null,
-            status: "watched",
+            status: "done",
             updated_at: "2026-05-28T00:00:00.000Z",
             user_id: "30000000-0000-4000-8000-000000000001",
             watchlisted_at: null,

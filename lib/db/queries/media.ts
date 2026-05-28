@@ -113,7 +113,7 @@ export type MediaStatsInput = {
 export async function listMediaLibraryPage(
   options: MediaLibraryPageOptions = {},
 ): Promise<MediaLibraryPage> {
-  return listMediaCollectionPage("watched", options, {
+  return listMediaCollectionPage("done", options, {
     orderColumn: "last_watched_at",
     errorMessage: "Failed to load media library.",
   });
@@ -195,7 +195,7 @@ export async function getMediaWatchedMovieLibrarySummary(
 }
 
 async function listMediaCollectionPage(
-  status: Extract<MediaStatus, "watched" | "wishlist">,
+  status: Extract<MediaStatus, "done" | "wishlist">,
   options: MediaLibraryPageOptions,
   config: { orderColumn: "last_watched_at" | "watchlisted_at"; errorMessage: string },
 ) {
@@ -598,7 +598,7 @@ async function listMediaStateAnalyticsRowsForUser(
         "media_id, status, personal_rating, last_watched_at, completed_at, media_items!inner(id, type, runtime_minutes, original_language, primary_genre_name, release_year)",
       )
       .eq("user_id", userId)
-      .in("status", ["watched", "watching"]);
+      .in("status", ["done", "stopped", "watching"]);
 
     if (type !== "all") {
       query = query.eq("media_items.type", type);
@@ -664,7 +664,7 @@ async function listMediaRatingAnalyticsRowsForUser(
     .from("user_media")
     .select("media_id, personal_rating, media_items!inner(id, type)")
     .eq("user_id", userId)
-    .in("status", ["watched", "watching"])
+    .in("status", ["done", "stopped", "watching"])
     .not("personal_rating", "is", null);
 
   if (type !== "all") {

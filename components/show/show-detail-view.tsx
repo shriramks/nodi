@@ -153,7 +153,7 @@ export function ShowDetailView({
 
           {statusLabel && statusColour ? (
             <p className={`flex items-center gap-1.5 text-[15px] font-semibold ${statusColour}`}>
-              {resolvedStatus === "watched" ? (
+              {resolvedStatus === "done" ? (
                 <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={2.2} />
               ) : null}
               <span>{statusLabel}</span>
@@ -344,40 +344,20 @@ function showStatusLine(show: DetailShow) {
 }
 
 function resolveShowStatus(show: DetailShow): MediaStatus | null {
-  if (!show.userStatus) {
-    return null;
-  }
-
-  const { watched: watchedCount, total: totalCount } = countShowProgress(show.seasons ?? []);
-
-  if (totalCount > 0 && watchedCount >= totalCount) {
-    return "watched";
-  }
-
-  return show.userStatus;
+  return show.userStatus ?? null;
 }
 
 function statusLabelFor(status: MediaStatus) {
-  if (status === "wishlist") {
-    return "Wishlist";
-  }
-
-  if (status === "watched") {
-    return "Watched";
-  }
-
+  if (status === "wishlist") return "Wishlist";
+  if (status === "done") return "Done";
+  if (status === "stopped") return "Stopped";
   return "Watching";
 }
 
 function statusColourFor(status: MediaStatus) {
-  if (status === "wishlist") {
-    return "text-watchlist";
-  }
-
-  if (status === "watched") {
-    return "text-watched";
-  }
-
+  if (status === "wishlist") return "text-watchlist";
+  if (status === "done") return "text-watched";
+  if (status === "stopped") return "text-text-muted";
   return "text-accent";
 }
 

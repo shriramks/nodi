@@ -14,8 +14,8 @@ import {
 } from "@/app/(shell)/show/actions";
 
 type PendingAction = "library" | "wishlist";
-type LocalPendingAction = PendingAction | "watched" | "remove";
-type ShowStatus = "watching" | "watched" | "wishlist" | null;
+type LocalPendingAction = PendingAction | "done" | "stopped" | "resume" | "remove";
+type ShowStatus = "watching" | "done" | "stopped" | "wishlist" | null;
 type ShowTag = {
   id: string;
   name: string;
@@ -74,16 +74,18 @@ export function RemoteShowStateActions({
 
 export function LocalShowStateActions({
   addToWishlist,
-  isWatched,
-  markWatched,
+  markDone,
+  markStopped,
   removeFromLibrary,
+  resume,
   saveToLibrary,
   status,
 }: {
   addToWishlist: () => Promise<void>;
-  isWatched?: boolean;
-  markWatched: () => Promise<void>;
+  markDone: () => Promise<void>;
+  markStopped: () => Promise<void>;
   removeFromLibrary: () => Promise<void>;
+  resume: () => Promise<void>;
   saveToLibrary: () => Promise<void>;
   status: ShowStatus;
 }) {
@@ -105,93 +107,81 @@ export function LocalShowStateActions({
     });
   }
 
-  const currentStatus = isWatched ? "watched" : status;
-  const primaryActions = [
-    currentStatus !== "watching" && currentStatus !== "watched"
-      ? {
-          key: "library" as const,
-          label: currentStatus === "wishlist" ? "Add to Library" : "Watching",
-          onClick: () => run("library", saveToLibrary),
-          style: "primary" as const,
-        }
-      : null,
-    currentStatus !== "watched"
-      ? {
-          key: "watched" as const,
-          label: "Mark Watched",
-          onClick: () => run("watched", markWatched),
-          style: currentStatus === null ? "primary" as const : "secondary" as const,
-        }
-      : null,
-  ].filter((action): action is NonNullable<typeof action> => action !== null);
+  // | status    | left btn          | right btn    |
+  // |-----------|-------------------|--------------|
+  // | null      | Add to Library    | + Wishlist   |
+  // | wishlist  | Add to Library    | Remove       |
+  // | watching  | Mark Done         | Mark Stopped |
+  // | done      | Resume            | Remove       |
+  // | stopped   | Resume            | Remove       |
 
-  const secondaryActions = [
-    currentStatus === null
-      ? {
-          key: "wishlist" as const,
-          label: "+ Wishlist",
-          onClick: () => run("wishlist", addToWishlist),
-          tone: "default" as const,
-        }
-      : null,
-    currentStatus !== null
-      ? {
-          key: "remove" as const,
-          label: "Remove",
-          onClick: () => run("remove", removeFromLibrary),
-          tone: "danger" as const,
-        }
-      : null,
-  ].filter((action): action is NonNullable<typeof action> => action !== null);
+  type BtnSpec = { key: LocalPendingAction; label: string; style: "primary" | "secondary" | "danger" };
+
+  const [left, right]: [BtnSpec, BtnSpec] = (() => {
+    if (status === null) {
+      return [
+        { key: "library", label: "Add to Library", style: "primary" },
+        { key: "wishlist", label: "+ Wishlist", style: "secondary" },
+      ];
+    }
+    if (status === "wishlist") {
+      return [
+        { key: "library", label: "Add to Library", style: "primary" },
+        { key: "remove", label: "Remove", style: "danger" },
+      ];
+    }
+    if (status === "watching") {
+      return [
+        { key: "done", label: "Mark Done", style: "primary" },
+        { key: "stopped", label: "Mark Stopped", style: "secondary" },
+      ];
+    }
+    // done or stopped
+    return [
+      { key: "resume", label: "Resume", style: "primary" },
+      { key: "remove", label: "Remove", style: "danger" },
+    ];
+  })();
+
+  const actionFor: Record<LocalPendingAction, () => Promise<void>> = {
+    library: saveToLibrary,
+    wishlist: addToWishlist,
+    done: markDone,
+    stopped: markStopped,
+    resume,
+    remove: removeFromLibrary,
+  };
+
+  function renderBtn(btn: BtnSpec) {
+    return (
+      <button
+        className={[
+          "flex h-[50px] flex-1 items-center justify-center gap-2 rounded-xl px-4 text-[15px] font-semibold active:opacity-70 disabled:opacity-50",
+          btn.style === "primary"
+            ? "bg-accent/15 text-accent"
+            : btn.style === "danger"
+              ? "border border-border text-unsynced"
+              : "border border-border text-text-2",
+        ].join(" ")}
+        disabled={isPending}
+        key={btn.key}
+        onClick={() => run(btn.key, actionFor[btn.key])}
+        type="button"
+      >
+        {pendingAction === btn.key ? (
+          <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+        ) : null}
+        {btn.label}
+      </button>
+    );
+  }
 
   return (
     <div className="space-y-2">
-      {primaryActions.length > 0 ? (
-        <div className="flex gap-3">
-          {primaryActions.map((action) => (
-            <button
-              className={[
-                "flex h-[50px] flex-1 items-center justify-center gap-2 rounded-xl px-4 text-[15px] font-semibold active:opacity-70 disabled:opacity-50",
-                action.style === "primary"
-                  ? "bg-accent/15 text-accent"
-                  : "border border-border text-text-2",
-              ].join(" ")}
-              disabled={isPending}
-              key={action.key}
-              onClick={action.onClick}
-              type="button"
-            >
-              {pendingAction === action.key ? (
-                <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
-              ) : null}
-              {action.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
-      {secondaryActions.length > 0 ? (
-        <div className="flex gap-3">
-          {secondaryActions.map((action) => (
-            <button
-              className={[
-                "flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border px-4 text-[14px] font-semibold active:opacity-70 disabled:opacity-50",
-                action.tone === "danger" ? "text-unsynced" : "text-text-2",
-              ].join(" ")}
-              disabled={isPending}
-              key={action.key}
-              onClick={action.onClick}
-              type="button"
-            >
-              {pendingAction === action.key ? (
-                <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
-              ) : null}
-              {action.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-
+      <div className="flex gap-3">
+        {renderBtn(left)}
+        {renderBtn(right)}
+      </div>
       {error ? <p className="text-[13px] text-unsynced">{error}</p> : null}
     </div>
   );

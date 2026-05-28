@@ -65,7 +65,7 @@ const watchedUserMedia = {
   last_watched_at: watchedAt,
   media_id: movieId,
   personal_rating: null,
-  status: "watched" as const,
+  status: "done" as const,
   updated_at: watchedAt,
   user_id: userId,
   watchlisted_at: null,
@@ -377,7 +377,7 @@ describe("media movie mutations", () => {
       setMediaMovieWatchStatus({
         movieId,
         source: "manual",
-        status: "watched",
+        status: "done",
         watchedAt,
       }),
     ).resolves.toEqual({
@@ -393,7 +393,7 @@ describe("media movie mutations", () => {
         completion_mode: "manual",
         last_watched_at: watchedAt,
         media_id: movieId,
-        status: "watched",
+        status: "done",
         user_id: userId,
         watchlisted_at: null,
       }),
@@ -479,7 +479,7 @@ describe("media movie mutations", () => {
       id: "20000000-0000-4000-8000-000000000001",
       last_watched_at: lastWatchedAt,
       media_id: showId,
-      status: "watched" as const,
+      status: "done" as const,
       watchlisted_at: null,
     };
     const showLookup = createQuery({ data: { id: showId, type: "show" }, error: null });
@@ -491,14 +491,14 @@ describe("media movie mutations", () => {
       user_media: [userMediaUpsert],
     });
 
-    await expect(setMediaShowStatus(showId, "watched")).resolves.toEqual(userShowMedia);
+    await expect(setMediaShowStatus(showId, "done")).resolves.toEqual(userShowMedia);
 
     expect(userMediaUpsert.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         completion_mode: "manual",
         last_watched_at: lastWatchedAt,
         media_id: showId,
-        status: "watched",
+        status: "done",
         user_id: userId,
         watchlisted_at: null,
       }),
@@ -530,7 +530,7 @@ describe("media movie mutations", () => {
       id: "20000000-0000-4000-8000-000000000001",
       last_watched_at: watchedAt,
       media_id: showId,
-      status: "watched" as const,
+      status: "done" as const,
       watchlisted_at: null,
     };
     const showLookup = createQuery({ data: { id: showId, type: "show" }, error: null });
@@ -566,7 +566,7 @@ describe("media movie mutations", () => {
     ).resolves.toMatchObject({
       userMedia: {
         completion_mode: "auto_all_aired",
-        status: "watched",
+        status: "done",
       },
     });
 
@@ -576,7 +576,7 @@ describe("media movie mutations", () => {
         completion_mode: "auto_all_aired",
         last_watched_at: watchedAt,
         media_id: showId,
-        status: "watched",
+        status: "done",
       }),
       { onConflict: "user_id,media_id" },
     );

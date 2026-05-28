@@ -56,8 +56,18 @@ export async function saveShowToLibraryAction(showId: string): Promise<void> {
   revalidateShowState(showId);
 }
 
-export async function markShowWatchedAction(showId: string): Promise<void> {
-  await setMediaShowStatus(showId, "watched");
+export async function markShowDoneAction(showId: string): Promise<void> {
+  await setMediaShowStatus(showId, "done");
+  revalidateShowState(showId);
+}
+
+export async function markShowStoppedAction(showId: string): Promise<void> {
+  await setMediaShowStatus(showId, "stopped");
+  revalidateShowState(showId);
+}
+
+export async function resumeShowAction(showId: string): Promise<void> {
+  await setMediaShowStatus(showId, "watching");
   revalidateShowState(showId);
 }
 

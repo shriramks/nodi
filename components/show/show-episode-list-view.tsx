@@ -59,11 +59,13 @@ export function ShowEpisodeListView({
   const headingLabel =
     totalCount === 0
       ? "Episodes"
-      : status === "watched"
-        ? "Watched"
-        : status === "watching"
-          ? "Watching"
-          : "Episodes";
+      : status === "done"
+        ? "Done"
+        : status === "stopped"
+          ? "Stopped"
+          : status === "watching"
+            ? "Watching"
+            : "Episodes";
   const countLine =
     totalCount > 0 && watchedCount > 0 && watchedCount < totalCount
       ? `${watchedCount} of ${totalCount} episodes`
@@ -189,7 +191,7 @@ function effectiveStatus(
   watchedCount: number,
   totalCount: number,
 ): MediaStatus {
-  if (totalCount > 0 && watchedCount >= totalCount) return "watched";
+  if (totalCount > 0 && watchedCount >= totalCount) return "done";
   return status;
 }
 

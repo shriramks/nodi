@@ -252,7 +252,7 @@ describe("stats transforms", () => {
     const stateRows: MediaStatsStateRow[] = [
       {
         media_id: "movie-a",
-        status: "watched",
+        status: "done",
         personal_rating: 8,
         last_watched_at: "2026-01-10T12:00:00.000Z",
         completed_at: "2026-01-10T12:00:00.000Z",
@@ -267,7 +267,7 @@ describe("stats transforms", () => {
       },
       {
         media_id: "show-a",
-        status: "watched",
+        status: "done",
         personal_rating: 10,
         last_watched_at: "2026-03-10T12:00:00.000Z",
         completed_at: "2026-03-10T12:00:00.000Z",
@@ -321,7 +321,7 @@ describe("stats transforms", () => {
     const stateRows: MediaStatsStateRow[] = [
       {
         media_id: "show-a",
-        status: "watched",
+        status: "done",
         personal_rating: 9,
         last_watched_at: "2025-12-31T12:00:00.000Z",
         completed_at: "2025-12-31T12:00:00.000Z",
@@ -336,7 +336,7 @@ describe("stats transforms", () => {
       },
       {
         media_id: "show-b",
-        status: "watched",
+        status: "done",
         personal_rating: 7,
         last_watched_at: "2026-01-05T12:00:00.000Z",
         completed_at: "2026-01-05T12:00:00.000Z",

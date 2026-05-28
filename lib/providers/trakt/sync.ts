@@ -3588,7 +3588,7 @@ function planPullUserMediaWrites({
       lastWatchedAt: latestTimestamp(existingDraft?.lastWatchedAt, watchedAt),
       mediaId,
       personalRating: existingDraft?.personalRating ?? null,
-      status: existingDraft?.status === "watched" ? "watched" : "watching",
+      status: existingDraft?.status === "done" ? "done" : "watching",
       watchlistedAt: null,
     });
     newestWatchedAt = latestTimestamp(newestWatchedAt, watchedAt);
@@ -3612,7 +3612,7 @@ function planPullUserMediaWrites({
 
     const existingDraft = readDraft(mediaId);
 
-    if (existingDraft?.status === "watched" || existingDraft?.status === "watching") {
+    if (existingDraft?.status === "done" || existingDraft?.status === "stopped" || existingDraft?.status === "watching") {
       continue;
     }
 
