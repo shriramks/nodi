@@ -56,8 +56,15 @@ export default async function ShowEpisodesPage({
       (show.userMedia.completion_mode === "auto_all_aired" && !locallyComplete);
 
     if (shouldRefreshCompletion) {
-      await refreshShowWatchedState(show.id);
-      show = await loadFreshShowOrNotFound(showId);
+      try {
+        await refreshShowWatchedState(show.id);
+        show = await loadFreshShowOrNotFound(showId);
+      } catch (error) {
+        console.error("Failed to refresh show completion state during render", {
+          error,
+          showId,
+        });
+      }
     }
   }
 
