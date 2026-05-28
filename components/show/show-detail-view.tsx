@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Film, Heart } from "lucide-react";
+import { CheckCircle2, Film, Heart } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
@@ -80,7 +80,8 @@ export function ShowDetailView({
   const visibleTags = (show.tags ?? []).slice(0, 3);
   const tmdbRating = getTmdbRating(show);
   const statusLabel = showStatusLine(show);
-  const statusColour = show.userStatus ? statusColourFor(show.userStatus) : null;
+  const resolvedStatus = resolveShowStatus(show);
+  const statusColour = resolvedStatus ? statusColourFor(resolvedStatus) : null;
   const detailRows = [
     show.first_air_date ? { label: "First aired", value: formatDate(show.first_air_date) } : null,
     show.network ? { label: "Network", value: show.network } : null,
@@ -150,7 +151,12 @@ export function ShowDetailView({
           {metaLine ? <p className="text-[13px] leading-[1.35] text-text-2">{metaLine}</p> : null}
 
           {statusLabel && statusColour ? (
-            <p className={`text-[15px] font-semibold ${statusColour}`}>{statusLabel}</p>
+            <p className={`flex items-center gap-1.5 text-[15px] font-semibold ${statusColour}`}>
+              {resolvedStatus === "watched" ? (
+                <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0" strokeWidth={2.2} />
+              ) : null}
+              <span>{statusLabel}</span>
+            </p>
           ) : null}
 
           <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
@@ -180,7 +186,6 @@ export function ShowDetailView({
 
       {actions || show.id ? (
         <div className="space-y-2">
-          {actions}
           {show.id ? (
             <Link
               className="flex h-11 w-full items-center justify-center rounded-xl bg-surface px-4 text-[14px] font-bold text-foreground active:opacity-70"
@@ -189,6 +194,7 @@ export function ShowDetailView({
               Episodes
             </Link>
           ) : null}
+          {actions}
         </div>
       ) : null}
 
@@ -320,6 +326,31 @@ export function getTmdbRating(show: { tmdb_vote_average: number | null; tmdb_vot
 }
 
 function showStatusLine(show: DetailShow) {
+  const resolvedStatus = resolveShowStatus(show);
+  if (!resolvedStatus) {
+    return null;
+  }
+
+  const seasons = show.seasons ?? [];
+  const totalCount =
+    show.episode_count ??
+    seasons.reduce((count, season) => count + season.episodes.length, 0);
+  const watchedCount = seasons.reduce(
+    (count, season) =>
+      count + season.episodes.filter((episode) => (episode.watchActivity?.length ?? 0) > 0).length,
+    0,
+  );
+
+  const base = statusLabelFor(resolvedStatus);
+
+  if (totalCount > 0) {
+    return `${base} · ${watchedCount}/${totalCount} episodes`;
+  }
+
+  return base;
+}
+
+function resolveShowStatus(show: DetailShow): MediaStatus | null {
   if (!show.userStatus) {
     return null;
   }
@@ -334,16 +365,11 @@ function showStatusLine(show: DetailShow) {
     0,
   );
 
-  // Auto-display "Watched" if every loaded episode has watch activity
-  const resolvedStatus =
-    totalCount > 0 && watchedCount >= totalCount ? "watched" : show.userStatus;
-  const base = statusLabelFor(resolvedStatus);
-
-  if (totalCount > 0) {
-    return `${base} · ${watchedCount}/${totalCount} episodes`;
+  if (totalCount > 0 && watchedCount >= totalCount) {
+    return "watched";
   }
 
-  return base;
+  return show.userStatus;
 }
 
 function statusLabelFor(status: MediaStatus) {

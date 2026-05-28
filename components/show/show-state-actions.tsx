@@ -74,12 +74,14 @@ export function RemoteShowStateActions({
 
 export function LocalShowStateActions({
   addToWishlist,
+  isWatched,
   markWatched,
   removeFromLibrary,
   saveToLibrary,
   status,
 }: {
   addToWishlist: () => Promise<void>;
+  isWatched?: boolean;
   markWatched: () => Promise<void>;
   removeFromLibrary: () => Promise<void>;
   saveToLibrary: () => Promise<void>;
@@ -103,27 +105,28 @@ export function LocalShowStateActions({
     });
   }
 
+  const currentStatus = isWatched ? "watched" : status;
   const primaryActions = [
-    status !== "watching"
+    currentStatus !== "watching" && currentStatus !== "watched"
       ? {
           key: "library" as const,
-          label: status === "wishlist" ? "Add to Library" : "Watching",
+          label: currentStatus === "wishlist" ? "Add to Library" : "Watching",
           onClick: () => run("library", saveToLibrary),
           style: "primary" as const,
         }
       : null,
-    status !== "watched"
+    currentStatus !== "watched"
       ? {
           key: "watched" as const,
           label: "Mark Watched",
           onClick: () => run("watched", markWatched),
-          style: status === null ? "primary" as const : "secondary" as const,
+          style: currentStatus === null ? "primary" as const : "secondary" as const,
         }
       : null,
   ].filter((action): action is NonNullable<typeof action> => action !== null);
 
   const secondaryActions = [
-    status !== "wishlist"
+    currentStatus !== "wishlist" && currentStatus !== "watched"
       ? {
           key: "wishlist" as const,
           label: "+ Wishlist",
@@ -131,7 +134,7 @@ export function LocalShowStateActions({
           tone: "default" as const,
         }
       : null,
-    status !== null
+    currentStatus !== null
       ? {
           key: "remove" as const,
           label: "Remove",

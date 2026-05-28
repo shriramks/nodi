@@ -55,6 +55,7 @@ export default async function ShowDetailPage({ params }: ShowDetailPageProps) {
       actions={
         <LocalShowStateActions
           addToWishlist={addShowToWishlistAction.bind(null, show.id)}
+          isWatched={isShowWatched(show)}
           markWatched={markShowWatchedAction.bind(null, show.id)}
           removeFromLibrary={removeShowFromLibraryAction.bind(null, show.id)}
           saveToLibrary={saveShowToLibraryAction.bind(null, show.id)}
@@ -73,6 +74,29 @@ export default async function ShowDetailPage({ params }: ShowDetailPageProps) {
       tagEditor={<ShowTagEditor allTags={allTags} showId={show.id} tags={show.tags} />}
     />
   );
+}
+
+function isShowWatched(show: ShowDetail) {
+  if (show.userMedia?.status === "watched") {
+    return true;
+  }
+
+  const totalEpisodes = show.episode_count ?? show.seasons.reduce(
+    (count, season) => count + season.episodes.length,
+    0,
+  );
+
+  if (totalEpisodes === 0) {
+    return false;
+  }
+
+  const watchedEpisodes = show.seasons.reduce(
+    (count, season) =>
+      count + season.episodes.filter((episode) => (episode.watchActivity?.length ?? 0) > 0).length,
+    0,
+  );
+
+  return watchedEpisodes >= totalEpisodes;
 }
 
 async function loadShowOrNotFound(showId: string) {
