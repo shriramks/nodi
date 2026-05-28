@@ -126,7 +126,7 @@ export function LocalShowStateActions({
   ].filter((action): action is NonNullable<typeof action> => action !== null);
 
   const secondaryActions = [
-    currentStatus !== "wishlist" && currentStatus !== "watched"
+    currentStatus === null
       ? {
           key: "wishlist" as const,
           label: "+ Wishlist",

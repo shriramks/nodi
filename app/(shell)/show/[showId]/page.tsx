@@ -11,6 +11,7 @@ import { ShowDetailView } from "@/components/show/show-detail-view";
 import { getShowDetail, listTags, type ShowDetail } from "@/lib/db/queries";
 import { ingestTmdbShow } from "@/lib/db/mutations";
 import { isAppError } from "@/lib/errors";
+import { needsShowEpisodeHydration } from "@/lib/show/episode-hydration";
 import {
   getTmdbTvAggregateCreditsWithAuth,
   getTmdbTvDetailsWithAuth,
@@ -132,7 +133,7 @@ async function loadFreshShowOrNotFound(showId: string) {
 }
 
 async function hydrateShowEpisodesOnDemand(show: ShowDetail) {
-  if (!needsEpisodeHydration(show)) {
+  if (!needsShowEpisodeHydration(show)) {
     return false;
   }
 
@@ -170,19 +171,6 @@ async function hydrateShowEpisodesOnDemand(show: ShowDetail) {
     });
     return false;
   }
-}
-
-function needsEpisodeHydration(show: ShowDetail) {
-  const episodeCount = show.seasons.reduce(
-    (count, season) => count + season.episodes.length,
-    0,
-  );
-
-  if (show.episode_count !== null) {
-    return episodeCount < show.episode_count;
-  }
-
-  return episodeCount === 0;
 }
 
 async function loadShowCast(show: ShowDetail) {
