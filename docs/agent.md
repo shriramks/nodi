@@ -34,17 +34,24 @@ product direction.
 
 - Read `docs/agent.md` first, then open only the docs and files needed for the task.
 - Read `progress_nodi.md` for current local task state before starting assigned work.
-- After completing any unit of work, append an entry to `progress_nodi.md`. Format rules:
-  - Every entry (`Todo` and `Done`) has a globally sequential number, oldest `Done` = `#1`, ascending
-    by date. New entries continue the sequence.
+- After completing any unit of work, update `progress_nodi.md`. Format rules:
+  - `Done` entries are ordered newest-first under `## Done`; the latest completed work is always the
+    first `Done` entry, never appended near the bottom.
+  - `Done` numbers reflect that newest-first order: highest number at the top, descending by one down
+    to oldest `Done` = `#1`. A new `Done` entry gets the previous top `Done` number + 1.
+  - `Todo` entries sit above `## Done` under `## Todo` and use numbers higher than the current highest
+    `Done` number.
   - Heading format: `### N — YYYY-MM-DD — Title` for `Done` or `### N — Title` for `Todo`.
-  - `Done` entries are ordered oldest-first under `## Done`. `Todo` entries sit above `## Done` under
-    `## Todo`.
   - Each entry has a `Files:` line listing changed files, then 2-4 terse bullets on what changed and
     why.
   - When planning a multi-session task, add all sessions as numbered `Todo` entries first. When a
-    session is completed, move it to `Done` and renumber if needed to stay sequential, then append the
-    files and bullets.
+    session is completed, move it to the top of `Done` and renumber if needed to preserve the
+    newest-first sequence.
+  - Before editing the log, inspect the full heading sequence from the top of the file; do not rely on
+    `tail` or the last visible entry to determine the next number or insertion point.
+  - After editing the log, validate that `Done` dates are newest-to-oldest, `Done` numbers descend
+    without gaps or duplicates, `Todo` numbers are above the `Done` range, and there is only one
+    `## Todo` and one `## Done` section.
   - "Local progress log", "update progress", or similar phrases always refer to `progress_nodi.md`;
     do not grep for it.
 - `progress_nodi.md` is the repo-specific local progress file name. Keep that name instead of a
