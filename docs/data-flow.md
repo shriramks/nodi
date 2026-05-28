@@ -1,8 +1,9 @@
 # Nodi — Data Flow and Information Architecture
 
 This document maps where data is written and where it is read for every major
-user action. Use it to debug library/stats gaps, to understand which tables a
-new feature must touch, and to verify that a write path is complete end-to-end.
+user action. Use it to debug library/stats mismatches, to understand which
+tables a new feature must touch, and to verify that a write path is complete
+end-to-end.
 
 ---
 
@@ -11,261 +12,184 @@ new feature must touch, and to verify that a write path is complete end-to-end.
 ```mermaid
 flowchart TD
     subgraph Actions["User actions"]
-        MA(["Add / watch movie"])
+        MW(["Add / watch movie"])
         EW(["Mark episode watched"])
         SS(["Set show status"])
+        TG(["Add / remove tag"])
     end
 
-    subgraph MovieWrite["Movie write — dual path ⚠"]
-        INGEST["ingestPreparedTmdbMovie\nlib/db/mutations/movies.ts"]
-        MSTAT["setMovieWatchStatus\n→ apply_movie_watch_state RPC\n→ syncUserMovieToUserMedia"]
+    subgraph Metadata["Metadata ingestion"]
+        MOVIE["ingestPreparedTmdbMovieMedia\nlib/db/mutations/media.ts"]
+        SHOW["ingestPreparedTmdbShow\nlib/db/mutations/media.ts"]
     end
 
-    subgraph ShowWrite["Show write — native path"]
-        SINGEST["ingestPreparedTmdbShow\nlib/db/mutations/media.ts"]
+    subgraph State["User state writes"]
+        MOVIESTATE["setMediaMovieWatchStatus\naddMediaMovieWatchDate"]
         EPWATCH["markMediaEpisodeWatched"]
-        SHOWSTAT["setMediaShowStatus"]
+        SHOWSTATE["setMediaShowStatus"]
+        TAGS["user_media_tags"]
     end
 
-    subgraph Legacy["Legacy tables (movies only)"]
-        L1[("movies\nmovie_cast\nprovider_mappings")]
-        L2[("user_movies\nwatch_logs\nuser_movie_tags")]
-    end
-
-    subgraph NewTables["New media tables (movies + shows)"]
-        M1[("media_items\nepisodes\nmedia_provider_mappings")]
-        M2[("user_media\nuser_media_tags")]
-        M3[("media_watch_activity")]
+    subgraph Tables["Media tables"]
+        M1[("media_items")]
+        M2[("episodes")]
+        M3[("media_provider_mappings")]
+        U1[("user_media")]
+        U2[("media_watch_activity")]
+        U3[("user_media_tags")]
     end
 
     subgraph Surfaces["Read surfaces"]
-        RS1["/library · /wishlist\nlist_media_library_movies_page RPC"]
-        RS2["/movie/id — detail\ngetMovieDetail legacy"]
-        RS3["/show/id — detail\ngetShowDetail"]
-        RS4["/stats\ngetMediaStatsInput"]
+        LIB["/library · /wishlist\nlist_media_library_movies_page RPC"]
+        MOVIEDETAIL["/movie/id\ngetMediaDetail"]
+        SHOWDETAIL["/show/id\ngetShowDetail"]
+        STATS["/stats\ngetMediaStatsInput"]
+        SEARCH["/search\nTMDB + media_provider_mappings + user_media"]
     end
 
-    MA --> MovieWrite
-    EW --> EPWATCH
-    SS --> SHOWSTAT
+    MW --> MOVIE --> M1
+    MOVIE --> M3
+    MW --> MOVIESTATE --> U1
+    MOVIESTATE --> U2
 
-    INGEST --> L1
-    INGEST --> M1
-    MSTAT --> L2
-    MSTAT --> M2
+    EW --> EPWATCH --> U2
+    EPWATCH --> U1
+    SS --> SHOWSTATE --> U1
+    SHOW --> M1
+    SHOW --> M2
+    SHOW --> M3
 
-    SINGEST --> M1
-    EPWATCH --> M3
-    EPWATCH --> M2
-    SHOWSTAT --> M2
+    TG --> TAGS --> U3
 
-    M1 & M2 --> RS1
-    L1 & L2 --> RS2
-    M1 & M2 & M3 --> RS3
-    M2 & M3 --> RS4
-
-    L2 -. "gap: watch_logs not\nsynced to media_watch_activity\nfor new movie watches" .-> M3
+    M1 & U1 --> LIB
+    M1 & M3 & U1 & U2 & U3 --> MOVIEDETAIL
+    M1 & M2 & M3 & U1 & U2 & U3 --> SHOWDETAIL
+    M1 & M2 & U1 & U2 & U3 --> STATS
+    M3 & U1 --> SEARCH
 ```
 
-**Reading the diagram:**
-- Movie writes go to **both** legacy tables and new media tables (dual path, marked ⚠).
-  The library and stats read only from the new tables — any break in the bridge sync makes
-  a movie invisible in the library even though it exists in the legacy tables.
-- Show writes go **only** to the new media tables. There is no legacy show table.
-- The dashed line is the known gap: watch events for movies land in `watch_logs` (legacy)
-  but not in `media_watch_activity` (new). Stats and date-filter queries are blind to them
-  until a backfill migration runs or the write path is migrated (task 139).
+## Table Overview
 
----
+| Table | Purpose |
+| --- | --- |
+| `media_items` | Shared movie and show metadata from TMDB |
+| `episodes` | TV episode rows belonging to a show `media_items` row |
+| `media_provider_mappings` | TMDB, IMDb, and Trakt IDs for movies, shows, and episodes |
+| `user_media` | Per-user movie and show state: status, rating, watchlist date, completion date |
+| `media_watch_activity` | Per-user movie and episode watch events |
+| `user_media_tags` | Per-user tag attachments for movies and shows |
+| `tags` | Per-user tag names |
+| `sync_events` | Outbound/inbound provider sync audit and queue |
+| `sync_runs` / `sync_item_failures` / `sync_cursors` | Provider sync progress, retry, and cursor state |
 
-## Table overview
+Watch history stays event-based in `media_watch_activity`. `user_media` stores
+the current state summary, but analytics and date filtering use activity rows.
 
-| Table | Layer | Purpose |
-| --- | --- | --- |
-| `movies` | Legacy | Movie metadata (title, poster, runtime, genre, language) |
-| `movie_cast` | Legacy | Cast rows per movie |
-| `provider_mappings` | Legacy | TMDB / IMDb external IDs per movie |
-| `user_movies` | Legacy | Per-user movie state (status, rating, dates) |
-| `watch_logs` | Legacy | Per-user movie watch events |
-| `user_movie_tags` | Legacy | Many-to-many tags for movies |
-| `media_items` | New | Unified movie + show metadata (same UUID as `movies` for movies) |
-| `episodes` | New | TV episode rows belonging to a show `media_items` row |
-| `media_provider_mappings` | New | TMDB / IMDb / Trakt IDs for movies, shows, and episodes |
-| `user_media` | New | Per-user movie + show state (status, rating, dates) |
-| `media_watch_activity` | New | Per-user movie + episode watch events |
-| `user_media_tags` | New | Many-to-many tags for movies and shows |
+## Movies
 
-**Key invariant:** For movies, `movies.id = media_items.id`. The UUID is
-identical so the legacy and new tables join without any extra mapping.
-
----
-
-## Movies — Write path
-
-### Ingesting a new movie from TMDB
+### Ingesting a Movie from TMDB
 
 Entry points: `markTmdbWatchedAction` / `addTmdbToWatchlistAction`
 (`app/(shell)/movie/actions.ts`)
 
 ```
-ingestPreparedTmdbMovie (lib/db/mutations/movies.ts)
-  → movies            upsert on tmdb_id
-  → movie_cast        delete-then-insert per movie
-  → provider_mappings upsert on (provider, provider_movie_id)
-  → media_items       upsert on id  (same UUID as movies.id)
-  → media_provider_mappings  (currently not written here — see gap below)
+ingestPreparedTmdbMovieMedia
+  -> media_items              upsert movie metadata
+  -> media_provider_mappings  upsert TMDB and IMDb provider IDs
 
-setMovieWatchStatus (lib/db/mutations/movies.ts)
-  → apply_movie_watch_state RPC
-      → user_movies   upsert on (user_id, movie_id)
-      → watch_logs    insert (one row per watch event)
-  → syncUserMovieToUserMedia
-      → user_media    upsert on (user_id, media_id)   status: done | wishlist
+setMediaMovieWatchStatus
+  -> user_media               upsert status: done | wishlist
+  -> media_watch_activity     insert a watch event when status = done
+  -> sync_events              queue Trakt push unless source = trakt_sync
 ```
 
-**What is NOT written automatically:**
+### Updating an Existing Movie
 
-- `media_watch_activity` — written by `setMediaMovieWatchStatus` (new path, not
-  yet used for movies added from the TMDB detail page). Movie watch events
-  currently live in `watch_logs` only. The `legacy_watch_log_id` column on
-  `media_watch_activity` is the bridge; a backfill migration can populate it.
-- `media_provider_mappings` for newly ingested movies — added during the initial
-  schema migration but not yet wired into `ingestPreparedTmdbMovie`. Legacy
-  `provider_mappings` remains the source of truth for provider IDs.
+| Action | Write path |
+| --- | --- |
+| Mark watched | `setMediaMovieWatchStatus` -> `user_media` + `media_watch_activity` |
+| Add rewatch date | `addMediaMovieWatchDate` -> `media_watch_activity`, then refreshes `user_media.last_watched_at` |
+| Move to wishlist | `setMediaMovieWatchStatus` -> `user_media` |
+| Remove from library | `removeUserMediaMovie` -> `user_media`, `media_watch_activity`, `user_media_tags` |
+| Update rating | `updateMediaMovieRating` -> `user_media.personal_rating` |
+| Edit/delete watch date | `updateMediaMovieWatchActivityDate` / `deleteMediaMovieWatchActivity` -> `media_watch_activity`, then refreshes `user_media.last_watched_at` |
+| Add/remove tag | media tag mutations -> `tags` + `user_media_tags` |
 
-### Updating watch state for an existing local movie
-
-Entry points: movie detail actions (`app/(shell)/movie/[movieId]/actions.ts`)
-
-Same path as above: `setMovieWatchStatus` → RPC → `user_movies` + `watch_logs`
-→ `syncUserMovieToUserMedia` → `user_media`.
-
----
-
-## Movies — Read path
+### Movie Reads
 
 | Surface | Query | Tables read |
 | --- | --- | --- |
-| Library (`/library`) | `listMediaLibraryMoviesPage` → `list_media_library_movies_page` RPC | `user_media` + `media_items` |
+| Library (`/library`) | `listMediaLibraryMoviesPage` -> `list_media_library_movies_page` RPC | `user_media` + `media_items` + filters from `media_watch_activity` / `user_media_tags` |
 | Wishlist (`/wishlist`) | same RPC, `p_status = 'to_watch'` | `user_media` + `media_items` |
-| Movie detail (`/movie/[movieId]`) | `getMovieDetail` (legacy) | `movies` + `user_movies` + `watch_logs` + `user_movie_tags` |
-| Stats | `getMediaStatsInput` | `media_watch_activity` + `user_media` + `user_media_tags` |
-| Library filter summary | `getMediaWatchedMovieLibrarySummary` | `media_watch_activity` |
-| Search results | TMDB API + local join on `movies.tmdb_id` | `movies` + `user_movies` |
+| Movie detail (`/movie/[movieId]`) | `getMediaDetail` | `media_items` + `user_media` + `media_watch_activity` + `user_media_tags` + `media_provider_mappings` |
+| Search results | TMDB API plus local state lookup | `media_provider_mappings` + `user_media` |
+| Stats | `getMediaStatsInput` | `media_watch_activity` + `user_media` + `user_media_tags` + `media_items` |
 
-**Critical:** the library and wishlist read from `user_media` + `media_items`.
-Any movie not in both of those tables will be invisible in the library, even if
-it is in `user_movies` + `movies`. Stats reads from `media_watch_activity`, not
-`watch_logs`, so watch events not backfilled there are invisible to analytics.
+## Shows
 
----
+Shows use the same media tables as movies, with episode rows added under the
+show media item.
 
-## Shows — Write path
-
-Shows have **no legacy table**. All show data goes directly to the new media
-tables from the start.
-
-### Ingesting a show from TMDB
+### Ingesting a Show from TMDB
 
 Entry point: `ingestTmdbShow` / `ingestPreparedTmdbShow`
 (`lib/db/mutations/media.ts`)
 
 ```
 ingestPreparedTmdbShow
-  → media_items             upsert on id  (show row, type = 'show')
-  → media_provider_mappings upsert on (provider, provider_media_type, provider_id)
-  → episodes                upsert on (show_id, season_number, episode_number)
-  → media_provider_mappings upsert per episode
+  -> media_items              upsert show metadata
+  -> media_provider_mappings  upsert show TMDB provider ID
+  -> episodes                 upsert season/episode metadata
+  -> media_provider_mappings  upsert episode TMDB provider IDs
 ```
 
-### Setting show status
+### Show and Episode State
 
-Entry point: `setMediaShowStatus` (`lib/db/mutations/media.ts`)
+| Action | Write path |
+| --- | --- |
+| Add to library / wishlist | `setMediaShowStatus` -> `user_media` |
+| Mark episode watched | `markMediaEpisodeWatched` -> `media_watch_activity`, then refreshes `user_media` |
+| Mark episode unwatched | `deleteMediaEpisodeWatchActivity` -> `media_watch_activity`, then refreshes `user_media` |
+| Mark show done / stopped / resume | `setMediaShowStatus` -> `user_media` |
+| Add/remove tag | media tag mutations -> `tags` + `user_media_tags` |
 
-```
-setMediaShowStatus
-  → user_media    upsert on (user_id, media_id)   status: done | watching | stopped | wishlist
-```
+Show completion is derived from non-special aired episodes. When all regular
+aired episodes are watched, `refreshShowWatchedState` can set
+`user_media.status = 'done'` with `completion_mode = 'auto_all_aired'`.
 
-### Marking an episode watched
-
-Entry point: `markMediaEpisodeWatched` (`lib/db/mutations/media.ts`)
-
-```
-markMediaEpisodeWatched
-  → media_watch_activity   insert (episode_id set, media_id = show id)
-  → refreshShowMediaLastWatchedAt
-      → user_media         upsert (updates status, last_watched_at, completed_at)
-```
-
----
-
-## Shows — Read path
+### Show Reads
 
 | Surface | Query | Tables read |
 | --- | --- | --- |
 | Library (`/library`) | `listMediaLibraryMoviesPage` RPC | `user_media` + `media_items` |
 | Wishlist (`/wishlist`) | same RPC | `user_media` + `media_items` |
-| Show detail (`/show/[showId]`) | `getShowDetail` | `media_items` + `user_media` + `episodes` + `media_watch_activity` |
+| Show detail (`/show/[showId]`) | `getShowDetail` | `media_items` + `user_media` + `episodes` + `media_watch_activity` + `user_media_tags` + `media_provider_mappings` |
 | Episode detail | `getEpisodeDetail` | `episodes` + `media_items` + `user_media` + `media_watch_activity` |
-| Stats | `getMediaStatsInput` | `media_watch_activity` + `user_media` + `user_media_tags` |
+| Stats | `getMediaStatsInput` | `media_watch_activity` + `user_media` + `user_media_tags` + `media_items` + `episodes` |
 
----
+## Sync
 
-## The dual-table problem (movies)
-
-Movies currently have a split write path:
+Trakt pull writes movies and shows into the same media tables:
 
 ```
-TMDB action
-  ├─ ingestPreparedTmdbMovie → movies (primary) + media_items (bridge sync)
-  └─ setMovieWatchStatus     → user_movies (primary) + user_media (bridge sync)
+Trakt pull
+  -> media_items / episodes / media_provider_mappings
+  -> user_media
+  -> media_watch_activity
+  -> user_media_tags for list imports
+  -> sync_cursors / sync_runs / sync_item_failures
 ```
 
-The library and stats read from the **new** tables only. The movie detail page
-reads from the **legacy** tables. This works as long as both sides stay in sync,
-but any gap — such as adding a movie before the bridge sync was in place —
-leaves the movie visible in detail but invisible in the library.
+Outbound user actions queue `sync_events` unless their source is `trakt_sync`.
+Push resolution uses `media_items` plus `media_provider_mappings` to build Trakt
+payloads.
 
-**Planned resolution:** task 139 in `progress_nodi.md` will migrate the movie
-write path entirely to the new media tables (`media_items`, `user_media`,
-`media_watch_activity`) and retire the legacy write calls.
+## Debugging Checklist
 
----
+When a saved item is missing from a surface:
 
-## Data flow diagram
-
-```
-User action (TMDB detail page)
-       │
-       ▼
-ingestPreparedTmdbMovie
-       │
-       ├──► movies ──────────────────────► movie detail page reads here
-       │
-       └──► media_items ────────────────► library / wishlist / stats read here
-                │
-                └──► (gap) media_provider_mappings not written inline
-
-setMovieWatchStatus → apply_movie_watch_state RPC
-       │
-       ├──► user_movies + watch_logs ───► movie detail page reads here
-       │
-       └──► syncUserMovieToUserMedia
-                │
-                └──► user_media ─────────► library / wishlist read here
-
-                     (gap) media_watch_activity ─► stats reads here
-                           currently only has data from backfill migrations
-                           not from new watch events via legacy path
-```
-
----
-
-## Known write-path gaps
-
-| Gap | Impact | Mitigation |
-| --- | --- | --- |
-| `media_watch_activity` not written when movies are watched via legacy path | Watch events invisible to stats; date filter in library returns no results for recent watches | Backfill migration `20260528130000` covers historical gap; full fix in task 139 |
-| `media_provider_mappings` not written inline by `ingestPreparedTmdbMovie` | Sync push events may not find provider IDs | Legacy `provider_mappings` still used by sync; full fix in task 139 |
-| Movies added between initial backfill and write-path sync fix missing from `media_items`/`user_media` | Movies invisible in library | Backfill migration `20260528130000` fixes this |
+1. Check `media_items` for the item UUID and type.
+2. Check `user_media` for the current user and media ID.
+3. Check `media_provider_mappings` when search or sync cannot resolve provider IDs.
+4. Check `media_watch_activity` when stats, watched dates, or rewatch counts look wrong.
+5. Check `user_media_tags` when tag filters or tag displays are wrong.

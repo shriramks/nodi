@@ -18,7 +18,6 @@ import { toTmdbMovieIngestPayload, toTmdbShowIngestPayload } from "@/lib/provide
 import {
   estimateTmdbMovieBackfillCallCount,
   estimateTmdbShowBackfillCallCount,
-  needsTmdbMetadataEnrichment,
   normalizeTmdbBackfillCallBudget,
   selectTmdbBackfillCandidatesWithinBudget,
   type EstimatedTmdbBackfillCandidate,

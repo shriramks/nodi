@@ -5,15 +5,12 @@ import type {
   LibraryStatsTimeBucket,
   MediaType,
   MediaTypeFilter,
-  Movie,
   Tag,
   MediaItem,
   Episode,
   UserMedia,
   UserMediaTag,
-  UserMovieTag,
   WatchedLibrarySummary,
-  WatchLog,
 } from "@/lib/db/types";
 
 const maxBreakdownItems = 10;
@@ -21,25 +18,34 @@ const unknownKey = "unknown";
 const unknownLabel = "Unknown";
 export const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export type WatchLogAnalyticsMovie = Pick<
-  Movie,
-  "id" | "runtime_minutes" | "original_language" | "primary_genre_name" | "release_year"
->;
+export type WatchLogAnalyticsMovie = {
+  id: string;
+  runtime_minutes: number | null;
+  original_language: string | null;
+  primary_genre_name: string | null;
+  release_year: number | null;
+};
 
-export type WatchLogAnalyticsRow = Pick<WatchLog, "id" | "movie_id" | "watched_at"> & {
+export type WatchLogAnalyticsRow = {
+  id: string;
+  movie_id: string;
+  watched_at: string;
   movies: WatchLogAnalyticsMovie | null;
 };
 
-export type WatchedLibrarySummaryMovie = Pick<
-  Movie,
-  "original_language" | "primary_genre_name"
->;
+export type WatchedLibrarySummaryMovie = {
+  original_language: string | null;
+  primary_genre_name: string | null;
+};
 
-export type WatchedLibrarySummaryRow = Pick<WatchLog, "movie_id" | "watched_at"> & {
+export type WatchedLibrarySummaryRow = {
+  movie_id: string;
+  watched_at: string;
   movies: WatchedLibrarySummaryMovie | null;
 };
 
-export type TagAnalyticsRow = Pick<UserMovieTag, "movie_id"> & {
+export type TagAnalyticsRow = {
+  movie_id: string;
   tags: Pick<Tag, "id" | "name"> | null;
 };
 
@@ -94,16 +100,19 @@ type WatchedMediaSummary = {
   releaseYear: number | null;
 };
 
-type WatchedMovieSourceRow = Pick<WatchLog, "movie_id"> & {
+type WatchedMovieSourceRow = {
+  movie_id: string;
   movies:
-    | (Pick<Movie, "original_language" | "primary_genre_name"> &
-        Partial<Pick<Movie, "release_year">>)
+    | (WatchedLibrarySummaryMovie & {
+        release_year?: number | null;
+      })
     | null;
 };
 
-type TimeBucketSourceRow = Pick<WatchLog, "watched_at"> & {
+type TimeBucketSourceRow = {
+  watched_at: string;
   movies?:
-    | Partial<Pick<Movie, "runtime_minutes">>
+    | { runtime_minutes?: number | null }
     | WatchedLibrarySummaryMovie
     | null;
   media_items?: Partial<Pick<MediaItem, "runtime_minutes" | "type">> | null;
@@ -308,7 +317,7 @@ export function buildMediaLibraryStats(
   };
 }
 
-function watchedYear(row: Pick<WatchLog, "watched_at">): string | null {
+function watchedYear(row: { watched_at: string }): string | null {
   const ts = Date.parse(row.watched_at);
   return Number.isNaN(ts) ? null : String(new Date(ts).getUTCFullYear());
 }

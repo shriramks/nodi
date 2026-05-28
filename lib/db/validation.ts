@@ -1,7 +1,6 @@
 import { AppError } from "@/lib/errors";
 import type {
   Json,
-  MovieInsert,
   MovieStatus,
   Provider,
   ProviderConnectionStatus,
@@ -315,27 +314,6 @@ export function validateMoviePayload(payload: unknown): MoviePayload {
     }),
     tmdbVoteCount: optionalInteger(record, "tmdbVoteCount", { min: 0 }),
     popularity: optionalNumber(record, "popularity"),
-  };
-}
-
-export function toMovieInsert(payload: MoviePayload): MovieInsert {
-  return {
-    tmdb_id: payload.tmdbId,
-    imdb_id: payload.imdbId ?? null,
-    title: payload.title,
-    original_title: payload.originalTitle ?? null,
-    release_date: payload.releaseDate ?? null,
-    primary_genre_id: payload.primaryGenreId ?? null,
-    primary_genre_name: payload.primaryGenreName ?? null,
-    original_language: payload.originalLanguage ?? null,
-    overview: payload.overview ?? null,
-    poster_path: payload.posterPath ?? null,
-    backdrop_path: payload.backdropPath ?? null,
-    runtime_minutes: payload.runtimeMinutes ?? null,
-    tmdb_vote_average: payload.tmdbVoteAverage ?? null,
-    tmdb_vote_count: payload.tmdbVoteCount ?? null,
-    popularity: payload.popularity ?? null,
-    metadata_updated_at: new Date().toISOString(),
   };
 }
 

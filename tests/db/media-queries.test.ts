@@ -272,10 +272,6 @@ describe("media queries", () => {
         data: [{ media_id: mediaId, provider: "tmdb", provider_media_type: "movie", provider_id: "42" }],
         error: null,
       })),
-      cast: chainQuery(createQuery({
-        data: [{ id: "cast-id", movie_id: mediaId, name: "Actor", tmdb_person_id: 42 }],
-        error: null,
-      })),
     };
     const from = vi.fn((table: string) => {
       if (table === "media_items") return queries.mediaItems;
@@ -283,7 +279,6 @@ describe("media queries", () => {
       if (table === "media_watch_activity") return queries.activity;
       if (table === "user_media_tags") return queries.tags;
       if (table === "media_provider_mappings") return queries.mappings;
-      if (table === "movie_cast") return queries.cast;
       throw new Error(`Unexpected table query: ${table}`);
     });
     mocks.createSupabaseServerClient.mockResolvedValue({ from });
@@ -295,13 +290,12 @@ describe("media queries", () => {
       watchActivity: [{ id: "activity-id" }],
       tags: [{ name: "Noir" }],
       providerMappings: [{ provider: "tmdb", provider_id: "42" }],
-      cast: [{ name: "Actor" }],
+      cast: [],
     });
 
     expect(from).toHaveBeenCalledWith("media_items");
     expect(from).toHaveBeenCalledWith("media_watch_activity");
     expect(from).toHaveBeenCalledWith("media_provider_mappings");
-    expect(from).toHaveBeenCalledWith("movie_cast");
   });
 
   it("loads tags assigned to a media item through user_media_tags", async () => {

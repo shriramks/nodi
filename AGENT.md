@@ -27,7 +27,7 @@ product direction.
 - Trakt is the sync peer for watched history, watchlist, and ratings.
 - IMDb is a reference identifier, not a first-class sync provider in v1.
 - Shared movie metadata and per-user movie state must stay split.
-- Watch history must stay event-based in `watch_logs`; do not collapse it into a single boolean.
+- Watch history must stay event-based in `media_watch_activity`; do not collapse it into a single boolean.
 - Search is remote-first, but selected results should be ingested into local storage before detail use.
 - Explicit watched dates matter for stats and sync correctness.
 - The app is multi-user from day one, so auth and RLS are first-class concerns.
@@ -156,16 +156,9 @@ files, then inspect only direct imports, direct callers, or the relevant route b
   - `getShowDetail()` wraps `getMediaDetail()` and appends episode + watch-activity data.
   - `getEpisodeDetail()` loads a single episode plus its show context.
   - `getMediaStatsInput()` loads analytics rows for stats.
-- Legacy movie query owner: `lib/db/queries/movies.ts`
-  - `listLibraryMoviesPage()` calls the `list_library_movies_page(...)` RPC against the legacy
-    `user_movies` + `movies` tables. Still used internally by some bulk/sync paths.
-  - `getMovieDetail()` hydrates per-movie tags through `user_movie_tags`.
-  - `listUserMovies()` joins `user_movies` to full `movies` rows without hydrating tags.
-  - Month filter keys are `YYYY-MM`; year filter keys are `YYYY`; month takes precedence.
 - Shared types: `lib/db/types.ts`
   - `LibraryMovie` is the shape passed to `LibraryGrid`.
   - `MediaItem` is the shared show/movie metadata row.
-  - `Movie` is the legacy movie-only metadata row.
 - Tags query owner: `lib/db/queries/tags.ts`
 
 ### Stats
@@ -188,13 +181,12 @@ files, then inspect only direct imports, direct callers, or the relevant route b
   - Renders tag and year selector pills.
   - Navigates to `/stats?tag=<tag name>`, `/stats?year=<YYYY>`, or both while preserving the other active filter.
 - Stats query owner: `lib/db/queries/stats.ts`
-  - Loads watch-log analytics rows, tag analytics rows, and rating rows.
-  - Delegates all aggregation to `buildLibraryStats()`.
+  - Loads media analytics rows and delegates aggregation to `buildMediaLibraryStats()`.
 - Stats transforms: `lib/db/queries/stats-transforms.ts`
-  - Builds watched movie summaries from watch-log rows.
+  - Builds watched summaries from media activity rows.
   - Builds genre, language, tag, rating, month, and year stats.
   - `availableYearBuckets` is computed after tag filtering but before year filtering so the stats year selector remains populated.
-  - Year-filtered stats use watched years from `watch_logs.watched_at`; month buckets are fixed to Jan-Dec for that selected year.
+  - Year-filtered stats use watched years from `media_watch_activity.watched_at`; month buckets are fixed to Jan-Dec for that selected year.
   - Month bucket keys are `YYYY-MM`.
   - Year bucket keys are `YYYY`.
   - Genre breakdown keys are lower-cased genre labels.
@@ -216,25 +208,22 @@ files, then inspect only direct imports, direct callers, or the relevant route b
 
 ### Database fields relevant to stats filters
 
-- Movie metadata table: `supabase/migrations/20260505220000_initial_schema.sql`
-  - `movies.primary_genre_name`
-  - `movies.original_language`
-  - `movies.release_year`
-- User library table:
-  - `user_movies.status`
-  - `user_movies.last_watched_at`
-  - `user_movies.personal_rating`
+- Media metadata table:
+  - `media_items.primary_genre_name`
+  - `media_items.original_language`
+  - `media_items.release_year`
+- User media table:
+  - `user_media.status`
+  - `user_media.last_watched_at`
+  - `user_media.personal_rating`
 - Watch history table:
-  - `watch_logs.movie_id`
-  - `watch_logs.watched_at`
-  - Stats month/year buckets are based on `watch_logs`, not just `user_movies.last_watched_at`.
-- Watched/watchlist writes:
-  - `apply_movie_watch_state(...)` is the transactional RPC for single-movie watched, watchlist,
-    repeat-watch, and outbound Trakt sync-event bookkeeping.
+  - `media_watch_activity.media_id`
+  - `media_watch_activity.watched_at`
+  - Stats month/year buckets are based on `media_watch_activity`, not just `user_media.last_watched_at`.
 - User tags:
   - `tags.name`
-  - `user_movie_tags.movie_id`
-  - `user_movie_tags.tag_id`
+  - `user_media_tags.media_id`
+  - `user_media_tags.tag_id`
 
 ## Search discipline
 

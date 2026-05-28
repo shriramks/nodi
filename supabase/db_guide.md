@@ -22,7 +22,7 @@ The initial schema lives at:
 
 This migration is intended to be applied once when the Supabase project is ready.
 
-It creates:
+It originally creates:
 - `movies`
 - `movie_cast`
 - `user_movies`
@@ -34,6 +34,10 @@ It creates:
 - `provider_mappings`
 - `sync_cursors`
 - `sync_events`
+
+The active app schema later moved movies into the shared media tables. The legacy movie-only tables
+above are removed by `supabase/migrations/20260528210000_drop_legacy_movie_tables.sql` after their
+data is represented in the media tables.
 
 It also adds:
 - indexes for query paths used by library, stats, and sync
@@ -60,29 +64,23 @@ The important operational rule is:
 ### Shared metadata tables
 
 These are app-readable shared tables:
-- `movies`
-- `movie_cast`
 - `media_items`
 - `episodes`
-- `provider_mappings`
 - `media_provider_mappings`
 
 They support:
 - TMDB metadata ingestion
 - local movie detail hydration
 - provider ID resolution during sync
-- planned media and TV metadata reads alongside the existing movie path
+- movie and TV metadata reads through one media path
 
 Writes to these tables should happen through trusted server-side paths using privileged credentials.
 
 ### User-owned tables
 
 These tables are scoped per authenticated user:
-- `user_movies`
-- `watch_logs`
 - `media_watch_activity`
 - `tags`
-- `user_movie_tags`
 - `user_media`
 - `user_media_tags`
 - `provider_connections`
@@ -198,6 +196,13 @@ ratings include in-progress shows.
 `movie_cast.movie_id` from the legacy `movies` table to the same UUID in `media_items`. This keeps
 movie cast rows available for the current detail UI while allowing the legacy `movies` table to be
 dropped in a later cleanup migration once remaining legacy paths are removed.
+
+`supabase/migrations/20260528210000_drop_legacy_movie_tables.sql` verifies that movie metadata,
+provider mappings, user state, tags, and watch activity are represented in the media tables, drops
+the `media_watch_activity.legacy_watch_log_id` bridge column, removes the old movie-only RPCs, and
+drops the movie-only tables. After this migration, `media_items`, `user_media`,
+`media_watch_activity`, `user_media_tags`, and `media_provider_mappings` are authoritative for both
+movies and shows.
 
 ## 8. Operational Notes
 

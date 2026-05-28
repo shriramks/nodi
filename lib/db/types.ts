@@ -20,111 +20,6 @@ export type SyncRunStatus = "running" | "success" | "error" | "cancelled";
 export type Database = {
   public: {
     Tables: {
-      movies: {
-        Row: {
-          id: string;
-          tmdb_id: number;
-          imdb_id: string | null;
-          title: string;
-          original_title: string | null;
-          release_date: string | null;
-          release_year: number | null;
-          primary_genre_id: number | null;
-          primary_genre_name: string | null;
-          original_language: string | null;
-          overview: string | null;
-          poster_path: string | null;
-          backdrop_path: string | null;
-          runtime_minutes: number | null;
-          tmdb_vote_average: number | null;
-          tmdb_vote_count: number | null;
-          popularity: number | null;
-          metadata_updated_at: string;
-          tmdb_enriched_at: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          tmdb_id: number;
-          imdb_id?: string | null;
-          title: string;
-          original_title?: string | null;
-          release_date?: string | null;
-          primary_genre_id?: number | null;
-          primary_genre_name?: string | null;
-          original_language?: string | null;
-          overview?: string | null;
-          poster_path?: string | null;
-          backdrop_path?: string | null;
-          runtime_minutes?: number | null;
-          tmdb_vote_average?: number | null;
-          tmdb_vote_count?: number | null;
-          popularity?: number | null;
-          metadata_updated_at?: string;
-          tmdb_enriched_at?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          tmdb_id?: number;
-          imdb_id?: string | null;
-          title?: string;
-          original_title?: string | null;
-          release_date?: string | null;
-          primary_genre_id?: number | null;
-          primary_genre_name?: string | null;
-          original_language?: string | null;
-          overview?: string | null;
-          poster_path?: string | null;
-          backdrop_path?: string | null;
-          runtime_minutes?: number | null;
-          tmdb_vote_average?: number | null;
-          tmdb_vote_count?: number | null;
-          popularity?: number | null;
-          metadata_updated_at?: string;
-          tmdb_enriched_at?: string | null;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "movie_cast_movie_id_fkey";
-            columns: ["movie_id"];
-            isOneToOne: false;
-            referencedRelation: "media_items";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      movie_cast: {
-        Row: {
-          id: string;
-          movie_id: string;
-          tmdb_person_id: number;
-          name: string;
-          character_name: string | null;
-          profile_path: string | null;
-          cast_order: number | null;
-        };
-        Insert: {
-          id?: string;
-          movie_id: string;
-          tmdb_person_id: number;
-          name: string;
-          character_name?: string | null;
-          profile_path?: string | null;
-          cast_order?: number | null;
-        };
-        Update: {
-          id?: string;
-          movie_id?: string;
-          tmdb_person_id?: number;
-          name?: string;
-          character_name?: string | null;
-          profile_path?: string | null;
-          cast_order?: number | null;
-        };
-        Relationships: [];
-      };
       media_items: {
         Row: {
           id: string;
@@ -257,50 +152,6 @@ export type Database = {
           },
         ];
       };
-      user_movies: {
-        Row: {
-          id: string;
-          user_id: string;
-          movie_id: string;
-          status: MovieStatus;
-          personal_rating: number | null;
-          added_at: string;
-          watchlisted_at: string | null;
-          last_watched_at: string | null;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          movie_id: string;
-          status: MovieStatus;
-          personal_rating?: number | null;
-          added_at?: string;
-          watchlisted_at?: string | null;
-          last_watched_at?: string | null;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          movie_id?: string;
-          status?: MovieStatus;
-          personal_rating?: number | null;
-          added_at?: string;
-          watchlisted_at?: string | null;
-          last_watched_at?: string | null;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "user_movies_movie_id_fkey";
-            columns: ["movie_id"];
-            isOneToOne: false;
-            referencedRelation: "movies";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       user_media: {
         Row: {
           id: string;
@@ -361,7 +212,6 @@ export type Database = {
           source: WatchLogSource;
           provider_event_id: string | null;
           notes: string | null;
-          legacy_watch_log_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -373,7 +223,6 @@ export type Database = {
           source: WatchLogSource;
           provider_event_id?: string | null;
           notes?: string | null;
-          legacy_watch_log_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -385,7 +234,6 @@ export type Database = {
           source?: WatchLogSource;
           provider_event_id?: string | null;
           notes?: string | null;
-          legacy_watch_log_id?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -401,54 +249,6 @@ export type Database = {
             columns: ["episode_id"];
             isOneToOne: false;
             referencedRelation: "episodes";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "media_watch_activity_legacy_watch_log_id_fkey";
-            columns: ["legacy_watch_log_id"];
-            isOneToOne: true;
-            referencedRelation: "watch_logs";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      watch_logs: {
-        Row: {
-          id: string;
-          user_id: string;
-          movie_id: string;
-          watched_at: string;
-          source: WatchLogSource;
-          provider_event_id: string | null;
-          notes: string | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          movie_id: string;
-          watched_at: string;
-          source: WatchLogSource;
-          provider_event_id?: string | null;
-          notes?: string | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          movie_id?: string;
-          watched_at?: string;
-          source?: WatchLogSource;
-          provider_event_id?: string | null;
-          notes?: string | null;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "watch_logs_movie_id_fkey";
-            columns: ["movie_id"];
-            isOneToOne: false;
-            referencedRelation: "movies";
             referencedColumns: ["id"];
           },
         ];
@@ -476,42 +276,6 @@ export type Database = {
           created_at?: string;
         };
         Relationships: [];
-      };
-      user_movie_tags: {
-        Row: {
-          user_id: string;
-          movie_id: string;
-          tag_id: string;
-          created_at: string;
-        };
-        Insert: {
-          user_id: string;
-          movie_id: string;
-          tag_id: string;
-          created_at?: string;
-        };
-        Update: {
-          user_id?: string;
-          movie_id?: string;
-          tag_id?: string;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "user_movie_tags_movie_id_fkey";
-            columns: ["movie_id"];
-            isOneToOne: false;
-            referencedRelation: "movies";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "user_movie_tags_tag_id_user_id_fkey";
-            columns: ["tag_id", "user_id"];
-            isOneToOne: false;
-            referencedRelation: "tags";
-            referencedColumns: ["id", "user_id"];
-          },
-        ];
       };
       user_media_tags: {
         Row: {
@@ -640,35 +404,6 @@ export type Database = {
             columns: ["connection_id"];
             isOneToOne: true;
             referencedRelation: "provider_connections";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      provider_mappings: {
-        Row: {
-          movie_id: string;
-          provider: ProviderMappingProvider;
-          provider_movie_id: string;
-          created_at: string;
-        };
-        Insert: {
-          movie_id: string;
-          provider: ProviderMappingProvider;
-          provider_movie_id: string;
-          created_at?: string;
-        };
-        Update: {
-          movie_id?: string;
-          provider?: ProviderMappingProvider;
-          provider_movie_id?: string;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "provider_mappings_movie_id_fkey";
-            columns: ["movie_id"];
-            isOneToOne: false;
-            referencedRelation: "movies";
             referencedColumns: ["id"];
           },
         ];
@@ -930,52 +665,6 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
-      apply_movie_watch_state: {
-        Args: {
-          p_has_personal_rating?: boolean;
-          p_movie_id: string;
-          p_notes?: string | null;
-          p_operation?: "set_status" | "add_watch_date";
-          p_personal_rating?: number | null;
-          p_provider_event_id?: string | null;
-          p_source?: WatchLogSource | null;
-          p_status: MovieStatus;
-          p_watched_at?: string | null;
-        };
-        Returns: {
-          user_movie: Json;
-          watch_log: Json | null;
-        }[];
-      };
-      list_library_movies_page: {
-        Args: {
-          p_genre?: string | null;
-          p_language?: string | null;
-          p_limit?: number;
-          p_offset?: number;
-          p_rating_op?: ">=" | ">" | "=" | "<" | "<=" | null;
-          p_rating_value?: number | null;
-          p_sort_direction?: "asc" | "desc" | null;
-          p_sort_key?: "watched_date" | "added_date" | "rating" | "title" | null;
-          p_status: MovieStatus;
-          p_tag_names?: string[] | null;
-          p_watched_end?: string | null;
-          p_watched_start?: string | null;
-        };
-        Returns: {
-          added_at: string;
-          id: string;
-          last_watched_at: string | null;
-          movie: Json;
-          movie_id: string;
-          personal_rating: number | null;
-          status: MovieStatus;
-          total_count: number;
-          updated_at: string;
-          user_id: string;
-          watchlisted_at: string | null;
-        }[];
-      };
       list_media_library_movies_page: {
         Args: {
           p_genre?: string | null;
@@ -1018,35 +707,22 @@ export type TableRow<TTable extends PublicTableName> = PublicTable<TTable>["Row"
 export type TableInsert<TTable extends PublicTableName> = PublicTable<TTable>["Insert"];
 export type TableUpdate<TTable extends PublicTableName> = PublicTable<TTable>["Update"];
 
-export type Movie = TableRow<"movies">;
-export type MovieInsert = TableInsert<"movies">;
-export type MovieUpdate = TableUpdate<"movies">;
-export type MovieCastMember = TableRow<"movie_cast">;
-export type MovieCastMemberInsert = TableInsert<"movie_cast">;
 export type MediaItem = TableRow<"media_items">;
 export type MediaItemInsert = TableInsert<"media_items">;
 export type MediaItemUpdate = TableUpdate<"media_items">;
 export type Episode = TableRow<"episodes">;
 export type EpisodeInsert = TableInsert<"episodes">;
 export type EpisodeUpdate = TableUpdate<"episodes">;
-export type UserMovie = TableRow<"user_movies">;
-export type UserMovieInsert = TableInsert<"user_movies">;
-export type UserMovieUpdate = TableUpdate<"user_movies">;
 export type UserMedia = TableRow<"user_media">;
 export type UserMediaInsert = TableInsert<"user_media">;
 export type UserMediaUpdate = TableUpdate<"user_media">;
 export type MediaWatchActivity = TableRow<"media_watch_activity">;
 export type MediaWatchActivityInsert = TableInsert<"media_watch_activity">;
-export type WatchLog = TableRow<"watch_logs">;
-export type WatchLogInsert = TableInsert<"watch_logs">;
 export type Tag = TableRow<"tags">;
 export type TagInsert = TableInsert<"tags">;
-export type UserMovieTag = TableRow<"user_movie_tags">;
 export type UserMediaTag = TableRow<"user_media_tags">;
 export type ProviderConnection = TableRow<"provider_connections">;
 export type ProviderConnectionSecret = TableRow<"provider_connection_secrets">;
-export type ProviderMapping = TableRow<"provider_mappings">;
-export type ProviderMappingInsert = TableInsert<"provider_mappings">;
 export type MediaProviderMapping = TableRow<"media_provider_mappings">;
 export type MediaProviderMappingInsert = TableInsert<"media_provider_mappings">;
 export type SyncCursor = TableRow<"sync_cursors">;
@@ -1058,21 +734,19 @@ export type SyncRun = TableRow<"sync_runs">;
 export type UserPreferences = TableRow<"user_preferences">;
 export type Theme = NonNullable<UserPreferences["theme"]> | "auto";
 
-export type UserMovieWithMovie = UserMovie & {
-  movie: Movie;
-};
-
-export type LibraryMovie = UserMovie & {
-  movie: Pick<Movie, "id" | "poster_path" | "title"> & {
+export type LibraryMovie = {
+  id: string;
+  user_id: string;
+  movie_id: string;
+  status: MovieStatus;
+  personal_rating: number | null;
+  added_at: string;
+  watchlisted_at: string | null;
+  last_watched_at: string | null;
+  updated_at: string;
+  movie: Pick<MediaItem, "id" | "poster_path" | "title"> & {
     type?: MediaType;
   };
-};
-
-export type MovieDetail = Movie & {
-  cast: MovieCastMember[];
-  userMovie: UserMovie | null;
-  watchLogs: WatchLog[];
-  tags: Tag[];
 };
 
 export type LibraryStatsTimeBucket = {

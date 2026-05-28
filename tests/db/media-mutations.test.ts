@@ -75,7 +75,6 @@ const watchActivity = {
   created_at: watchedAt,
   episode_id: null,
   id: watchActivityId,
-  legacy_watch_log_id: null,
   media_id: movieId,
   notes: null,
   provider_event_id: null,

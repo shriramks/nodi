@@ -9,7 +9,6 @@ import type {
   MediaProviderMapping,
   MediaStatus,
   MediaTypeFilter,
-  MovieCastMember,
   MovieStatus,
   MediaWatchActivity,
   Tag,
@@ -18,7 +17,6 @@ import type {
 } from "@/lib/db/types";
 import { validateUuid } from "@/lib/db/validation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { LibraryMoviePage, LibraryMoviePageOptions } from "./movies";
 import { monthRange, normalizeTagNames, yearRange } from "./query-utils";
 import {
   buildWatchedLibrarySummary,
@@ -30,6 +28,45 @@ import {
 } from "./stats-transforms";
 
 const mediaPageSize = 1000;
+
+export type UserMovieListOptions = {
+  status?: MovieStatus;
+  limit?: number;
+  offset?: number;
+  filters?: {
+    genre?: string;
+    language?: string;
+    tagNames?: string[];
+    rating?: {
+      op: ">=" | ">" | "=" | "<" | "<=";
+      value: number;
+    };
+    watchedYear?: string;
+    watchedMonth?: string;
+  };
+};
+
+export type LibraryMovieSortKey = "watched_date" | "added_date" | "rating" | "title";
+export type LibraryMovieSortDirection = "asc" | "desc";
+
+export type LibraryMoviePageOptions = {
+  status: MovieStatus;
+  type?: MediaTypeFilter;
+  limit?: number;
+  offset?: number;
+  sort?: {
+    key: LibraryMovieSortKey;
+    direction: LibraryMovieSortDirection;
+  };
+  filters?: UserMovieListOptions["filters"];
+};
+
+export type LibraryMoviePage = {
+  movies: LibraryMovie[];
+  totalCount: number;
+  hasMore: boolean;
+  nextOffset: number | null;
+};
 
 type MediaJoinRow = UserMedia & {
   media: Pick<MediaItem, "id" | "type" | "poster_path" | "title"> | null;
@@ -68,7 +105,7 @@ export type MediaDetail = MediaItem & {
   watchActivity: MediaWatchActivity[];
   tags: Tag[];
   providerMappings: MediaProviderMapping[];
-  cast: MovieCastMember[];
+  cast: [];
 };
 
 export type ShowSeason = {
@@ -296,7 +333,6 @@ export async function getMediaDetail(mediaId: string): Promise<MediaDetail> {
     { data: watchActivity, error: watchActivityError },
     { data: tagRows, error: tagsError },
     { data: providerMappings, error: providerMappingsError },
-    { data: castRows, error: castError },
   ] = await Promise.all([
     supabase
       .from("user_media")
@@ -321,12 +357,6 @@ export async function getMediaDetail(mediaId: string): Promise<MediaDetail> {
       .select("*")
       .eq("media_id", id)
       .order("provider", { ascending: true }),
-    supabase
-      .from("movie_cast")
-      .select("*")
-      .eq("movie_id", id)
-      .order("cast_order", { ascending: true, nullsFirst: false })
-      .limit(12),
   ]);
 
   if (userMediaError) {
@@ -345,10 +375,6 @@ export async function getMediaDetail(mediaId: string): Promise<MediaDetail> {
     throwDatabaseError("Failed to load media provider mappings.", providerMappingsError);
   }
 
-  if (castError) {
-    throwDatabaseError("Failed to load media cast.", castError);
-  }
-
   return {
     ...(media as MediaItem),
     userMedia: (userMedia as UserMedia | null) ?? null,
@@ -357,7 +383,7 @@ export async function getMediaDetail(mediaId: string): Promise<MediaDetail> {
       row.tags ? [row.tags] : [],
     ),
     providerMappings: (providerMappings ?? []) as MediaProviderMapping[],
-    cast: (castRows ?? []) as MovieCastMember[],
+    cast: [],
   };
 }
 

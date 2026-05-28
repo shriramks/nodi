@@ -2,9 +2,6 @@ import "server-only";
 
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError, throwNotFound } from "@/lib/db/errors";
-import {
-  shouldQueueOutboundSync,
-} from "@/lib/db/mutations/movie-state";
 import type {
   Episode,
   EpisodeInsert,
@@ -34,6 +31,10 @@ import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/sup
 import { objectPayload } from "@/lib/utils/invariant";
 import { queueTraktPushEvent } from "./sync";
 import { upsertTag } from "./tags";
+
+function shouldQueueOutboundSync(source: string | null | undefined) {
+  return source !== "trakt_sync";
+}
 
 type MediaMovieWatchStatusResult = {
   userMedia: UserMedia;

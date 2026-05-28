@@ -20,14 +20,8 @@ import {
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type LocalMovieRow = {
-  id: string;
-  tmdb_id: number;
-};
-
-type UserMovieStateRow = {
-  movie_id: string;
-  status: MovieStatus;
-  personal_rating: number | null;
+  media_id: string | null;
+  provider_id: string;
 };
 
 type LocalShowMappingRow = {
@@ -192,47 +186,64 @@ async function loadLocalMovieState(tmdbIds: number[], userId: string) {
 
   const supabase = await createSupabaseServerClient();
   const { data: movies, error: moviesError } = await supabase
-    .from("movies")
-    .select("id, tmdb_id")
-    .in("tmdb_id", uniqueTmdbIds);
+    .from("media_provider_mappings")
+    .select("media_id, provider_id")
+    .eq("provider", "tmdb")
+    .eq("provider_media_type", "movie")
+    .in("provider_id", uniqueTmdbIds.map(String));
 
   if (moviesError) {
     throwDatabaseError("Failed to load local movie matches.", moviesError);
   }
 
-  const movieRows = (movies ?? []) as LocalMovieRow[];
+  const movieRows = ((movies ?? []) as LocalMovieRow[]).filter((movie) => movie.media_id);
 
   if (movieRows.length === 0) {
     return new Map<number, LocalMovieSearchState>();
   }
 
   const localStateByTmdbId = new Map<number, LocalMovieSearchState>();
-  const movieIdByLocalId = new Map(movieRows.map((movie) => [movie.id, movie.tmdb_id]));
+  const tmdbIdByMediaId = new Map(
+    movieRows.map((movie) => [movie.media_id as string, Number(movie.provider_id)]),
+  );
   const { data: userMovies, error: userMoviesError } = await supabase
-    .from("user_movies")
-    .select("movie_id, status, personal_rating")
+    .from("user_media")
+    .select("media_id, status, personal_rating")
     .eq("user_id", userId)
-    .in("movie_id", movieRows.map((movie) => movie.id));
+    .in("media_id", Array.from(tmdbIdByMediaId.keys()));
 
   if (userMoviesError) {
     throwDatabaseError("Failed to load local user movie state.", userMoviesError);
   }
 
-  ((userMovies ?? []) as UserMovieStateRow[]).forEach((userMovie) => {
-    const tmdbId = movieIdByLocalId.get(userMovie.movie_id);
+  ((userMovies ?? []) as UserMediaStateRow[]).forEach((userMovie) => {
+    const tmdbId = tmdbIdByMediaId.get(userMovie.media_id);
+    const currentStatus = mediaMovieStatusToSearchStatus(userMovie.status);
 
-    if (!tmdbId) {
+    if (!tmdbId || !currentStatus) {
       return;
     }
 
     localStateByTmdbId.set(tmdbId, {
-      localMovieId: userMovie.movie_id,
-      currentStatus: userMovie.status,
+      localMovieId: userMovie.media_id,
+      currentStatus,
       personalRating: userMovie.personal_rating,
     });
   });
 
   return localStateByTmdbId;
+}
+
+function mediaMovieStatusToSearchStatus(status: MediaStatus): MovieStatus | null {
+  if (status === "done") {
+    return "watched";
+  }
+
+  if (status === "wishlist") {
+    return "to_watch";
+  }
+
+  return null;
 }
 
 async function loadLocalShowState(tmdbIds: number[], userId: string) {
