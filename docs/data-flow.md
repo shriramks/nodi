@@ -6,6 +6,78 @@ new feature must touch, and to verify that a write path is complete end-to-end.
 
 ---
 
+## Architecture diagram
+
+```mermaid
+flowchart TD
+    subgraph Actions["User actions"]
+        MA(["Add / watch movie"])
+        EW(["Mark episode watched"])
+        SS(["Set show status"])
+    end
+
+    subgraph MovieWrite["Movie write — dual path ⚠"]
+        INGEST["ingestPreparedTmdbMovie\nlib/db/mutations/movies.ts"]
+        MSTAT["setMovieWatchStatus\n→ apply_movie_watch_state RPC\n→ syncUserMovieToUserMedia"]
+    end
+
+    subgraph ShowWrite["Show write — native path"]
+        SINGEST["ingestPreparedTmdbShow\nlib/db/mutations/media.ts"]
+        EPWATCH["markMediaEpisodeWatched"]
+        SHOWSTAT["setMediaShowStatus"]
+    end
+
+    subgraph Legacy["Legacy tables (movies only)"]
+        L1[("movies\nmovie_cast\nprovider_mappings")]
+        L2[("user_movies\nwatch_logs\nuser_movie_tags")]
+    end
+
+    subgraph NewTables["New media tables (movies + shows)"]
+        M1[("media_items\nepisodes\nmedia_provider_mappings")]
+        M2[("user_media\nuser_media_tags")]
+        M3[("media_watch_activity")]
+    end
+
+    subgraph Surfaces["Read surfaces"]
+        RS1["/library · /wishlist\nlist_media_library_movies_page RPC"]
+        RS2["/movie/id — detail\ngetMovieDetail legacy"]
+        RS3["/show/id — detail\ngetShowDetail"]
+        RS4["/stats\ngetMediaStatsInput"]
+    end
+
+    MA --> MovieWrite
+    EW --> EPWATCH
+    SS --> SHOWSTAT
+
+    INGEST --> L1
+    INGEST --> M1
+    MSTAT --> L2
+    MSTAT --> M2
+
+    SINGEST --> M1
+    EPWATCH --> M3
+    EPWATCH --> M2
+    SHOWSTAT --> M2
+
+    M1 & M2 --> RS1
+    L1 & L2 --> RS2
+    M1 & M2 & M3 --> RS3
+    M2 & M3 --> RS4
+
+    L2 -. "gap: watch_logs not\nsynced to media_watch_activity\nfor new movie watches" .-> M3
+```
+
+**Reading the diagram:**
+- Movie writes go to **both** legacy tables and new media tables (dual path, marked ⚠).
+  The library and stats read only from the new tables — any break in the bridge sync makes
+  a movie invisible in the library even though it exists in the legacy tables.
+- Show writes go **only** to the new media tables. There is no legacy show table.
+- The dashed line is the known gap: watch events for movies land in `watch_logs` (legacy)
+  but not in `media_watch_activity` (new). Stats and date-filter queries are blind to them
+  until a backfill migration runs or the write path is migrated (task 139).
+
+---
+
 ## Table overview
 
 | Table | Layer | Purpose |
