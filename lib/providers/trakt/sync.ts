@@ -4345,7 +4345,7 @@ function recordPullFailure(
   itemKey: string,
   error: unknown,
 ) {
-  const errorMessage = getErrorMessage(error);
+  const errorMessage = typeof error === "string" ? error : getErrorMessage(error);
   const failures = pullItemFailuresByResult.get(result);
 
   result.failed += 1;
@@ -4575,6 +4575,7 @@ export const __traktSyncTestHooks = {
   createPullResult,
   listAllListsWithTaggableItems,
   normalizeListStates,
+  planPullUserMovieWrites,
   resolveRemoteShows,
   storeListSnapshots,
   upsertTraktListMediaTags,
