@@ -14,11 +14,6 @@ import {
 } from "lucide-react";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { CollapsibleSection, SectionHeader, SectionScrollBleed } from "@/components/ui/section";
-
-function parseLocalDate(dateStr: string): Date {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
-}
 import {
   addTagAction,
   addToWatchlistAction,
@@ -37,6 +32,11 @@ type MovieTag = {
   id: string;
   name: string;
 };
+
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
 
 function todayDateValue() {
   const now = new Date();
