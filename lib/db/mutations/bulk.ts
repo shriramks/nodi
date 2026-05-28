@@ -3,13 +3,12 @@ import "server-only";
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError } from "@/lib/db/errors";
 import { validateRatingPayload, validateUuid } from "@/lib/db/validation";
+import type { UserMediaInsert } from "@/lib/db/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSyncEvent } from "./sync";
 import { upsertTag } from "./tags";
-import { buildUserMovieStatusPayload } from "./movie-state";
-import type { Json } from "@/lib/db/types";
 
-type TraktSyncPayload = Record<string, Json>;
+type TraktSyncPayload = Record<string, unknown>;
 
 async function queueTraktSyncEvent(eventType: string, payload: TraktSyncPayload) {
   await createSyncEvent({
@@ -28,10 +27,10 @@ export async function bulkUpdateRating(movieIds: string[], ratingPayload: unknow
   const rating = validateRatingPayload(ratingPayload);
 
   const { error } = await supabase
-    .from("user_movies")
+    .from("user_media")
     .update({ personal_rating: rating.personalRating })
     .eq("user_id", user.id)
-    .in("movie_id", validatedIds);
+    .in("media_id", validatedIds);
 
   if (error) {
     throwDatabaseError("Failed to update ratings.", error);
@@ -55,40 +54,49 @@ export async function bulkSetWatchStatus(
   const now = new Date().toISOString();
 
   for (const movieId of validatedIds) {
-    const action = { movieId, status, watchedAt: status === "watched" ? now : undefined, source: "manual" as const };
-    const userMoviePayload = buildUserMovieStatusPayload({ action, now, userId: user.id });
+    const userMediaPayload: UserMediaInsert = {
+      user_id: user.id,
+      media_id: movieId,
+      status: status === "watched" ? "done" : "wishlist",
+      last_watched_at: status === "watched" ? now : null,
+      completed_at: status === "watched" ? now : null,
+      completion_mode: status === "watched" ? "manual" : null,
+      watchlisted_at: status === "to_watch" ? now : null,
+    };
 
-    const { data: userMovie, error: userMovieError } = await supabase
-      .from("user_movies")
-      .upsert(userMoviePayload, { onConflict: "user_id,movie_id" })
-      .select("*")
+    const { data: userMedia, error: userMediaError } = await supabase
+      .from("user_media")
+      .upsert(userMediaPayload, { onConflict: "user_id,media_id" })
+      .select("id")
       .single();
 
-    if (userMovieError) {
-      throwDatabaseError("Failed to update movie watch status.", userMovieError);
+    if (userMediaError) {
+      throwDatabaseError("Failed to update movie watch status.", userMediaError);
     }
 
     if (status === "watched") {
-      const { error: watchLogError } = await supabase.from("watch_logs").insert({
+      const { error: activityError } = await supabase.from("media_watch_activity").insert({
         user_id: user.id,
-        movie_id: movieId,
+        media_id: movieId,
         watched_at: now,
         source: "manual",
+        notes: null,
+        provider_event_id: null,
       });
 
-      if (watchLogError) {
-        throwDatabaseError("Failed to append watch log.", watchLogError);
+      if (activityError) {
+        throwDatabaseError("Failed to append watch activity.", activityError);
       }
 
       await queueTraktSyncEvent("movie.mark_watched", {
         movieId,
-        userMovieId: userMovie.id,
+        userMovieId: userMedia.id,
         watchedAt: now,
       });
     } else {
       await queueTraktSyncEvent("movie.add_to_watchlist", {
         movieId,
-        userMovieId: userMovie.id,
+        userMovieId: userMedia.id,
       });
     }
   }
@@ -103,13 +111,13 @@ export async function bulkCreateAndAttachTag(movieIds: string[], tagName: string
 
   const rows = validatedIds.map((movieId) => ({
     user_id: user.id,
-    movie_id: movieId,
+    media_id: movieId,
     tag_id: tag.id,
   }));
 
   const { error } = await supabase
-    .from("user_movie_tags")
-    .upsert(rows, { onConflict: "user_id,movie_id,tag_id" });
+    .from("user_media_tags")
+    .upsert(rows, { onConflict: "user_id,media_id,tag_id" });
 
   if (error) {
     throwDatabaseError("Failed to attach tag to movies.", error);
@@ -128,13 +136,13 @@ export async function bulkAttachTagToMovies(movieIds: string[], tagId: string): 
 
   const rows = validatedIds.map((movieId) => ({
     user_id: user.id,
-    movie_id: movieId,
+    media_id: movieId,
     tag_id: validatedTagId,
   }));
 
   const { error } = await supabase
-    .from("user_movie_tags")
-    .upsert(rows, { onConflict: "user_id,movie_id,tag_id" });
+    .from("user_media_tags")
+    .upsert(rows, { onConflict: "user_id,media_id,tag_id" });
 
   if (error) {
     throwDatabaseError("Failed to attach tag to movies.", error);
@@ -152,11 +160,11 @@ export async function bulkDetachTagFromMovies(movieIds: string[], tagId: string)
   const validatedTagId = validateUuid(tagId, "tagId");
 
   const { error } = await supabase
-    .from("user_movie_tags")
+    .from("user_media_tags")
     .delete()
     .eq("user_id", user.id)
     .eq("tag_id", validatedTagId)
-    .in("movie_id", validatedIds);
+    .in("media_id", validatedIds);
 
   if (error) {
     throwDatabaseError("Failed to detach tag from movies.", error);

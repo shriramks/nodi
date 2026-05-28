@@ -23,6 +23,7 @@ import {
   validateWatchActionPayload,
 } from "@/lib/db/validation";
 import type {
+  TmdbMovieIngestPayload,
   TmdbShowIngestPayload,
 } from "@/lib/providers/tmdb/adapters";
 import {
@@ -295,6 +296,91 @@ export async function ingestPreparedTmdbShow(
   }
 
   return show as MediaItem;
+}
+
+export async function ingestPreparedTmdbMovieMedia(
+  payload: TmdbMovieIngestPayload,
+): Promise<MediaItem> {
+  const supabase = createSupabaseAdminClient();
+  const metadataTimestamp = new Date().toISOString();
+  const tmdbMovieId = String(payload.movie.tmdbId);
+
+  const { data: existingMapping, error: existingMappingError } = await supabase
+    .from("media_provider_mappings")
+    .select("media_id")
+    .eq("provider", "tmdb")
+    .eq("provider_media_type", "movie")
+    .eq("provider_id", tmdbMovieId)
+    .maybeSingle();
+
+  if (existingMappingError) {
+    throwDatabaseError("Failed to resolve existing TMDB movie mapping.", existingMappingError);
+  }
+
+  const existingMediaId = (existingMapping as ExistingMediaMappingRow | null)?.media_id ?? null;
+  const movieMediaInsert: MediaItemInsert = {
+    type: "movie",
+    title: payload.movie.title,
+    original_title: payload.movie.originalTitle ?? null,
+    release_date: payload.movie.releaseDate ?? null,
+    first_air_date: null,
+    primary_genre_id: payload.movie.primaryGenreId ?? null,
+    primary_genre_name: payload.movie.primaryGenreName ?? null,
+    original_language: payload.movie.originalLanguage ?? null,
+    overview: payload.movie.overview ?? null,
+    poster_path: payload.movie.posterPath ?? null,
+    backdrop_path: payload.movie.backdropPath ?? null,
+    runtime_minutes: payload.movie.runtimeMinutes ?? null,
+    tmdb_vote_average: payload.movie.tmdbVoteAverage ?? null,
+    tmdb_vote_count: payload.movie.tmdbVoteCount ?? null,
+    popularity: payload.movie.popularity ?? null,
+    metadata_updated_at: metadataTimestamp,
+    tmdb_enriched_at: metadataTimestamp,
+  };
+
+  if (existingMediaId) {
+    movieMediaInsert.id = existingMediaId;
+  }
+
+  const { data: mediaItem, error: mediaItemError } = await supabase
+    .from("media_items")
+    .upsert(movieMediaInsert, { onConflict: "id" })
+    .select("*")
+    .single();
+
+  if (mediaItemError) {
+    throwDatabaseError("Failed to ingest TMDB movie media metadata.", mediaItemError);
+  }
+
+  const mappingRows: MediaProviderMappingInsert[] = [
+    {
+      media_id: mediaItem.id,
+      episode_id: null,
+      provider: "tmdb",
+      provider_media_type: "movie",
+      provider_id: tmdbMovieId,
+    },
+  ];
+
+  if (payload.movie.imdbId) {
+    mappingRows.push({
+      media_id: mediaItem.id,
+      episode_id: null,
+      provider: "imdb",
+      provider_media_type: "movie",
+      provider_id: payload.movie.imdbId,
+    });
+  }
+
+  const { error: mappingError } = await supabase
+    .from("media_provider_mappings")
+    .upsert(mappingRows, { onConflict: "provider,provider_media_type,provider_id" });
+
+  if (mappingError) {
+    throwDatabaseError("Failed to upsert TMDB movie provider mappings.", mappingError);
+  }
+
+  return mediaItem as MediaItem;
 }
 
 export async function setMediaShowStatus(

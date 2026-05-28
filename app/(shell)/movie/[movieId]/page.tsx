@@ -8,7 +8,8 @@ import {
   MovieRelatedMoviesLoading,
 } from "@/components/movie/movie-detail-view";
 import { isAppError } from "@/lib/errors";
-import { getMovieDetail, listTags } from "@/lib/db/queries";
+import { getMediaDetail, listTags } from "@/lib/db/queries";
+import type { MovieStatus } from "@/lib/db/types";
 import { enrichTmdbMovieOnDemand } from "@/lib/providers/tmdb/enrichment";
 import { getRelatedTmdbMovies } from "@/lib/providers/tmdb/related";
 import {
@@ -40,43 +41,56 @@ export default async function MovieDetailPage({
     listTags(),
   ]);
   let movie = movieRaw;
-  const enrichedMovie = await enrichTmdbMovieOnDemand(movie);
+  const enrichedItem = await enrichTmdbMovieOnDemand(movie);
 
-  if (enrichedMovie.tmdb_enriched_at && enrichedMovie.tmdb_enriched_at !== movie.tmdb_enriched_at) {
-    movie = await loadMovieOrNotFound(enrichedMovie.id);
+  if (enrichedItem.tmdb_enriched_at !== movie.tmdb_enriched_at) {
+    movie = await loadMovieOrNotFound(movie.id);
   }
 
-  const relatedMovies = getRelatedTmdbMovies(movie.tmdb_id);
-  const { userMovie } = movie;
-  const status = userMovie?.status ?? null;
+  const tmdbMapping = movie.providerMappings.find(
+    (m) => m.provider === "tmdb" && m.provider_media_type === "movie",
+  );
+  const tmdbId = tmdbMapping ? Number(tmdbMapping.provider_id) : null;
+  const relatedMovies = tmdbId ? getRelatedTmdbMovies(tmdbId) : null;
+  const { userMedia } = movie;
+  const mediaStatus = userMedia?.status;
+  const status: MovieStatus | null =
+    mediaStatus === "done" ? "watched" :
+    mediaStatus === "wishlist" ? "to_watch" :
+    null;
 
   return (
     <MovieDetailView
       actions={<UserStateActions movieId={movie.id} status={status} />}
-      movie={movie}
+      movie={{
+        ...movie,
+        tmdb_id: tmdbId ?? undefined,
+      }}
       ratingPicker={
         status === "watched" ? (
           <RatingSheet
             movieId={movie.id}
-            currentRating={userMovie?.personal_rating ?? null}
+            currentRating={userMedia?.personal_rating ?? null}
           />
         ) : null
       }
       relatedMovies={
-        <Suspense fallback={<MovieRelatedMoviesLoading />}>
-          <MovieRelatedMovies movies={relatedMovies} />
-        </Suspense>
+        relatedMovies ? (
+          <Suspense fallback={<MovieRelatedMoviesLoading />}>
+            <MovieRelatedMovies movies={relatedMovies} />
+          </Suspense>
+        ) : null
       }
       status={status}
       tagEditor={
         status ? <TagEditor movieId={movie.id} tags={movie.tags} allTags={allTags} /> : null
       }
       watchedSummary={
-        status === "watched" ? <WatchedSummary watchLogs={movie.watchLogs ?? []} /> : null
+        status === "watched" ? <WatchedSummary watchActivity={movie.watchActivity} /> : null
       }
       watchHistory={
         status === "watched" ? (
-          <WatchHistoryEditor movieId={movie.id} watchLogs={movie.watchLogs ?? []} />
+          <WatchHistoryEditor movieId={movie.id} watchActivity={movie.watchActivity} />
         ) : null
       }
     />
@@ -85,7 +99,7 @@ export default async function MovieDetailPage({
 
 async function loadMovieOrNotFound(movieId: string) {
   try {
-    return await getMovieDetail(movieId);
+    return await getMediaDetail(movieId);
   } catch (error) {
     if (
       isAppError(error) &&

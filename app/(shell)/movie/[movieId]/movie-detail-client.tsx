@@ -324,10 +324,10 @@ export function WatchDateForm({ movieId }: { movieId: string }) {
   );
 }
 
-type WatchLog = { id: string; watched_at: string };
+type WatchEntry = { id: string; watched_at: string };
 
-function sortedWatchLogs(watchLogs: WatchLog[]) {
-  return [...watchLogs].sort(
+function sortedWatchActivity(watchActivity: WatchEntry[]) {
+  return [...watchActivity].sort(
     (left, right) => Date.parse(right.watched_at) - Date.parse(left.watched_at),
   );
 }
@@ -341,8 +341,8 @@ function formatLogDate(isoString: string): string {
   }).format(d);
 }
 
-export function WatchedSummary({ watchLogs }: { watchLogs: WatchLog[] }) {
-  const latestWatch = sortedWatchLogs(watchLogs)[0] ?? null;
+export function WatchedSummary({ watchActivity }: { watchActivity: WatchEntry[] }) {
+  const latestWatch = sortedWatchActivity(watchActivity)[0] ?? null;
 
   if (!latestWatch) {
     return <p className="text-[15px] font-semibold text-watched">Watched</p>;
@@ -351,11 +351,11 @@ export function WatchedSummary({ watchLogs }: { watchLogs: WatchLog[] }) {
   return (
     <div className="flex flex-wrap items-baseline gap-1.5 leading-[1.35]">
       <p className="text-[15px] font-semibold text-watched">
-        {watchLogs.length > 1 ? `Watched x${watchLogs.length}` : "Watched"}
+        {watchActivity.length > 1 ? `Watched x${watchActivity.length}` : "Watched"}
       </p>
       <p className="text-[13px] text-text-2">
         ·{" "}
-        {watchLogs.length > 1
+        {watchActivity.length > 1
           ? `Last watched ${formatLogDate(latestWatch.watched_at)}`
           : formatLogDate(latestWatch.watched_at)}
       </p>
@@ -496,10 +496,10 @@ export function TagEditor({
 
 export function WatchHistoryEditor({
   movieId,
-  watchLogs,
+  watchActivity,
 }: {
   movieId: string;
-  watchLogs: WatchLog[];
+  watchActivity: WatchEntry[];
 }) {
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -511,7 +511,7 @@ export function WatchHistoryEditor({
     { kind: "save" | "delete"; logId: string } | null
   >(null);
   const today = todayDateValue();
-  const orderedLogs = sortedWatchLogs(watchLogs);
+  const orderedLogs = sortedWatchActivity(watchActivity);
 
   function closeSheet() {
     setOpen(false);
@@ -521,7 +521,7 @@ export function WatchHistoryEditor({
     setError(null);
   }
 
-  function startEdit(log: WatchLog) {
+  function startEdit(log: WatchEntry) {
     setEditingId(log.id);
     setDeleteConfirmId(null);
     setEditDate(log.watched_at.slice(0, 10));
@@ -578,7 +578,7 @@ export function WatchHistoryEditor({
     });
   }
 
-  if (watchLogs.length === 0) return null;
+  if (watchActivity.length === 0) return null;
 
   return (
     <>
@@ -589,7 +589,7 @@ export function WatchHistoryEditor({
       >
         <span className="text-[15px] text-foreground">Watch history</span>
         <span className="flex items-center gap-1 text-[13px] text-text-muted">
-          {watchLogs.length} {watchLogs.length === 1 ? "watch" : "watches"}
+          {watchActivity.length} {watchActivity.length === 1 ? "watch" : "watches"}
           <ChevronRight aria-hidden="true" className="h-4 w-4 text-text-faint" strokeWidth={2} />
         </span>
       </button>

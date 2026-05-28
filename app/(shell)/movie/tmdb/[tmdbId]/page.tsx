@@ -88,19 +88,34 @@ export default async function TmdbMovieDetailPage({
 async function redirectIfSaved(tmdbId: number) {
   const user = await requireUser();
   const supabase = await createSupabaseServerClient();
-  const { data: userMovie, error: userMovieError } = await supabase
-    .from("user_movies")
-    .select("movie_id, movies!inner(tmdb_id)")
-    .eq("user_id", user.id)
-    .eq("movies.tmdb_id", tmdbId)
+
+  const { data: mapping, error: mappingError } = await supabase
+    .from("media_provider_mappings")
+    .select("media_id")
+    .eq("provider", "tmdb")
+    .eq("provider_media_type", "movie")
+    .eq("provider_id", String(tmdbId))
     .maybeSingle();
 
-  if (userMovieError) {
-    throwDatabaseError("Failed to check user movie state.", userMovieError);
+  if (mappingError) {
+    throwDatabaseError("Failed to check TMDB movie mapping.", mappingError);
   }
 
-  if (userMovie) {
-    redirect(`/movie/${userMovie.movie_id}`);
+  if (!mapping?.media_id) return;
+
+  const { data: userMedia, error: userMediaError } = await supabase
+    .from("user_media")
+    .select("media_id")
+    .eq("user_id", user.id)
+    .eq("media_id", mapping.media_id)
+    .maybeSingle();
+
+  if (userMediaError) {
+    throwDatabaseError("Failed to check user media state.", userMediaError);
+  }
+
+  if (userMedia) {
+    redirect(`/movie/${mapping.media_id}`);
   }
 }
 

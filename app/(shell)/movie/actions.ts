@@ -3,16 +3,16 @@
 import { revalidatePath } from "next/cache";
 
 import {
-  addMovieWatchDate,
-  attachTagToMovie,
-  createAndAttachTag,
-  deleteWatchLog,
-  detachTagFromMovie,
-  ingestPreparedTmdbMovie,
-  removeUserMovie,
-  setMovieWatchStatus,
-  updateMovieRating,
-  updateWatchLogDate,
+  addMediaMovieWatchDate,
+  attachTagToMediaMovie,
+  createAndAttachTagToMediaMovie,
+  deleteMediaMovieWatchActivity,
+  detachTagFromMediaMovie,
+  ingestPreparedTmdbMovieMedia,
+  removeUserMediaMovie,
+  setMediaMovieWatchStatus,
+  updateMediaMovieRating,
+  updateMediaMovieWatchActivityDate,
 } from "@/lib/db/mutations";
 import type { TmdbMovieIngestPayload } from "@/lib/providers/tmdb/adapters";
 import { normalizeTmdbId, watchDateToTimestamp } from "../action-utils";
@@ -26,7 +26,7 @@ function revalidateMovieState(movieId: string) {
 }
 
 export async function markWatchedAction(movieId: string): Promise<void> {
-  await setMovieWatchStatus({
+  await setMediaMovieWatchStatus({
     movieId,
     status: "watched",
     watchedAt: new Date().toISOString(),
@@ -36,7 +36,7 @@ export async function markWatchedAction(movieId: string): Promise<void> {
 }
 
 export async function addToWatchlistAction(movieId: string): Promise<void> {
-  await setMovieWatchStatus({
+  await setMediaMovieWatchStatus({
     movieId,
     status: "to_watch",
     source: "manual",
@@ -63,7 +63,7 @@ export async function addTmdbToWatchlistAction(
 }
 
 export async function removeFromLibraryAction(movieId: string): Promise<void> {
-  await removeUserMovie(movieId);
+  await removeUserMediaMovie(movieId);
   revalidateMovieState(movieId);
 }
 
@@ -71,7 +71,7 @@ export async function updateRatingAction(
   movieId: string,
   rating: number | null,
 ): Promise<void> {
-  await updateMovieRating(movieId, { personalRating: rating });
+  await updateMediaMovieRating(movieId, { personalRating: rating });
   revalidateMovieState(movieId);
 }
 
@@ -79,7 +79,7 @@ export async function addWatchDateAction(
   movieId: string,
   watchedDate: string,
 ): Promise<void> {
-  await addMovieWatchDate(movieId, {
+  await addMediaMovieWatchDate(movieId, {
     watchedAt: watchDateToTimestamp(watchedDate),
     source: "manual",
   });
@@ -87,12 +87,12 @@ export async function addWatchDateAction(
 }
 
 export async function addTagAction(movieId: string, name: string): Promise<void> {
-  await createAndAttachTag(movieId, { name });
+  await createAndAttachTagToMediaMovie(movieId, { name });
   revalidateMovieState(movieId);
 }
 
 export async function attachTagByIdAction(movieId: string, tagId: string): Promise<void> {
-  await attachTagToMovie(movieId, tagId);
+  await attachTagToMediaMovie(movieId, tagId);
   revalidateMovieState(movieId);
 }
 
@@ -100,24 +100,24 @@ export async function removeTagAction(
   movieId: string,
   tagId: string,
 ): Promise<void> {
-  await detachTagFromMovie(movieId, tagId);
+  await detachTagFromMediaMovie(movieId, tagId);
   revalidateMovieState(movieId);
 }
 
 export async function deleteWatchLogAction(
   movieId: string,
-  logId: string,
+  activityId: string,
 ): Promise<void> {
-  await deleteWatchLog(movieId, logId);
+  await deleteMediaMovieWatchActivity(movieId, activityId);
   revalidateMovieState(movieId);
 }
 
 export async function updateWatchLogDateAction(
   movieId: string,
-  logId: string,
+  activityId: string,
   watchedDate: string,
 ): Promise<void> {
-  await updateWatchLogDate(movieId, logId, watchDateToTimestamp(watchedDate));
+  await updateMediaMovieWatchActivityDate(movieId, activityId, watchDateToTimestamp(watchedDate));
   revalidateMovieState(movieId);
 }
 
@@ -126,9 +126,9 @@ async function saveTmdbMovie(
   status: "watched" | "to_watch",
 ) {
   const tmdbId = normalizeTmdbId(payload.movie.tmdbId);
-  const movie = await ingestPreparedTmdbMovie(payload);
+  const movie = await ingestPreparedTmdbMovieMedia(payload);
 
-  await setMovieWatchStatus({
+  await setMediaMovieWatchStatus({
     movieId: movie.id,
     status,
     watchedAt: status === "watched" ? new Date().toISOString() : null,

@@ -2,9 +2,8 @@ import "server-only";
 
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError } from "@/lib/db/errors";
-import { ingestPreparedTmdbShow } from "@/lib/db/mutations/media";
-import { ingestTmdbMovie } from "@/lib/db/mutations/movies";
-import type { MediaItem, Movie } from "@/lib/db/types";
+import { ingestPreparedTmdbMovieMedia, ingestPreparedTmdbShow } from "@/lib/db/mutations/media";
+import type { MediaItem } from "@/lib/db/types";
 import { AppError, getErrorMessage, isAppError } from "@/lib/errors";
 import {
   getTmdbMovieCreditsWithAuth,
@@ -15,7 +14,7 @@ import {
   loadTmdbAuthForUser,
   type TmdbAuth,
 } from "@/lib/providers/tmdb/client";
-import { toTmdbShowIngestPayload } from "@/lib/providers/tmdb/adapters";
+import { toTmdbMovieIngestPayload, toTmdbShowIngestPayload } from "@/lib/providers/tmdb/adapters";
 import {
   estimateTmdbMovieBackfillCallCount,
   estimateTmdbShowBackfillCallCount,
@@ -46,7 +45,7 @@ type TmdbOnDemandEnrichmentOptions = {
 };
 
 type TmdbEnrichmentCandidate = EstimatedTmdbBackfillCandidate & {
-  movie: Movie;
+  movie: MediaItem;
   tmdbId: number;
 };
 type TmdbShowEnrichmentCandidate = EstimatedTmdbBackfillCandidate & {
@@ -140,49 +139,63 @@ export async function backfillCurrentUserTmdbMetadata(
   return result;
 }
 
+type EnrichableMediaItem = Pick<MediaItem, "id" | "tmdb_enriched_at"> & {
+  providerMappings: Array<{
+    provider: string;
+    provider_media_type: string;
+    provider_id: string;
+    episode_id: string | null;
+  }>;
+};
+
 export async function enrichTmdbMovieOnDemand(
-  movie: Movie,
+  item: EnrichableMediaItem,
   options: TmdbOnDemandEnrichmentOptions = {},
-): Promise<Movie> {
-  if (!needsTmdbMetadataEnrichment(movie)) {
-    return movie;
+): Promise<MediaItem> {
+  const tmdbMapping = item.providerMappings.find(
+    (m) => m.provider === "tmdb" && m.provider_media_type === "movie" && !m.episode_id,
+  );
+  const tmdbId = tmdbMapping ? Number(tmdbMapping.provider_id) : null;
+
+  if (!tmdbId || !Number.isInteger(tmdbId) || tmdbId < 1 || item.tmdb_enriched_at) {
+    return item as unknown as MediaItem;
   }
 
   try {
     const auth = options.auth ?? await loadTmdbAuthForCurrentUser();
-    return await enrichTmdbMovieMetadata(movie.tmdb_id, auth);
+    return await enrichTmdbMovieMetadata(tmdbId, auth);
   } catch (error) {
     if (isExpectedLazyEnrichmentError(error)) {
-      return movie;
+      return item as unknown as MediaItem;
     }
 
     console.error("Lazy TMDB metadata enrichment failed", {
       error,
-      movieId: movie.id,
-      tmdbId: movie.tmdb_id,
+      mediaId: item.id,
+      tmdbId,
     });
-    return movie;
+    return item as unknown as MediaItem;
   }
 }
 
 export async function enrichTmdbMovieMetadata(
   tmdbId: number,
   auth: TmdbAuth,
-): Promise<Movie> {
+): Promise<MediaItem> {
   validateTmdbId(tmdbId);
   const [detail, credits] = await Promise.all([
     getTmdbMovieDetailsWithAuth(auth, tmdbId),
     getTmdbMovieCreditsWithAuth(auth, tmdbId),
   ]);
 
-  return ingestTmdbMovie(detail, credits);
+  return ingestPreparedTmdbMovieMedia(toTmdbMovieIngestPayload(detail, credits));
 }
 
 async function enrichTmdbMetadataCandidate(
   candidate: TmdbEnrichmentCandidate,
   auth: TmdbAuth,
 ) {
-  if (!needsTmdbMetadataEnrichment(candidate.movie)) {
+  if (candidate.movie.tmdb_enriched_at) {
     return false;
   }
 
@@ -229,7 +242,7 @@ async function listCurrentUserTmdbEnrichmentCandidates(
   for (const movie of unenrichedMovies) {
     const tmdbId = mappingsByMovieId.get(movie.id);
 
-    if (!tmdbId || movie.tmdb_id !== tmdbId || !needsTmdbMetadataEnrichment(movie)) {
+    if (!tmdbId || movie.tmdb_enriched_at) {
       continue;
     }
 
@@ -301,8 +314,8 @@ function sumEstimatedTmdbCallCount(candidates: EstimatedTmdbBackfillCandidate[])
 async function loadCurrentUserMovieIds(userId: string) {
   const supabase = createSupabaseAdminClient();
   const [libraryResult, tagResult] = await Promise.all([
-    supabase.from("user_movies").select("movie_id").eq("user_id", userId),
-    supabase.from("user_movie_tags").select("movie_id").eq("user_id", userId),
+    supabase.from("user_media").select("media_id").eq("user_id", userId),
+    supabase.from("user_media_tags").select("media_id").eq("user_id", userId),
   ]);
 
   if (libraryResult.error) {
@@ -314,8 +327,8 @@ async function loadCurrentUserMovieIds(userId: string) {
   }
 
   return uniqueArray([
-    ...(libraryResult.data ?? []).map((row) => row.movie_id),
-    ...(tagResult.data ?? []).map((row) => row.movie_id),
+    ...(libraryResult.data ?? []).map((row) => row.media_id),
+    ...(tagResult.data ?? []).map((row) => row.media_id),
   ]);
 }
 
@@ -341,16 +354,17 @@ async function loadCurrentUserShowIds(userId: string) {
 }
 
 async function loadUnenrichedMoviesByIds(movieIds: string[], limit: number) {
-  const movies: Movie[] = [];
+  const movies: MediaItem[] = [];
   const supabase = createSupabaseAdminClient();
 
   for (const chunk of chunkArray(uniqueArray(movieIds), dbReadChunkSize)) {
     if (movies.length >= limit) break;
 
     const { data, error } = await supabase
-      .from("movies")
+      .from("media_items")
       .select("*")
       .in("id", chunk)
+      .eq("type", "movie")
       .is("tmdb_enriched_at", null)
       .limit(limit - movies.length);
 
@@ -358,7 +372,7 @@ async function loadUnenrichedMoviesByIds(movieIds: string[], limit: number) {
       throwDatabaseError("Failed to load unenriched TMDB backfill movies.", error);
     }
 
-    movies.push(...(data ?? []));
+    movies.push(...((data ?? []) as MediaItem[]));
   }
 
   return movies;
@@ -395,20 +409,21 @@ async function loadTmdbMappingsByMovieId(movieIds: Iterable<string>) {
 
   for (const movieIdChunk of chunkArray(uniqueArray(movieIds), dbReadChunkSize)) {
     const { data, error } = await supabase
-      .from("provider_mappings")
-      .select("movie_id, provider_movie_id")
+      .from("media_provider_mappings")
+      .select("media_id, provider_id")
       .eq("provider", "tmdb")
-      .in("movie_id", movieIdChunk);
+      .eq("provider_media_type", "movie")
+      .in("media_id", movieIdChunk);
 
     if (error) {
       throwDatabaseError("Failed to load TMDB provider mappings for backfill.", error);
     }
 
     for (const mapping of data ?? []) {
-      const tmdbId = Number(mapping.provider_movie_id);
+      const tmdbId = Number(mapping.provider_id);
 
-      if (Number.isInteger(tmdbId) && tmdbId > 0) {
-        mappings.set(mapping.movie_id, tmdbId);
+      if (mapping.media_id && Number.isInteger(tmdbId) && tmdbId > 0) {
+        mappings.set(mapping.media_id, tmdbId);
       }
     }
   }

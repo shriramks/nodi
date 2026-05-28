@@ -74,6 +74,7 @@ export type LibraryMoviePage = {
   nextOffset: number | null;
 };
 
+/** @deprecated Use listMediaLibraryMoviesPage from queries/media.ts. Removed in task 147. */
 export async function listUserMovies(options: UserMovieListOptions = {}) {
   const user = await requireUser();
   const supabase = await createSupabaseServerClient();
@@ -133,6 +134,7 @@ export async function listUserMovies(options: UserMovieListOptions = {}) {
   });
 }
 
+/** @deprecated Use listMediaLibraryMoviesPage from queries/media.ts. Removed in task 147. */
 export async function listLibraryMoviesPage(
   options: LibraryMoviePageOptions,
 ): Promise<LibraryMoviePage> {
@@ -296,6 +298,7 @@ function normalizeLibrarySort(
     : { key: "watched_date" as const, direction: "desc" as const };
 }
 
+/** @deprecated Use getMediaDetail from queries/media.ts. Removed in task 147. */
 export async function getMovieDetail(movieId: string): Promise<MovieDetail> {
   const user = await requireUser();
   const supabase = await createSupabaseServerClient();
@@ -371,6 +374,7 @@ export async function getMovieDetail(movieId: string): Promise<MovieDetail> {
   };
 }
 
+/** @deprecated Read path for legacy watch_logs. Removed in task 147. */
 export async function listRecentWatchLogs(limit = 20) {
   const user = await requireUser();
   const supabase = await createSupabaseServerClient();
