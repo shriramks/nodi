@@ -13,6 +13,7 @@ import {
 } from "@/components/show/show-detail-view";
 import type { Episode, MediaStatus, MediaWatchActivity, Tag } from "@/lib/db/types";
 import { tmdbImage } from "@/lib/providers/tmdb/images";
+import { countShowProgress } from "@/lib/show/progress";
 
 type ShowEpisode = Episode & {
   watchActivity?: MediaWatchActivity[];
@@ -51,12 +52,7 @@ export function ShowEpisodeListView({
   seasonWatchControl,
   show,
 }: ShowEpisodeListViewProps) {
-  const watchedCount = show.seasons.reduce(
-    (count, season) =>
-      count + season.episodes.filter((episode) => (episode.watchActivity?.length ?? 0) > 0).length,
-    0,
-  );
-  const totalCount = show.seasons.reduce((count, season) => count + season.episodes.length, 0);
+  const { watched: watchedCount, total: totalCount } = countShowProgress(show.seasons);
   const tags = (show.tags ?? []).slice(0, 2);
 
   const status = show.userStatus ? effectiveStatus(show.userStatus, watchedCount, totalCount) : null;

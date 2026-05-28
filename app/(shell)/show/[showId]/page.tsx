@@ -12,6 +12,7 @@ import { getShowDetail, listTags, type ShowDetail } from "@/lib/db/queries";
 import { ingestTmdbShow } from "@/lib/db/mutations";
 import { isAppError } from "@/lib/errors";
 import { needsShowEpisodeHydration } from "@/lib/show/episode-hydration";
+import { countShowProgress } from "@/lib/show/progress";
 import {
   getTmdbTvAggregateCreditsWithAuth,
   getTmdbTvDetailsWithAuth,
@@ -82,22 +83,13 @@ function isShowWatched(show: ShowDetail) {
     return true;
   }
 
-  const totalEpisodes = show.episode_count ?? show.seasons.reduce(
-    (count, season) => count + season.episodes.length,
-    0,
-  );
+  const { watched, total } = countShowProgress(show.seasons);
 
-  if (totalEpisodes === 0) {
+  if (total === 0) {
     return false;
   }
 
-  const watchedEpisodes = show.seasons.reduce(
-    (count, season) =>
-      count + season.episodes.filter((episode) => (episode.watchActivity?.length ?? 0) > 0).length,
-    0,
-  );
-
-  return watchedEpisodes >= totalEpisodes;
+  return watched >= total;
 }
 
 async function loadShowOrNotFound(showId: string) {

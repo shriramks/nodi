@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/section";
 import type { Episode, MediaStatus, MediaWatchActivity, Tag } from "@/lib/db/types";
 import { tmdbImage } from "@/lib/providers/tmdb/images";
+import { countShowProgress } from "@/lib/show/progress";
 
 type ShowEpisode = Episode & {
   watchActivity?: MediaWatchActivity[];
@@ -331,15 +332,7 @@ function showStatusLine(show: DetailShow) {
     return null;
   }
 
-  const seasons = show.seasons ?? [];
-  const totalCount =
-    show.episode_count ??
-    seasons.reduce((count, season) => count + season.episodes.length, 0);
-  const watchedCount = seasons.reduce(
-    (count, season) =>
-      count + season.episodes.filter((episode) => (episode.watchActivity?.length ?? 0) > 0).length,
-    0,
-  );
+  const { watched: watchedCount, total: totalCount } = countShowProgress(show.seasons ?? []);
 
   const base = statusLabelFor(resolvedStatus);
 
@@ -355,15 +348,7 @@ function resolveShowStatus(show: DetailShow): MediaStatus | null {
     return null;
   }
 
-  const seasons = show.seasons ?? [];
-  const totalCount =
-    show.episode_count ??
-    seasons.reduce((count, season) => count + season.episodes.length, 0);
-  const watchedCount = seasons.reduce(
-    (count, season) =>
-      count + season.episodes.filter((episode) => (episode.watchActivity?.length ?? 0) > 0).length,
-    0,
-  );
+  const { watched: watchedCount, total: totalCount } = countShowProgress(show.seasons ?? []);
 
   if (totalCount > 0 && watchedCount >= totalCount) {
     return "watched";

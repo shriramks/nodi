@@ -8,6 +8,7 @@ import { getShowDetail, type ShowDetail } from "@/lib/db/queries";
 import { ingestTmdbShow, refreshShowWatchedState } from "@/lib/db/mutations";
 import { isAppError } from "@/lib/errors";
 import { needsShowEpisodeHydration } from "@/lib/show/episode-hydration";
+import { countShowProgress } from "@/lib/show/progress";
 import {
   getTmdbTvDetailsWithAuth,
   getTmdbTvSeasonDetailsWithAuth,
@@ -44,11 +45,7 @@ export default async function ShowEpisodesPage({
     show.userMedia?.status === "watching" ||
     show.userMedia?.completion_mode === "auto_all_aired"
   ) {
-    const totalEpisodes = show.seasons.reduce((c, s) => c + s.episodes.length, 0);
-    const watchedEpisodes = show.seasons.reduce(
-      (c, s) => c + s.episodes.filter((ep) => (ep.watchActivity?.length ?? 0) > 0).length,
-      0,
-    );
+    const { watched: watchedEpisodes, total: totalEpisodes } = countShowProgress(show.seasons);
     const episodeCountCovers =
       show.episode_count === null || totalEpisodes >= show.episode_count;
     const locallyComplete = totalEpisodes > 0 &&
