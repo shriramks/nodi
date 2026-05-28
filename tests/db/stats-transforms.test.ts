@@ -291,7 +291,6 @@ describe("stats transforms", () => {
     expect(stats.movieRuntimeMinutes).toBe(80);
     expect(stats.showRuntimeMinutes).toBe(85);
     expect(stats.avgRating).toBe(9);
-    expect(stats.favDecade).toBe("2000s");
     expect(stats.genreBreakdown).toEqual([
       { count: 1, key: "animation", label: "Animation", percentage: 50 },
       { count: 1, key: "drama", label: "Drama", percentage: 50 },

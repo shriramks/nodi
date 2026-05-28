@@ -273,7 +273,6 @@ function AllStatsHero({ stats, hasData }: { stats: LibraryStats; hasData: boolea
     plainMetric(stats.movieCount.toString(), "Movies", "text-foreground"),
     plainMetric(stats.showCount.toString(), "Shows", "text-foreground"),
     plainMetric(stats.episodeWatchCount.toString(), "Episodes", "text-foreground"),
-    plainMetric(stats.favDecade ?? "—", "Fav decade", stats.favDecade ? "text-text-2" : "text-text-faint"),
     ratingMetric(stats.avgRating),
   ];
 
@@ -331,7 +330,7 @@ function AllStatsHero({ stats, hasData }: { stats: LibraryStats; hasData: boolea
       )}
 
       {/* Counts + avg rating */}
-      <div className="grid border-t border-divider pt-3.5" style={{ gridTemplateColumns: "repeat(5, minmax(0, 1fr))" }}>
+      <div className="grid border-t border-divider pt-3.5" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
         {metrics.map((metric, index) => (
           <HeroMetric
             key={metric.label}
