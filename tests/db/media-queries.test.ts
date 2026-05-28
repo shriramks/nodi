@@ -31,6 +31,7 @@ function createQuery(result: unknown) {
   return {
     select: vi.fn(),
     eq: vi.fn(),
+    in: vi.fn(),
     not: vi.fn(),
     order: vi.fn(),
     range: vi.fn(),
@@ -43,6 +44,7 @@ function createQuery(result: unknown) {
 function chainQuery(query: ReturnType<typeof createQuery>) {
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
+  query.in.mockReturnValue(query);
   query.not.mockReturnValue(query);
   query.order.mockReturnValue(query);
   query.range.mockResolvedValue(query.result);

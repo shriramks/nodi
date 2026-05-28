@@ -7,6 +7,7 @@ import { ShowRatingSheet } from "@/components/show/show-state-actions";
 import { getShowDetail, type ShowDetail } from "@/lib/db/queries";
 import { ingestTmdbShow, refreshShowWatchedState } from "@/lib/db/mutations";
 import { isAppError } from "@/lib/errors";
+import { needsShowEpisodeHydration } from "@/lib/show/episode-hydration";
 import {
   getTmdbTvDetailsWithAuth,
   getTmdbTvSeasonDetailsWithAuth,
@@ -37,9 +38,12 @@ export default async function ShowEpisodesPage({
     show = await loadFreshShowOrNotFound(showId);
   }
 
-  // Repair stale "watching" status for shows where all episodes have been
-  // marked watched (e.g. synced from Trakt before auto-promotion existed).
-  if (show.userMedia?.status === "watching") {
+  // Repair stale derived status after sync or lazy hydration. Manual watched
+  // completion is preserved by refreshShowWatchedState.
+  if (
+    show.userMedia?.status === "watching" ||
+    show.userMedia?.completion_mode === "auto_all_aired"
+  ) {
     const totalEpisodes = show.seasons.reduce((c, s) => c + s.episodes.length, 0);
     const watchedEpisodes = show.seasons.reduce(
       (c, s) => c + s.episodes.filter((ep) => (ep.watchActivity?.length ?? 0) > 0).length,
@@ -47,7 +51,14 @@ export default async function ShowEpisodesPage({
     );
     const episodeCountCovers =
       show.episode_count === null || totalEpisodes >= show.episode_count;
-    if (totalEpisodes > 0 && watchedEpisodes >= totalEpisodes && episodeCountCovers) {
+    const locallyComplete = totalEpisodes > 0 &&
+      watchedEpisodes >= totalEpisodes &&
+      episodeCountCovers;
+    const shouldRefreshCompletion =
+      (show.userMedia.status === "watching" && locallyComplete) ||
+      (show.userMedia.completion_mode === "auto_all_aired" && !locallyComplete);
+
+    if (shouldRefreshCompletion) {
       await refreshShowWatchedState(show.id);
       show = await loadFreshShowOrNotFound(showId);
     }
@@ -121,7 +132,7 @@ async function loadFreshShowOrNotFound(showId: string) {
 }
 
 async function hydrateShowEpisodesOnDemand(show: ShowDetail) {
-  if (!needsEpisodeHydration(show)) {
+  if (!needsShowEpisodeHydration(show)) {
     return false;
   }
 
@@ -159,38 +170,4 @@ async function hydrateShowEpisodesOnDemand(show: ShowDetail) {
     });
     return false;
   }
-}
-
-/** Re-sync from TMDB when metadata hasn't been refreshed in this many days. */
-const STALE_METADATA_DAYS = 3;
-
-function needsEpisodeHydration(show: ShowDetail) {
-  const episodeCount = show.seasons.reduce(
-    (count, season) => count + season.episodes.length,
-    0,
-  );
-
-  // Always hydrate if we have fewer episodes than the stored total.
-  if (show.episode_count !== null && episodeCount < show.episode_count) {
-    return true;
-  }
-
-  if (episodeCount === 0) {
-    return true;
-  }
-
-  // For shows still being watched, re-sync if TMDB metadata is stale so
-  // newly-aired episodes are picked up even when episode_count hasn't changed.
-  if (show.userMedia?.status === "watching") {
-    const updatedAt = show.metadata_updated_at
-      ? new Date(show.metadata_updated_at).getTime()
-      : 0;
-    const ageMs = Date.now() - updatedAt;
-    const staleCutoffMs = STALE_METADATA_DAYS * 24 * 60 * 60 * 1000;
-    if (ageMs > staleCutoffMs) {
-      return true;
-    }
-  }
-
-  return false;
 }

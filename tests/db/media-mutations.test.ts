@@ -86,6 +86,7 @@ function createQuery(result: unknown) {
     lte: vi.fn(),
     maybeSingle: vi.fn(),
     order: vi.fn(),
+    or: vi.fn(),
     select: vi.fn(),
     single: vi.fn(),
     then: vi.fn(),
@@ -101,6 +102,7 @@ function createQuery(result: unknown) {
   query.limit.mockReturnValue(query);
   query.lte.mockReturnValue(query);
   query.order.mockReturnValue(query);
+  query.or.mockReturnValue(query);
   query.select.mockReturnValue(query);
   query.update.mockReturnValue(query);
   query.upsert.mockReturnValue(query);
