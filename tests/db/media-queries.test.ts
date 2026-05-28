@@ -32,6 +32,8 @@ function createQuery(result: unknown) {
     select: vi.fn(),
     eq: vi.fn(),
     in: vi.fn(),
+    limit: vi.fn(),
+    neq: vi.fn(),
     not: vi.fn(),
     order: vi.fn(),
     range: vi.fn(),
@@ -45,6 +47,8 @@ function chainQuery(query: ReturnType<typeof createQuery>) {
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
   query.in.mockReturnValue(query);
+  query.limit.mockReturnValue(query);
+  query.neq.mockReturnValue(query);
   query.not.mockReturnValue(query);
   query.order.mockReturnValue(query);
   query.range.mockResolvedValue(query.result);
@@ -78,7 +82,7 @@ describe("media queries", () => {
           },
           media_id: mediaId,
           personal_rating: 8,
-          status: "watched",
+          status: "done",
           updated_at: "2026-05-02T00:00:00.000Z",
           user_id: userId,
           watchlisted_at: null,
@@ -112,7 +116,7 @@ describe("media queries", () => {
       "*, media:media_items!inner(id, type, poster_path, title)",
       { count: "exact" },
     );
-    expect(userMediaQuery.eq).toHaveBeenCalledWith("status", "watched");
+    expect(userMediaQuery.eq).toHaveBeenCalledWith("status", "done");
     expect(userMediaQuery.eq).toHaveBeenCalledWith("media_items.type", "movie");
   });
 
@@ -268,6 +272,10 @@ describe("media queries", () => {
         data: [{ media_id: mediaId, provider: "tmdb", provider_media_type: "movie", provider_id: "42" }],
         error: null,
       })),
+      cast: chainQuery(createQuery({
+        data: [{ id: "cast-id", movie_id: mediaId, name: "Actor", tmdb_person_id: 42 }],
+        error: null,
+      })),
     };
     const from = vi.fn((table: string) => {
       if (table === "media_items") return queries.mediaItems;
@@ -275,6 +283,7 @@ describe("media queries", () => {
       if (table === "media_watch_activity") return queries.activity;
       if (table === "user_media_tags") return queries.tags;
       if (table === "media_provider_mappings") return queries.mappings;
+      if (table === "movie_cast") return queries.cast;
       throw new Error(`Unexpected table query: ${table}`);
     });
     mocks.createSupabaseServerClient.mockResolvedValue({ from });
@@ -286,11 +295,13 @@ describe("media queries", () => {
       watchActivity: [{ id: "activity-id" }],
       tags: [{ name: "Noir" }],
       providerMappings: [{ provider: "tmdb", provider_id: "42" }],
+      cast: [{ name: "Actor" }],
     });
 
     expect(from).toHaveBeenCalledWith("media_items");
     expect(from).toHaveBeenCalledWith("media_watch_activity");
     expect(from).toHaveBeenCalledWith("media_provider_mappings");
+    expect(from).toHaveBeenCalledWith("movie_cast");
   });
 
   it("loads tags assigned to a media item through user_media_tags", async () => {

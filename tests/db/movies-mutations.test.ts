@@ -45,8 +45,18 @@ const watchLog = {
 describe("movie watched-state mutations", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    const userMediaQuery = {
+      upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
     mocks.requireUser.mockResolvedValue({ id: userId });
     mocks.createSupabaseServerClient.mockResolvedValue({
+      from: vi.fn((table: string) => {
+        if (table !== "user_media") {
+          throw new Error(`Unexpected table query: ${table}`);
+        }
+
+        return userMediaQuery;
+      }),
       rpc: mocks.rpc,
     });
     mocks.rpc.mockReturnValue({

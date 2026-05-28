@@ -85,7 +85,15 @@ export type Database = {
           tmdb_enriched_at?: string | null;
           created_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "movie_cast_movie_id_fkey";
+            columns: ["movie_id"];
+            isOneToOne: false;
+            referencedRelation: "media_items";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       movie_cast: {
         Row: {

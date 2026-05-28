@@ -2,10 +2,10 @@
 
 ## Primary rule
 
-Start from `docs/agent.md` and local memory before doing anything substantial in this repo.
+Start from `AGENT.md` and local memory before doing anything substantial in this repo.
 
 When making changes, giving recommendations, or answering repo-specific questions, use this order:
-- `docs/agent.md` for repo operating rules
+- `AGENT.md` for repo operating rules
 - `docs/product.md` for product scope and behavior
 - `docs/architecture.md` for system boundaries and request flow
 - `docs/data-flow.md` for E2E data flow: which tables are written and read per action
@@ -34,7 +34,7 @@ product direction.
 
 ## Working approach
 
-- Read `docs/agent.md` first, then open only the docs and files needed for the task.
+- Read `AGENT.md` first, then open only the docs and files needed for the task.
 - Read `progress_nodi.md` for current local task state before starting assigned work.
 - After completing any unit of work, update `progress_nodi.md`. Format rules:
   - `Done` entries are ordered newest-first under `## Done`; the latest completed work is always the
@@ -289,7 +289,7 @@ files, then inspect only direct imports, direct callers, or the relevant route b
 
 ## Response rules for this repo
 
-- When a task is repo-specific, anchor the answer to `docs/agent.md` and the Nodi docs instead of generic advice.
+- When a task is repo-specific, anchor the answer to `AGENT.md` and the Nodi docs instead of generic advice.
 - If a requested change would break one of the product invariants above, call that out directly before implementing.
 - When changing schema, mention the migration file and any affected Supabase documentation.
 - When changing behavior, keep the relationship between `docs/product.md`, `docs/architecture.md`, and `supabase/db_guide.md` coherent.

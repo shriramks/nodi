@@ -93,6 +93,7 @@ function createQuery(result: unknown) {
     limit: vi.fn(),
     lte: vi.fn(),
     maybeSingle: vi.fn(),
+    neq: vi.fn(),
     order: vi.fn(),
     or: vi.fn(),
     select: vi.fn(),
@@ -109,6 +110,7 @@ function createQuery(result: unknown) {
   query.in.mockReturnValue(query);
   query.limit.mockReturnValue(query);
   query.lte.mockReturnValue(query);
+  query.neq.mockReturnValue(query);
   query.order.mockReturnValue(query);
   query.or.mockReturnValue(query);
   query.select.mockReturnValue(query);
@@ -377,7 +379,7 @@ describe("media movie mutations", () => {
       setMediaMovieWatchStatus({
         movieId,
         source: "manual",
-        status: "done",
+        status: "watched",
         watchedAt,
       }),
     ).resolves.toEqual({

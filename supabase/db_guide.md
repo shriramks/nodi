@@ -194,6 +194,11 @@ stays compatible with the existing `MovieStatus` type. The companion code fix in
 `listMediaRatingAnalyticsRowsForUser` so stats show counts, genre/language breakdowns, and average
 ratings include in-progress shows.
 
+`supabase/migrations/20260528203000_retarget_movie_cast_media_fk.sql` retargets
+`movie_cast.movie_id` from the legacy `movies` table to the same UUID in `media_items`. This keeps
+movie cast rows available for the current detail UI while allowing the legacy `movies` table to be
+dropped in a later cleanup migration once remaining legacy paths are removed.
+
 ## 8. Operational Notes
 
 Keep these server-side only:

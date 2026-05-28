@@ -181,8 +181,9 @@ public/
   icons/
   screenshots/
 
+AGENT.md
+
 docs/
-  agent.md
   product.md
   architecture.md
   design.md
