@@ -8,8 +8,10 @@ When making changes, giving recommendations, or answering repo-specific question
 - `docs/agent.md` for repo operating rules
 - `docs/product.md` for product scope and behavior
 - `docs/architecture.md` for system boundaries and request flow
+- `docs/data-flow.md` for E2E data flow: which tables are written and read per action
 - `supabase/db_guide.md` plus `supabase/migrations/` for database and migration rules
 - `docs/design.md` for UI direction and interaction tone
+- `docs/bugs.md` when troubleshooting: known bugs, root causes, and diagnostic patterns
 
 If one of those documents conflicts with older assumptions, follow the Nodi docs above instead of
 generic habits from other projects.
@@ -106,6 +108,8 @@ start with the listed files and only expand outward if those files point elsewhe
 | PWA manifest and icons | `app/manifest.ts`, `public/` | `app/layout.tsx` |
 | Design decisions | `docs/design.md` | the component being changed |
 | Product or architecture questions | `docs/product.md`, `docs/architecture.md` | `supabase/db_guide.md` for DB-specific questions |
+| Data flow, write/read path per action | `docs/data-flow.md` | `lib/db/mutations/`, `lib/db/queries/` |
+| Troubleshooting / debugging | `docs/bugs.md` | query DB first, then read code |
 | Progress tracking | `progress_nodi.md` | do not grep for it |
 
 ## Feature code map
