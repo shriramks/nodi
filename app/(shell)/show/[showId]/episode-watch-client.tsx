@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   Check,
   ChevronDown,
@@ -17,6 +17,7 @@ import {
   addEpisodeWatchDateAction,
   deleteEpisodeWatchActivityAction,
   markSeasonWatchedAction,
+  repairShowCompletionStateAction,
   toggleEpisodeWatchedAction,
   updateEpisodeWatchActivityDateAction,
 } from "../actions";
@@ -515,6 +516,22 @@ export function EpisodeWatchHistoryEditor({
       ) : null}
     </>
   );
+}
+
+export function ShowCompletionRepair({ showId }: { showId: string }) {
+  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    startTransition(async () => {
+      try {
+        await repairShowCompletionStateAction(showId);
+      } catch {
+        // best-effort — stale status stays until next write
+      }
+    });
+  }, [showId]);
+
+  return null;
 }
 
 function EpisodeWatchDateForm({

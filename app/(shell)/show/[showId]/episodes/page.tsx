@@ -5,17 +5,16 @@ import { cache } from "react";
 import { ShowEpisodeListView } from "@/components/show/show-episode-list-view";
 import { ShowRatingSheet } from "@/components/show/show-state-actions";
 import { getShowDetail, type ShowDetail } from "@/lib/db/queries";
-import { ingestTmdbShow, refreshShowWatchedState } from "@/lib/db/mutations";
+import { ingestTmdbShow } from "@/lib/db/mutations";
 import { isAppError } from "@/lib/errors";
 import { needsShowEpisodeHydration } from "@/lib/show/episode-hydration";
-import { countShowProgress } from "@/lib/show/progress";
 import {
   getTmdbTvDetailsWithAuth,
   getTmdbTvSeasonDetailsWithAuth,
   loadTmdbAuthForCurrentUser,
   type TmdbTvSeasonDetails,
 } from "@/lib/providers/tmdb/client";
-import { EpisodeWatchButton, SeasonWatchButton } from "../episode-watch-client";
+import { EpisodeWatchButton, SeasonWatchButton, ShowCompletionRepair } from "../episode-watch-client";
 
 type ShowEpisodesPageProps = {
   params: Promise<{ showId: string }>;
@@ -39,39 +38,15 @@ export default async function ShowEpisodesPage({
     show = await loadFreshShowOrNotFound(showId);
   }
 
-  // Repair stale derived status after sync or lazy hydration. Manual watched
-  // completion is preserved by refreshShowWatchedState.
-  if (
-    show.userMedia?.status === "watching" ||
-    show.userMedia?.completion_mode === "auto_all_aired"
-  ) {
-    const { watched: watchedEpisodes, total: totalEpisodes } = countShowProgress(show.seasons);
-    const episodeCountCovers =
-      show.episode_count === null || totalEpisodes >= show.episode_count;
-    const locallyComplete = totalEpisodes > 0 &&
-      watchedEpisodes >= totalEpisodes &&
-      episodeCountCovers;
-    const shouldRefreshCompletion =
-      (show.userMedia.status === "watching" && locallyComplete) ||
-      (show.userMedia.completion_mode === "auto_all_aired" && !locallyComplete);
-
-    if (shouldRefreshCompletion) {
-      try {
-        await refreshShowWatchedState(show.id);
-        show = await loadFreshShowOrNotFound(showId);
-      } catch (error) {
-        console.error("Failed to refresh show completion state during render", {
-          error,
-          showId,
-        });
-      }
-    }
-  }
-
   const personalRating = show.userMedia?.personal_rating ?? null;
   const userStatus = show.userMedia?.status ?? null;
+  const needsCompletionRepair =
+    show.userMedia?.status === "watching" ||
+    show.userMedia?.completion_mode === "auto_all_aired";
 
   return (
+    <>
+    {needsCompletionRepair ? <ShowCompletionRepair showId={show.id} /> : null}
     <ShowEpisodeListView
       episodeWatchControl={(episode) => (
         <EpisodeWatchButton
@@ -100,6 +75,7 @@ export default async function ShowEpisodesPage({
         personalRating,
       }}
     />
+    </>
   );
 }
 
