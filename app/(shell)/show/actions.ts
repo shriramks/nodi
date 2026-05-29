@@ -153,7 +153,14 @@ export async function deleteEpisodeWatchActivityAction(
 }
 
 export async function repairShowCompletionStateAction(showId: string): Promise<void> {
-  await refreshShowWatchedState(showId);
+  console.log("[repairShowCompletionStateAction] starting", { showId });
+  try {
+    await refreshShowWatchedState(showId);
+    console.log("[repairShowCompletionStateAction] repair succeeded", { showId });
+  } catch (error) {
+    console.error("[repairShowCompletionStateAction] repair failed", { showId, error });
+    throw error;
+  }
   revalidatePath(`/show/${showId}`);
   revalidatePath(`/show/${showId}/episodes`);
 }

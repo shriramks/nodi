@@ -580,6 +580,7 @@ async function refreshShowMediaLastWatchedAt({
   userId: string;
 }): Promise<UserMedia> {
   const supabase = await createSupabaseServerClient();
+  console.log("[refreshShowMediaLastWatchedAt] starting", { mediaId, userId });
 
   const [
     currentResult,
@@ -597,10 +598,12 @@ async function refreshShowMediaLastWatchedAt({
   ]);
 
   if (currentResult.error) {
+    console.error("[refreshShowMediaLastWatchedAt] user_media query failed", { mediaId, userId, error: currentResult.error });
     throwDatabaseError("Failed to load current show watch state.", currentResult.error);
   }
 
   const currentUserMedia = (currentResult.data as UserMedia | null) ?? null;
+  console.log("[refreshShowMediaLastWatchedAt] state", { mediaId, userId, status: currentUserMedia?.status, completionMode: currentUserMedia?.completion_mode, autoComplete: autoCompletion.isComplete });
   const isManualCompletion =
     currentUserMedia?.status === "done" &&
     currentUserMedia.completion_mode === "manual";
@@ -680,6 +683,7 @@ async function getShowAutoCompletionState({
 }) {
   const supabase = await createSupabaseServerClient();
   const today = new Date().toISOString().slice(0, 10);
+  console.log("[getShowAutoCompletionState] starting", { mediaId, userId, today });
   // Include episodes with no air_date (treat as aired) alongside those with air_date <= today.
   // Future-dated episodes already in the DB are still excluded, which correctly keeps
   // in-progress shows from auto-completing while there are unwatched upcoming episodes.
@@ -691,10 +695,12 @@ async function getShowAutoCompletionState({
     .or(`air_date.is.null,air_date.lte.${today}`);
 
   if (episodesError) {
+    console.error("[getShowAutoCompletionState] episodes query failed", { mediaId, userId, error: episodesError });
     throwDatabaseError("Failed to load aired show episodes.", episodesError);
   }
 
   const airedEpisodeIds = ((episodes ?? []) as Pick<Episode, "id">[]).map((episode) => episode.id);
+  console.log("[getShowAutoCompletionState] aired episodes", { mediaId, userId, airedCount: airedEpisodeIds.length });
 
   if (airedEpisodeIds.length === 0) {
     return { completedAt: null, isComplete: false };
@@ -709,6 +715,7 @@ async function getShowAutoCompletionState({
     .order("watched_at", { ascending: false });
 
   if (watchedRowsError) {
+    console.error("[getShowAutoCompletionState] watch activity query failed", { mediaId, userId, error: watchedRowsError });
     throwDatabaseError("Failed to load aired show watch activity.", watchedRowsError);
   }
 
@@ -717,6 +724,7 @@ async function getShowAutoCompletionState({
       .flatMap((row) => row.episode_id ? [row.episode_id] : []),
   );
   const isComplete = airedEpisodeIds.every((episodeId) => watchedEpisodeIds.has(episodeId));
+  console.log("[getShowAutoCompletionState] result", { mediaId, userId, airedCount: airedEpisodeIds.length, watchedCount: watchedEpisodeIds.size, isComplete });
 
   return {
     completedAt: isComplete

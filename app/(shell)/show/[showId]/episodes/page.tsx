@@ -32,10 +32,22 @@ export default async function ShowEpisodesPage({
   params,
 }: ShowEpisodesPageProps) {
   const { showId } = await params;
-  let show = await loadShowOrNotFound(showId);
 
-  if (await hydrateShowEpisodesOnDemand(show)) {
-    show = await loadFreshShowOrNotFound(showId);
+  let show;
+  try {
+    show = await loadShowOrNotFound(showId);
+  } catch (error) {
+    console.error("[episodes] loadShowOrNotFound failed", { showId, error });
+    throw error;
+  }
+
+  try {
+    if (await hydrateShowEpisodesOnDemand(show)) {
+      show = await loadFreshShowOrNotFound(showId);
+    }
+  } catch (error) {
+    console.error("[episodes] hydrateShowEpisodesOnDemand or reload failed", { showId, error });
+    throw error;
   }
 
   const personalRating = show.userMedia?.personal_rating ?? null;

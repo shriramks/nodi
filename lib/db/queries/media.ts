@@ -321,6 +321,7 @@ export async function getMediaDetail(mediaId: string): Promise<MediaDetail> {
     .maybeSingle();
 
   if (mediaError) {
+    console.error("[getMediaDetail] media_items query failed", { mediaId: id, error: mediaError });
     throwDatabaseError("Failed to load media item.", mediaError);
   }
 
@@ -360,18 +361,22 @@ export async function getMediaDetail(mediaId: string): Promise<MediaDetail> {
   ]);
 
   if (userMediaError) {
+    console.error("[getMediaDetail] user_media query failed", { mediaId: id, error: userMediaError });
     throwDatabaseError("Failed to load user media state.", userMediaError);
   }
 
   if (watchActivityError) {
+    console.error("[getMediaDetail] media_watch_activity query failed", { mediaId: id, error: watchActivityError });
     throwDatabaseError("Failed to load media watch activity.", watchActivityError);
   }
 
   if (tagsError) {
+    console.error("[getMediaDetail] user_media_tags query failed", { mediaId: id, error: tagsError });
     throwDatabaseError("Failed to load media tags.", tagsError);
   }
 
   if (providerMappingsError) {
+    console.error("[getMediaDetail] media_provider_mappings query failed", { mediaId: id, error: providerMappingsError });
     throwDatabaseError("Failed to load media provider mappings.", providerMappingsError);
   }
 
@@ -403,10 +408,12 @@ export async function getShowDetail(showId: string): Promise<ShowDetail> {
     .order("episode_number", { ascending: true });
 
   if (error) {
+    console.error("[getShowDetail] episodes query failed", { showId: detail.id, error });
     throwDatabaseError("Failed to load show episodes.", error);
   }
 
   const episodes = (data ?? []) as Episode[];
+  console.log("[getShowDetail] loaded", { showId: detail.id, episodeCount: episodes.length, status: detail.userMedia?.status, completionMode: detail.userMedia?.completion_mode });
   const watchActivityByEpisodeId = await listWatchActivityByEpisodeId(detail.id, episodes);
 
   return {
@@ -486,6 +493,7 @@ async function listWatchActivityByEpisodeId(mediaId: string, episodes: Episode[]
     .order("watched_at", { ascending: false });
 
   if (error) {
+    console.error("[listWatchActivityByEpisodeId] query failed", { mediaId, episodeCount: episodes.length, error });
     throwDatabaseError("Failed to load episode watch activity.", error);
   }
 
