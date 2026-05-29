@@ -2,21 +2,14 @@
 
 import type { ReactNode } from "react";
 import { useState, useTransition } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Check, LoaderCircle } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { CollapsibleSeason } from "@/components/show/collapsible-season";
-import {
-  getTmdbRating,
-  languageDisplayName,
-  PersonalRating,
-  TmdbRatingBadge,
-} from "@/components/show/show-detail-view";
+import { ShowInfoPanel } from "@/components/show/show-detail-view";
 import type { Episode, MediaStatus, MediaWatchActivity, Tag } from "@/lib/db/types";
-import { tmdbImage } from "@/lib/providers/tmdb/images";
 import { countShowProgress } from "@/lib/show/progress";
 
 type ShowEpisode = Episode & {
@@ -63,8 +56,6 @@ export function ShowEpisodeListView({
   const visibleSeasons = showSpecials ? show.seasons : regularSeasons;
 
   const { watched: watchedCount, total: totalCount } = countShowProgress(show.seasons);
-  const tags = (show.tags ?? []).slice(0, 2);
-
   const status = show.userStatus ? effectiveStatus(show.userStatus, watchedCount, totalCount) : null;
   const headingLabel =
     totalCount === 0
@@ -82,14 +73,6 @@ export function ShowEpisodeListView({
       : totalCount > 0
         ? `${totalCount} episodes`
         : null;
-  const metaLine = [
-    show.release_year,
-    show.original_language ? languageDisplayName(show.original_language) : null,
-    show.primary_genre_name,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  const tmdbRating = getTmdbRating(show);
 
   return (
     <main className="-mx-4 -mt-6 pb-4">
@@ -107,32 +90,15 @@ export function ShowEpisodeListView({
         </Link>
       </header>
 
-      <section className="grid grid-cols-[74px_minmax(0,1fr)] gap-3 border-b border-divider px-4 py-4">
-        <ShowPosterSmall posterPath={show.poster_path} title={show.title} />
-        <div className="min-w-0 self-center space-y-1">
-          <p className="text-[16px] font-bold leading-[1.2]">
-            {headingLabel}
-            {countLine ? (
-              <span className="font-normal text-text-2"> · {countLine}</span>
-            ) : null}
-          </p>
-          {metaLine ? (
-            <p className="text-[12px] leading-[1.35] text-text-muted">{metaLine}</p>
-          ) : null}
-          <div className="flex flex-wrap items-center gap-2 pt-0.5">
-            {ratingPicker ?? <PersonalRating rating={show.personalRating ?? null} />}
-            {tmdbRating ? <TmdbRatingBadge rating={tmdbRating} /> : null}
-            {tags.map((tag) => (
-              <span
-                className="rounded-lg border border-accent/25 bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent"
-                key={tag.id}
-              >
-                {tag.name}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
+      <ShowInfoPanel
+        className="border-b border-divider px-4 py-4"
+        ratingPicker={ratingPicker}
+        show={show}
+        statusLabel={countLine ? `${headingLabel} · ${countLine}` : null}
+        statusClassName={
+          status === "done" ? "text-watched" : status === "stopped" ? "text-text-muted" : "text-accent"
+        }
+      />
 
       {regularSeasons.length > 0 ? (
         <div>
@@ -421,29 +387,6 @@ function formatDateParts(dateStr: string) {
     dayMonth: label.slice(0, lastSpaceIndex),
     year: label.slice(lastSpaceIndex + 1),
   };
-}
-
-function ShowPosterSmall({
-  posterPath,
-  title,
-}: {
-  posterPath: string | null;
-  title: string;
-}) {
-  return (
-    <div className="flex aspect-[2/3] w-[74px] items-end overflow-hidden rounded-lg bg-surface-muted p-2 text-[10px] font-bold leading-[1.1] text-text-2 shadow-sm">
-      {posterPath ? (
-        <Image
-          alt=""
-          aria-hidden="true"
-          className="-m-2 h-[calc(100%+1rem)] w-[calc(100%+1rem)] object-cover"
-          {...tmdbImage(posterPath, "railPoster")}
-        />
-      ) : (
-        title
-      )}
-    </div>
-  );
 }
 
 
