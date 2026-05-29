@@ -3,8 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Film } from "lucide-react";
 
-import { BackButton } from "@/components/navigation/back-button";
-import { SettingsSheet } from "@/components/settings/settings-sheet";
+import { DetailHeroSection } from "@/components/media/detail-hero-section";
 import { CreditPosterCard } from "@/components/media/credit-poster-card";
 import { OverviewText } from "@/components/movie/overview-text";
 import {
@@ -107,32 +106,7 @@ export function MovieDetailView({
   return (
     <main className="-mt-6 space-y-4 pb-4">
       <TmdbImagePrefetcher urls={prefetchUrls} />
-      <section className="-mx-4">
-        <div className="relative h-[244px] overflow-hidden bg-surface-muted">
-          {movie.backdrop_path ? (
-            <Image
-              alt=""
-              aria-hidden="true"
-              className="h-full w-full object-cover"
-              priority
-              {...tmdbImage(movie.backdrop_path, "heroBackdrop")}
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center bg-surface-muted">
-              <Film aria-hidden="true" className="h-10 w-10 text-text-faint" strokeWidth={1.6} />
-            </div>
-          )}
-          <div className="movie-detail-hero-scrim absolute inset-0" />
-          <div className="movie-detail-title-vignette absolute inset-0" />
-          <div
-            className="absolute left-4 right-4 top-0 flex items-center justify-between"
-            style={{ paddingTop: "calc(1.25rem + env(safe-area-inset-top))" }}
-          >
-            <BackButton className="-ml-1 flex h-11 items-center gap-0.5 text-white drop-shadow-sm" />
-            <SettingsSheet />
-          </div>
-        </div>
-      </section>
+      <DetailHeroSection backdropPath={movie.backdrop_path} />
 
       <MediaInfoPanel
         className="relative -mt-[92px] min-h-[194px]"
