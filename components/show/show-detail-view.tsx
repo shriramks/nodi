@@ -16,6 +16,7 @@ import {
 import type { Episode, MediaStatus, MediaWatchActivity, Tag } from "@/lib/db/types";
 import { tmdbImage } from "@/lib/providers/tmdb/images";
 import { countShowProgress } from "@/lib/show/progress";
+import { formatDate, getTmdbRating, languageDisplayName } from "@/lib/media/format";
 
 type ShowEpisode = Episode & {
   watchActivity?: MediaWatchActivity[];
@@ -365,17 +366,6 @@ export function TmdbRatingBadge({ rating }: { rating: { value: number; voteCount
   );
 }
 
-export function getTmdbRating(show: { tmdb_vote_average: number | null; tmdb_vote_count: number | null }) {
-  if (show.tmdb_vote_average !== null && show.tmdb_vote_average !== undefined) {
-    return {
-      value: show.tmdb_vote_average,
-      voteCount: show.tmdb_vote_count ?? null,
-    };
-  }
-
-  return null;
-}
-
 function showStatusLine(show: DetailShow) {
   const resolvedStatus = resolveShowStatus(show);
   if (!resolvedStatus) {
@@ -411,20 +401,3 @@ function statusColourFor(status: MediaStatus) {
   return "text-accent";
 }
 
-export function languageDisplayName(code: string): string {
-  try {
-    return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code.toUpperCase();
-  } catch {
-    return code.toUpperCase();
-  }
-}
-
-function formatDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date);
-}

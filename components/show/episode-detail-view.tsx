@@ -9,6 +9,7 @@ import { DetailRow } from "@/components/ui/detail";
 import { Section, SectionHeader } from "@/components/ui/section";
 import type { Episode, MediaItem, MediaWatchActivity, Tag, UserMedia } from "@/lib/db/types";
 import { tmdbImage } from "@/lib/providers/tmdb/images";
+import { formatDate, getTmdbRating } from "@/lib/media/format";
 
 type EpisodeDetailShow = MediaItem & {
   tags?: Tag[];
@@ -146,23 +147,3 @@ export function EpisodeDetailView({
   );
 }
 
-function getTmdbRating(show: EpisodeDetailShow) {
-  if (show.tmdb_vote_average !== null && show.tmdb_vote_average !== undefined) {
-    return {
-      value: show.tmdb_vote_average,
-      voteCount: show.tmdb_vote_count ?? null,
-    };
-  }
-
-  return null;
-}
-
-function formatDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date);
-}

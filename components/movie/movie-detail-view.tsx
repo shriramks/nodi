@@ -17,29 +17,8 @@ import { TmdbImagePrefetcher } from "@/components/media/tmdb-image-prefetcher";
 import { DetailRow } from "@/components/ui/detail";
 import type { MovieStatus } from "@/lib/db/types";
 import { tmdbImage, tmdbImagePrefetchUrls } from "@/lib/providers/tmdb/images";
-
-function languageDisplayName(code: string): string {
-  try {
-    return new Intl.DisplayNames(["en"], { type: "language" }).of(code) ?? code.toUpperCase();
-  } catch {
-    return code.toUpperCase();
-  }
-}
-
-function formatReleaseDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date);
-}
-
-type TmdbRating = {
-  value: number;
-  voteCount: number | null;
-};
+import { formatDate, getTmdbRating, languageDisplayName } from "@/lib/media/format";
+import type { TmdbRating } from "@/lib/media/format";
 
 type DetailMovie = {
   title: string;
@@ -118,7 +97,7 @@ export function MovieDetailView({
     })),
   ]);
   const detailRows = [
-    movie.release_date ? { label: "Release", value: formatReleaseDate(movie.release_date) } : null,
+    movie.release_date ? { label: "Release", value: formatDate(movie.release_date) } : null,
     movie.runtime_minutes ? { label: "Runtime", value: `${movie.runtime_minutes} min` } : null,
     movie.original_language
       ? { label: "Language", value: languageDisplayName(movie.original_language) }
@@ -324,17 +303,6 @@ function MovieRelatedMoviesSection({
       )}
     </Section>
   );
-}
-
-function getTmdbRating(movie: DetailMovie): TmdbRating | null {
-  if (movie.tmdb_vote_average !== null && movie.tmdb_vote_average !== undefined) {
-    return {
-      value: movie.tmdb_vote_average,
-      voteCount: movie.tmdb_vote_count ?? null,
-    };
-  }
-
-  return null;
 }
 
 function TmdbRatingBadge({ rating }: { rating: TmdbRating }) {

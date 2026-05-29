@@ -11,6 +11,7 @@ import { CollapsibleSeason } from "@/components/show/collapsible-season";
 import { ShowInfoPanel } from "@/components/show/show-detail-view";
 import type { Episode, MediaStatus, MediaWatchActivity, Tag } from "@/lib/db/types";
 import { countShowProgress } from "@/lib/show/progress";
+import { formatDate } from "@/lib/media/format";
 
 type ShowEpisode = Episode & {
   watchActivity?: MediaWatchActivity[];
@@ -387,15 +388,4 @@ function formatDateParts(dateStr: string) {
     dayMonth: label.slice(0, lastSpaceIndex),
     year: label.slice(lastSpaceIndex + 1),
   };
-}
-
-
-function formatDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date);
 }
