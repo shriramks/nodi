@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { Film } from "lucide-react";
 
 import { DetailHeroSection } from "@/components/media/detail-hero-section";
+import { CastMemberCard } from "@/components/media/cast-member-card";
 import { OverviewText } from "@/components/movie/overview-text";
 import { DetailRow } from "@/components/ui/detail";
 import {
@@ -18,7 +17,6 @@ import {
   TmdbRatingBadge,
 } from "@/components/media/media-info-panel";
 import type { Episode, MediaStatus, MediaWatchActivity, Tag } from "@/lib/db/types";
-import { tmdbImage } from "@/lib/providers/tmdb/images";
 import { countShowProgress } from "@/lib/show/progress";
 import { formatDate, getTmdbRating, languageDisplayName } from "@/lib/media/format";
 
@@ -48,19 +46,11 @@ type DetailShow = {
   network: string | null;
   season_count: number | null;
   episode_count: number | null;
-  cast?: ShowCastMember[];
+  cast?: { character_name: string | null; id: string | number; name: string; profile_path: string | null; tmdb_person_id?: number | null }[];
   tags?: Tag[];
   seasons?: ShowSeason[];
   userStatus?: MediaStatus | null;
   personalRating?: number | null;
-};
-
-type ShowCastMember = {
-  character_name: string | null;
-  id: string | number;
-  name: string;
-  profile_path: string | null;
-  tmdb_person_id?: number | null;
 };
 
 type ShowDetailViewProps = {
@@ -144,7 +134,13 @@ export function ShowDetailView({
         {(show.cast?.length ?? 0) > 0 ? (
           <SectionScrollBleed className="flex gap-3 pb-1">
             {(show.cast ?? []).map((member) => (
-              <ShowCastMemberLink key={member.id} member={member} />
+              <CastMemberCard
+                key={member.id}
+                characterName={member.character_name}
+                name={member.name}
+                personHref={member.tmdb_person_id ? `/person/tmdb/${member.tmdb_person_id}` : undefined}
+                profilePath={member.profile_path}
+              />
             ))}
           </SectionScrollBleed>
         ) : (
@@ -173,40 +169,6 @@ export function ShowDetailView({
   );
 }
 
-function ShowCastMemberLink({ member }: { member: ShowCastMember }) {
-  const content = (
-    <div className="w-[72px] shrink-0">
-      <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-surface-muted">
-        {member.profile_path ? (
-          <Image
-            alt=""
-            aria-hidden="true"
-            className="h-full w-full object-cover"
-            {...tmdbImage(member.profile_path, "profileAvatar")}
-          />
-        ) : (
-          <Film aria-hidden="true" className="h-5 w-5 text-text-faint" strokeWidth={1.7} />
-        )}
-      </div>
-      <p className="mt-1.5 truncate text-[12px] font-semibold leading-[1.2] text-foreground">
-        {member.name}
-      </p>
-      {member.character_name ? (
-        <p className="mt-0.5 truncate text-[11px] text-text-muted">{member.character_name}</p>
-      ) : null}
-    </div>
-  );
-
-  if (!member.tmdb_person_id) {
-    return content;
-  }
-
-  return (
-    <Link className="active:opacity-70" href={`/person/tmdb/${member.tmdb_person_id}`}>
-      {content}
-    </Link>
-  );
-}
 
 export { MediaInfoPanel as ShowInfoPanel, PersonalRating, TmdbRatingBadge };
 

@@ -1,9 +1,7 @@
 import type { ReactNode } from "react";
-import Image from "next/image";
-import Link from "next/link";
-import { Film } from "lucide-react";
 
 import { DetailHeroSection } from "@/components/media/detail-hero-section";
+import { CastMemberCard } from "@/components/media/cast-member-card";
 import { CreditPosterCard } from "@/components/media/credit-poster-card";
 import { OverviewText } from "@/components/movie/overview-text";
 import {
@@ -15,7 +13,7 @@ import {
 import { TmdbImagePrefetcher } from "@/components/media/tmdb-image-prefetcher";
 import { DetailRow } from "@/components/ui/detail";
 import type { MovieStatus } from "@/lib/db/types";
-import { tmdbImage, tmdbImagePrefetchUrls } from "@/lib/providers/tmdb/images";
+import { tmdbImagePrefetchUrls } from "@/lib/providers/tmdb/images";
 import { formatDate, getTmdbRating, languageDisplayName } from "@/lib/media/format";
 import { MediaInfoPanel } from "@/components/media/media-info-panel";
 
@@ -137,18 +135,25 @@ export function MovieDetailView({
         <SectionHeader>Cast</SectionHeader>
         {movie.cast.length > 0 ? (
           <SectionScrollBleed className="flex gap-3 pb-1">
-            {movie.cast.map((member) => (
-              <CastMemberLink
-                key={member.id}
-                characterName={member.character_name}
-                backdropPath={movie.backdrop_path}
-                movieTitle={movie.title}
-                movieTmdbId={movie.tmdb_id}
-                name={member.name}
-                personId={member.tmdb_person_id}
-                profilePath={member.profile_path}
-              />
-            ))}
+            {movie.cast.map((member) => {
+              let personHref: string | undefined;
+              if (member.tmdb_person_id) {
+                const params = new URLSearchParams({ movie: movie.title });
+                if (movie.tmdb_id) params.set("sourceMovieId", String(movie.tmdb_id));
+                if (movie.backdrop_path) params.set("backdrop", movie.backdrop_path);
+                if (member.character_name) params.set("character", member.character_name);
+                personHref = `/person/tmdb/${member.tmdb_person_id}?${params.toString()}`;
+              }
+              return (
+                <CastMemberCard
+                  key={member.id}
+                  characterName={member.character_name}
+                  name={member.name}
+                  personHref={personHref}
+                  profilePath={member.profile_path}
+                />
+              );
+            })}
           </SectionScrollBleed>
         ) : (
           <p className="text-[15px] leading-[1.4] text-text-muted">
@@ -230,76 +235,5 @@ function MovieRelatedMoviesSection({
         </p>
       )}
     </Section>
-  );
-}
-
-
-function CastMemberLink({
-  backdropPath,
-  characterName,
-  movieTitle,
-  movieTmdbId,
-  name,
-  personId,
-  profilePath,
-}: {
-  backdropPath?: string | null;
-  characterName: string | null;
-  movieTitle: string;
-  movieTmdbId?: number | null;
-  name: string;
-  personId?: number | null;
-  profilePath: string | null;
-}) {
-  const content = (
-    <>
-      <div
-        aria-hidden="true"
-        className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-full bg-surface-muted"
-      >
-        {profilePath ? (
-          <Image
-            alt=""
-            aria-hidden="true"
-            className="h-full w-full object-cover object-[center_28%]"
-            {...tmdbImage(profilePath, "profileAvatar")}
-          />
-        ) : (
-          <Film className="h-5 w-5 text-text-faint" strokeWidth={1.8} />
-        )}
-      </div>
-      <p className="mt-1.5 truncate text-center text-[11px] text-foreground">
-        {name}
-      </p>
-      {characterName && (
-        <p className="mt-0.5 truncate text-center text-[10px] text-text-faint">
-          {characterName}
-        </p>
-      )}
-    </>
-  );
-
-  if (!personId) {
-    return <article className="w-16 shrink-0">{content}</article>;
-  }
-
-  const params = new URLSearchParams({ movie: movieTitle });
-  if (movieTmdbId) {
-    params.set("sourceMovieId", String(movieTmdbId));
-  }
-  if (backdropPath) {
-    params.set("backdrop", backdropPath);
-  }
-  if (characterName) {
-    params.set("character", characterName);
-  }
-
-  return (
-    <Link
-      className="w-16 shrink-0 active:opacity-70"
-      href={`/person/tmdb/${personId}?${params.toString()}`}
-    >
-      {content}
-    </Link>
   );
 }
