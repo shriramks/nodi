@@ -2,7 +2,6 @@
 
 import { RefreshCcw, Square } from "lucide-react";
 import { useRef, useState } from "react";
-import { SettingsPanel } from "@/components/ui/settings";
 
 type TmdbBackfillResult = {
   enriched: number;
@@ -80,7 +79,7 @@ export function TmdbBackfillControls({ enabled }: TmdbBackfillControlsProps) {
     stopRef.current = true;
   }
 
-  const status = running
+  const statusText = running
     ? `Enriched ${enrichedTotal}${remaining !== null ? ` · ${remaining} remaining` : ""}`
     : done
       ? `Done — ${enrichedTotal} enriched${failedTotal > 0 ? ` · ${failedTotal} failed` : ""}`
@@ -89,45 +88,44 @@ export function TmdbBackfillControls({ enabled }: TmdbBackfillControlsProps) {
         : "Token required";
 
   return (
-    <SettingsPanel>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[17px] font-semibold text-foreground">Metadata backfill</p>
-          <p className="mt-1 text-[13px] text-text-2">{status}</p>
+    <section className="pt-8">
+      <p className="pb-2 text-[11px] font-semibold uppercase tracking-wide text-text-faint">
+        Metadata Backfill
+      </p>
+      <div className="h-px bg-divider -mx-4" />
+      <div className="flex items-center gap-3 py-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] font-semibold text-foreground">Backfill Metadata</p>
+          <p className="mt-0.5 text-[13px] text-text-muted">{statusText}</p>
         </div>
-      </div>
-
-      <div className="flex gap-2">
-        <button
-          className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-accent/15 px-4 text-[15px] font-semibold text-accent disabled:cursor-not-allowed disabled:opacity-45"
-          disabled={!enabled || running}
-          onClick={runBackfill}
-          type="button"
-        >
-          <RefreshCcw
-            aria-hidden="true"
-            className={["h-5 w-5", running ? "animate-spin" : ""].join(" ")}
-          />
-          {running ? "Backfilling…" : "Backfill Metadata"}
-        </button>
-
         {running ? (
           <button
-            className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface-muted text-text-2"
-            onClick={stopBackfill}
             type="button"
+            onClick={stopBackfill}
             aria-label="Stop backfill"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface-muted text-text-2"
           >
-            <Square aria-hidden="true" className="h-4 w-4" />
+            <Square aria-hidden className="h-4 w-4" />
           </button>
-        ) : null}
+        ) : (
+          <button
+            type="button"
+            disabled={!enabled}
+            onClick={runBackfill}
+            className="shrink-0 rounded-lg bg-accent/12 px-3 py-1.5 text-[13px] font-semibold text-accent disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <RefreshCcw aria-hidden className={["h-4 w-4", running ? "animate-spin" : ""].join(" ")} />
+          </button>
+        )}
       </div>
+      <div className="h-px bg-divider -mx-4" />
 
-      {error ? <p className="text-[13px] leading-[1.4] text-unsynced">{error}</p> : null}
-
-      {failureSample && !error ? (
-        <p className="text-[13px] leading-[1.4] text-unsynced">{failureSample}</p>
+      {error ? (
+        <p className="pt-2 text-[13px] leading-[1.4] text-unsynced">{error}</p>
       ) : null}
-    </SettingsPanel>
+      {failureSample && !error ? (
+        <p className="pt-2 text-[13px] leading-[1.4] text-unsynced">{failureSample}</p>
+      ) : null}
+    </section>
   );
 }

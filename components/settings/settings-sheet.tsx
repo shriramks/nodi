@@ -1,16 +1,11 @@
-"use client";
+import { cookies } from "next/headers";
+import { signOut } from "@/app/auth/actions";
+import { SettingsPopover } from "./settings-popover";
+import type { Theme } from "@/lib/db/types";
 
-import { Settings } from "lucide-react";
-import Link from "next/link";
-
-export function SettingsSheet() {
-  return (
-    <Link
-      aria-label="Settings"
-      href="/settings"
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-surface text-foreground transition-colors active:bg-tap-active"
-    >
-      <Settings aria-hidden="true" className="h-5 w-5" />
-    </Link>
-  );
+export async function SettingsSheet() {
+  const jar = await cookies();
+  const raw = jar.get("nodi-theme")?.value;
+  const theme: Theme = raw === "light" || raw === "dark" ? raw : "auto";
+  return <SettingsPopover theme={theme} signOut={signOut} />;
 }

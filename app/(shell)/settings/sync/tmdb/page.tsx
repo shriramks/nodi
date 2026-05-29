@@ -4,13 +4,6 @@ import { BackButton } from "@/components/navigation/back-button";
 import { SettingsErrorModal } from "@/components/settings/settings-error-modal";
 import { TmdbBackfillControls } from "@/components/settings/tmdb-backfill-controls";
 import { PageHeader } from "@/components/ui/section";
-import {
-  SettingsActionButton,
-  SettingsFieldLabel,
-  SettingsPanel,
-  SettingsStatusBadge,
-  SettingsTextInput,
-} from "@/components/ui/settings";
 import { getProviderSyncSettings } from "@/lib/db/queries";
 import { disconnectTmdbAction, saveTmdbTokenAction } from "../actions";
 
@@ -34,12 +27,23 @@ export default async function TmdbSettingsPage({ searchParams }: TmdbSettingsPag
   const connected = sync.connection?.status === "active" && sync.credentials.hasApiToken;
 
   return (
-    <main className="space-y-6">
+    <main className="space-y-0">
       <PageHeader
         leading={<BackButton />}
         title="TMDB"
         subtitle="Required for search, posters, cast, and media metadata."
-      />
+      >
+        {connected ? (
+          <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-watched/12 px-2.5 py-1 text-[12px] font-semibold text-watched">
+            <span className="h-1.5 w-1.5 rounded-full bg-watched" />
+            Active
+          </span>
+        ) : (
+          <span className="mt-2 inline-flex items-center rounded-full bg-surface-muted px-2.5 py-1 text-[12px] font-semibold text-text-muted">
+            Token required
+          </span>
+        )}
+      </PageHeader>
 
       {params.error ? (
         <SettingsErrorModal
@@ -48,45 +52,48 @@ export default async function TmdbSettingsPage({ searchParams }: TmdbSettingsPag
         />
       ) : null}
 
-      <SettingsPanel>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[17px] font-semibold text-foreground">API token</p>
-            <p className="mt-1 text-[13px] text-text-2">
-              {connected ? "Token saved" : "Token required"}
-            </p>
-          </div>
-          <SettingsStatusBadge tone={connected ? "active" : "neutral"}>
-            {connected ? "Active" : "Off"}
-          </SettingsStatusBadge>
-        </div>
-
-        <form action={saveTmdbTokenAction} className="space-y-3">
-          <label className="block">
-            <SettingsFieldLabel>API Read Access Token</SettingsFieldLabel>
-            <SettingsTextInput
+      <section className="pt-8">
+        <p className="pb-2 text-[11px] font-semibold uppercase tracking-wide text-text-faint">
+          API Token
+        </p>
+        <form action={saveTmdbTokenAction}>
+          <div className="h-px bg-divider -mx-4" />
+          <div className="flex items-center gap-3 py-3">
+            <input
               name="apiToken"
               autoComplete="off"
-              placeholder={sync.credentials.hasApiToken ? "Saved. Enter to replace." : ""}
+              placeholder={sync.credentials.hasApiToken ? "Saved — enter to replace" : "Paste token"}
               required
               type="password"
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-text-faint"
             />
-          </label>
-          <SettingsActionButton type="submit">
-            Save TMDB Token
-          </SettingsActionButton>
+            <button
+              type="submit"
+              className="shrink-0 rounded-lg bg-accent/12 px-3 py-1.5 text-[13px] font-semibold text-accent"
+            >
+              Save
+            </button>
+          </div>
+          <div className="h-px bg-divider -mx-4" />
         </form>
-
-        {connected ? (
-          <form action={disconnectTmdbAction}>
-            <SettingsActionButton type="submit" tone="danger">
-              Remove TMDB Token
-            </SettingsActionButton>
-          </form>
-        ) : null}
-      </SettingsPanel>
+      </section>
 
       <TmdbBackfillControls enabled={connected} />
+
+      {connected ? (
+        <section className="pt-8">
+          <div className="h-px bg-divider -mx-4" />
+          <form action={disconnectTmdbAction}>
+            <button
+              type="submit"
+              className="flex w-full items-center py-3 text-[15px] font-semibold text-unsynced"
+            >
+              Remove TMDB Token
+            </button>
+          </form>
+          <div className="h-px bg-divider -mx-4" />
+        </section>
+      ) : null}
     </main>
   );
 }

@@ -5,13 +5,6 @@ import { BackButton } from "@/components/navigation/back-button";
 import { SettingsErrorModal } from "@/components/settings/settings-error-modal";
 import { TraktSyncControls } from "@/components/settings/trakt-sync-controls";
 import { PageHeader } from "@/components/ui/section";
-import {
-  SettingsActionButton,
-  SettingsFieldLabel,
-  SettingsPanel,
-  SettingsStatusBadge,
-  SettingsTextInput,
-} from "@/components/ui/settings";
 import { getProviderSyncSettings } from "@/lib/db/queries";
 import { getTraktRedirectUri } from "@/lib/providers/trakt/credentials";
 import {
@@ -44,17 +37,26 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
   const connected = sync.connection?.status === "active";
 
   return (
-    <main className="space-y-6">
+    <main className="space-y-0">
       <PageHeader
         leading={<BackButton />}
-        title="Trakt Sync"
-        subtitle="Optional syncing for movie and TV watched history, ratings, and watchlist."
-      />
+        title="Trakt"
+        subtitle="Optional cloud sync for watched history, ratings, and watchlist."
+      >
+        {connected ? (
+          <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-watched/12 px-2.5 py-1 text-[12px] font-semibold text-watched">
+            <span className="h-1.5 w-1.5 rounded-full bg-watched" />
+            {sync.connection?.providerUserId ?? "Connected"}
+          </span>
+        ) : (
+          <span className="mt-2 inline-flex items-center rounded-full bg-surface-muted px-2.5 py-1 text-[12px] font-semibold text-text-muted">
+            Not connected
+          </span>
+        )}
+      </PageHeader>
 
       {params.connected ? (
-        <p className="rounded-2xl border border-border bg-surface p-3 text-[13px] text-watched">
-          Trakt connected.
-        </p>
+        <p className="mt-4 text-[13px] text-watched">Trakt connected.</p>
       ) : null}
 
       {params.error ? (
@@ -64,86 +66,87 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
         />
       ) : null}
 
-      <SettingsPanel>
-        <div>
-          <p className="text-[17px] font-semibold text-foreground">Trakt app credentials</p>
-          <p className="mt-1 text-[13px] leading-[1.4] text-text-2">
-            Create a Trakt API app and set its redirect URI to:
-          </p>
-          <p className="mt-2 break-all rounded-xl bg-background p-3 font-mono text-[12px] text-text-2">
-            {redirectUri}
-          </p>
-        </div>
-
-        <form action={saveTraktCredentialsAction} className="space-y-3">
-          <label className="block">
-            <SettingsFieldLabel>Client ID</SettingsFieldLabel>
-            <SettingsTextInput
+      {/* App credentials */}
+      <section className="pt-8">
+        <p className="pb-2 text-[11px] font-semibold uppercase tracking-wide text-text-faint">
+          App Credentials
+        </p>
+        <p className="mb-3 break-all rounded-xl bg-surface-muted px-3 py-2 font-mono text-[11px] text-text-muted">
+          {redirectUri}
+        </p>
+        <form action={saveTraktCredentialsAction} className="space-y-0">
+          <div className="h-px bg-divider -mx-4" />
+          <div className="flex items-center gap-3 py-3">
+            <input
               name="clientId"
               autoComplete="off"
-              placeholder={sync.credentials.hasClientId ? "Saved. Enter to replace." : ""}
+              placeholder={sync.credentials.hasClientId ? "Client ID — saved" : "Client ID"}
               required
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-text-faint"
             />
-          </label>
-          <label className="block">
-            <SettingsFieldLabel>Client Secret</SettingsFieldLabel>
-            <SettingsTextInput
+          </div>
+          <div className="h-px bg-divider -mx-4" />
+          <div className="flex items-center gap-3 py-3">
+            <input
               name="clientSecret"
               autoComplete="off"
-              placeholder={sync.credentials.hasClientSecret ? "Saved. Enter to replace." : ""}
+              placeholder={sync.credentials.hasClientSecret ? "Client Secret — saved" : "Client Secret"}
               required
               type="password"
+              className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-text-faint"
             />
-          </label>
-          <SettingsActionButton type="submit">
-            Save Trakt App Credentials
-          </SettingsActionButton>
-        </form>
-      </SettingsPanel>
-
-      <SettingsPanel>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[17px] font-semibold text-foreground">Authorization</p>
-            <p className="mt-1 text-[13px] text-text-2">
-              {connected
-                ? sync.connection?.providerUserId
-                  ? `Connected as ${sync.connection.providerUserId}`
-                  : "Connected"
-                : "Not connected"}
-            </p>
+            <button
+              type="submit"
+              className="shrink-0 rounded-lg bg-accent/12 px-3 py-1.5 text-[13px] font-semibold text-accent"
+            >
+              Save
+            </button>
           </div>
-          <SettingsStatusBadge tone={connected ? "active" : "neutral"}>
-            {connected ? "Active" : "Off"}
-          </SettingsStatusBadge>
-        </div>
+          <div className="h-px bg-divider -mx-4" />
+        </form>
+      </section>
 
+      {/* Authorization */}
+      <section className="pt-8">
+        <p className="pb-2 text-[11px] font-semibold uppercase tracking-wide text-text-faint">
+          Authorization
+        </p>
+        <div className="h-px bg-divider -mx-4" />
         {hasAppCredentials ? (
           <form action="/api/providers/trakt/connect" method="get">
-            <SettingsActionButton type="submit">
+            <button
+              type="submit"
+              className="flex w-full items-center py-3 text-[15px] font-semibold text-accent"
+            >
               {connected ? "Reconnect Trakt" : "Authorize Trakt"}
-            </SettingsActionButton>
+            </button>
           </form>
         ) : (
-          <SettingsActionButton
-            type="button"
-            disabled
-            tone="neutral"
-          >
-            Save credentials first
-          </SettingsActionButton>
+          <div className="flex items-center py-3">
+            <span className="text-[15px] font-semibold text-text-faint">
+              Save credentials first
+            </span>
+          </div>
         )}
-
-        {connected ? (
-          <form action={disconnectTraktAction}>
-            <SettingsActionButton type="submit" tone="danger">
-              Disconnect Trakt
-            </SettingsActionButton>
-          </form>
-        ) : null}
-      </SettingsPanel>
+        <div className="h-px bg-divider -mx-4" />
+      </section>
 
       <TraktSyncControls initialSync={sync} />
+
+      {connected ? (
+        <section className="pt-6">
+          <div className="h-px bg-divider -mx-4" />
+          <form action={disconnectTraktAction}>
+            <button
+              type="submit"
+              className="flex w-full items-center py-3 text-[15px] font-semibold text-unsynced"
+            >
+              Disconnect Trakt
+            </button>
+          </form>
+          <div className="h-px bg-divider -mx-4" />
+        </section>
+      ) : null}
     </main>
   );
 }
@@ -151,6 +154,5 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
 function requestOrigin(headerStore: Headers) {
   const proto = headerStore.get("x-forwarded-proto") ?? "http";
   const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host") ?? "localhost:3000";
-
   return `${proto}://${host}`;
 }
