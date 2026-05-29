@@ -98,88 +98,147 @@ Detailed technical decisions live in [architecture.md](./architecture.md).
 ```text
 app/
   (shell)/
-    movies/page.tsx
-    to-watch/page.tsx
+    library/page.tsx          ← primary watched grid (replaces /movies)
+    wishlist/page.tsx         ← primary to-watch grid (replaces /to-watch)
+    movies/page.tsx           ← redirects to /library
+    to-watch/page.tsx         ← redirects to /wishlist
     stats/page.tsx
     search/page.tsx
     movie/[movieId]/page.tsx
     movie/tmdb/[tmdbId]/page.tsx
+    show/[showId]/page.tsx
+    show/[showId]/episodes/page.tsx
+    show/[showId]/episode/[episodeId]/page.tsx
+    show/tmdb/[tmdbId]/page.tsx
+    person/tmdb/[personId]/page.tsx
+    settings/page.tsx
+    settings/sync/page.tsx
+    settings/sync/tmdb/page.tsx
+    settings/sync/trakt/page.tsx
     error.tsx
     not-found.tsx
     layout.tsx
   api/
     sync/trakt/push/route.ts
     sync/trakt/pull/route.ts
+    sync/trakt/stop/route.ts
     sync/trakt/status/route.ts
     search/movies/route.ts
     movies/tmdb/[tmdbId]/route.ts
+    movies/tmdb/backfill/route.ts
+    library/items/route.ts
     providers/trakt/connect/route.ts
     providers/trakt/callback/route.ts
+  auth/
+    page.tsx
+    actions.ts
+    callback/route.ts
   layout.tsx
   manifest.ts
+  globals.css
 
 components/
+  media/                      ← shared across movie and show detail
+    cast-member-card.tsx      ← shared circular-avatar cast card
+    credit-poster-card.tsx    ← Known For-style horizontal poster cards
+    detail-hero-section.tsx   ← shared full-width backdrop banner + nav row
+    media-info-panel.tsx      ← shared poster + title + meta + status + rating + tags panel
+    tmdb-image-prefetcher.tsx
   movie/
     poster-card.tsx
-    movie-grid.tsx
-    movie-detail-hero.tsx
-    tag-editor-sheet.tsx
-    watch-status-sheet.tsx
-  stats/
-    metric-card.tsx
-    watch-time-chart.tsx
-    genre-breakdown-chart.tsx
-    language-breakdown-chart.tsx
+    movie-detail-view.tsx
+    overview-text.tsx
+    bulk-actions-bar.tsx
+    bulk-rating-sheet.tsx
+    bulk-tag-sheet.tsx
+  show/
+    show-detail-view.tsx
+    show-episode-list-view.tsx
+    episode-detail-view.tsx
+    show-state-actions.tsx
+    collapsible-season.tsx
   search/
-    search-bar.tsx
-    search-result-row.tsx
+    movie-search.tsx
   navigation/
     bottom-pill-nav.tsx
-  shared/
-    empty-state.tsx
-    loading-skeleton.tsx
-    sheet.tsx
-    chip.tsx
+    back-button.tsx
+  settings/
+    settings-sheet.tsx
+    trakt-sync-controls.tsx
+    tmdb-backfill-controls.tsx
+    appearance-picker.tsx
+    settings-error-modal.tsx
+  library/
+    library-grid.tsx          ← handles both library and wishlist grids
+  person/
+    person-detail-view.tsx
+  auth/
+    sign-in-form.tsx
+    auth-state-listener.tsx
+  pwa/
+    pwa-controller.tsx
+  ui/
+    bottom-sheet.tsx
+    detail.tsx
+    section.tsx
+    settings.tsx
 
 lib/
   supabase/
     client.ts
     server.ts
   auth/
+    server.ts
+    paths.ts
   db/
+    types.ts
+    validation.ts
     queries/
+      media.ts
+      stats.ts
+      stats-transforms.ts
+      tags.ts
+      sync.ts
     mutations/
+      media.ts
+      tags.ts
+      sync.ts
+      bulk.ts
+  media/
+    format.ts                 ← getTmdbRating, languageDisplayName, formatDate
   providers/
     tmdb/
       client.ts
       adapters.ts
+      images.ts
+      enrichment.ts
+      person-credits.ts
+      credentials.ts
     trakt/
       client.ts
       adapters.ts
-  sync/
-    reconcile.ts
-    conflict-resolution.ts
-    cursors.ts
-  stats/
-    queries.ts
-    transforms.ts
-  validation/
-    movie.ts
-    tag.ts
-  utils/
+      sync.ts
+      credentials.ts
+  crypto/
+    provider-secrets.ts
+  show/
+    episode-hydration.ts
+    progress.ts
+  env/
+    public.ts
+    server.ts
 
 tests/
   db/
   providers/
+  show/
 
 supabase/
   db_guide.md
   migrations/
-  seed.sql
 
 public/
   icons/
-  screenshots/
 
 AGENT.md
 
@@ -187,8 +246,8 @@ docs/
   product.md
   architecture.md
   design.md
-  idea-pwa-icon.png
-  sync.md
+  data-flow.md
+  bugs.md
 ```
 
 ## 5. Data Model

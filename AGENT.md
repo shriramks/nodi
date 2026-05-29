@@ -61,6 +61,8 @@ product direction.
 - `progress_nodi.md` is local-only and ignored by Git. Update it for local task tracking, but do not
   mention that it is untracked/ignored in routine summaries, and never stage, force-add, commit, or
   push it.
+- Use the `Read` tool to read file contents; do not use `cat`, `head`, `tail`, `sed`, or `awk` for reading.
+- Computed status values (`isShowDone`, completion state, etc.) must write back to the database — never override display only and leave Supabase stale.
 - Use targeted lookup with `rg`/`rg --files`; avoid broad file sweeps unless the task actually needs it.
 - Do not start routine changes by scanning the whole repo. Use the lookup map below first, then search
   narrowly inside the relevant directory or feature surface.
@@ -98,7 +100,8 @@ start with the listed files and only expand outward if those files point elsewhe
 | Search UI and API | `components/search/movie-search.tsx`, `app/(shell)/search/page.tsx` | `app/api/search/movies/route.ts`, TMDB adapter/client |
 | Remote TMDB detail before ingestion | `app/(shell)/movie/tmdb/[tmdbId]/page.tsx` | `app/(shell)/movie/tmdb/[tmdbId]/tmdb-movie-detail-client.tsx`, `app/(shell)/movie/actions.ts` |
 | Local movie detail | `app/(shell)/movie/[movieId]/page.tsx` | `app/(shell)/movie/[movieId]/movie-detail-client.tsx`, `components/movie/movie-detail-view.tsx`, `app/(shell)/movie/[movieId]/actions.ts` |
-| Shared detail presentation | `components/ui/detail.tsx`, `components/movie/movie-detail-view.tsx` | `components/movie/overview-text.tsx`, `components/media/credit-poster-card.tsx` |
+| Shared detail presentation | `components/ui/detail.tsx`, `components/movie/movie-detail-view.tsx` | `components/movie/overview-text.tsx`, `components/media/credit-poster-card.tsx`, `components/media/cast-member-card.tsx`, `components/media/media-info-panel.tsx`, `components/media/detail-hero-section.tsx` |
+| Shared media format utilities | `lib/media/format.ts` | components using `getTmdbRating`, `languageDisplayName`, `formatDate` |
 | TMDB person detail | `app/(shell)/person/tmdb/[personId]/page.tsx` | `components/person/person-detail-view.tsx`, `components/media/credit-poster-card.tsx`, `components/ui/detail.tsx` |
 | Library page | `app/(shell)/library/page.tsx` | `components/library/library-grid.tsx`, `components/movie/poster-card.tsx` |
 | Wishlist page | `app/(shell)/wishlist/page.tsx` | `components/library/library-grid.tsx`, `components/movie/poster-card.tsx` |
@@ -195,7 +198,7 @@ files, then inspect only direct imports, direct callers, or the relevant route b
 ### Navigation and return paths
 
 - Shell layout and bottom nav: `app/(shell)/layout.tsx`, `components/navigation/bottom-pill-nav.tsx`
-  - Bottom nav includes `/movies`, `/to-watch`, `/stats`, and `/search`.
+  - Bottom nav includes `/library`, `/wishlist`, `/stats`, and `/search`. (`/movies` and `/to-watch` redirect to these.)
 - Generic back button: `components/navigation/back-button.tsx`
   - Client component calling `router.back()`.
 - Movie detail pages:

@@ -449,17 +449,50 @@ Search results specifically: title (headline) + one footnote metadata line only.
 snippet — plot belongs on the detail page, not in search. Consistent row height is more important
 than extra context.
 
-### CastCarousel
+### CastMemberCard
+
+Use `CastMemberCard` from `components/media/cast-member-card.tsx` for cast carousels in both movie
+and show detail. Renders a circular avatar (with Film icon fallback), a name line, and an optional
+character line. Wraps in a `<Link>` to the person page when `personHref` is provided; otherwise
+renders a non-linked `<article>`.
+
 ```text
 [headshot] [headshot] [headshot] [headshot]
 [name]
+[character]
 ```
 
 Rules:
-- Use circular or softly-rounded portraits.
-- Horizontal swipe is the default pattern.
-- Name is a subheadline; character can be secondary metadata if space allows.
+- Use circular portraits (`rounded-full`, `aspect-square`).
+- Horizontal swipe via `SectionScrollBleed` is the default pattern.
+- Name is `text-[12px] font-semibold`; character is `text-[11px] text-text-muted`.
+- The caller builds the person link URL (including any query params for context); the component
+  receives a `personHref` string.
 - This should feel visual, not tabular.
+
+### DetailHeroSection
+
+Use `DetailHeroSection` from `components/media/detail-hero-section.tsx` for the full-width backdrop
+banner at the top of movie and show detail pages.
+
+Rules:
+- Accepts `backdropPath?: string | null`. Renders the full-width TMDB backdrop image or a
+  `bg-surface-muted` fallback with a Film icon.
+- Applies the `movie-detail-hero-scrim` and `movie-detail-title-vignette` overlays.
+- Renders the `BackButton` and `SettingsSheet` nav row with safe-area inset.
+- Callers should not re-implement the backdrop, overlays, or nav row inline.
+
+### MediaInfoPanel
+
+Use `MediaInfoPanel` from `components/media/media-info-panel.tsx` for the poster + title + meta +
+status + rating + tags panel shared across movie and show detail.
+
+Rules:
+- Accepts flat camelCase props. Movie detail passes `statusOverride` (e.g. `watchedSummary`).
+  Show detail passes `ratingPicker` and `tagEditor`.
+- Exports `TmdbRatingBadge` and `PersonalRating` for use in detail screens; import from this
+  module, not from individual detail views.
+- `ShowInfoPanel` is a re-export alias of `MediaInfoPanel` for backward compatibility.
 
 ### MetricCard (a number with a label)
 ```text
