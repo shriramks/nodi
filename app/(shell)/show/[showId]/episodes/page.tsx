@@ -14,7 +14,8 @@ import {
   loadTmdbAuthForCurrentUser,
   type TmdbTvSeasonDetails,
 } from "@/lib/providers/tmdb/client";
-import { EpisodeWatchButton, SeasonWatchButton, ShowCompletionRepair } from "../episode-watch-client";
+import { ShowCompletionRepair } from "../episode-watch-client";
+import { toggleEpisodeWatchedAction, markSeasonWatchedAction } from "../../actions";
 
 type ShowEpisodesPageProps = {
   params: Promise<{ showId: string }>;
@@ -60,27 +61,13 @@ export default async function ShowEpisodesPage({
     <>
     {needsCompletionRepair ? <ShowCompletionRepair showId={show.id} /> : null}
     <ShowEpisodeListView
-      episodeWatchControl={(episode) => (
-        <EpisodeWatchButton
-          episodeId={episode.id}
-          isWatched={(episode.watchActivity?.length ?? 0) > 0}
-          showId={show.id}
-        />
-      )}
+      onMarkSeasonWatched={markSeasonWatchedAction}
+      onToggleEpisodeWatched={toggleEpisodeWatchedAction}
       ratingPicker={
         userStatus ? (
           <ShowRatingSheet currentRating={personalRating} showId={show.id} />
         ) : null
       }
-      seasonWatchControl={(season) => (
-        <SeasonWatchButton
-          seasonNumber={season.seasonNumber}
-          showId={show.id}
-          unwatchedCount={
-            season.episodes.filter((episode) => (episode.watchActivity?.length ?? 0) === 0).length
-          }
-        />
-      )}
       show={{
         ...show,
         userStatus,

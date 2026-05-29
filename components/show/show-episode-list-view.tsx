@@ -1,12 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, LoaderCircle } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
+import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { CollapsibleSeason } from "@/components/show/collapsible-season";
 import {
   getTmdbRating,
@@ -43,16 +44,16 @@ type EpisodeListShow = {
 };
 
 type ShowEpisodeListViewProps = {
-  episodeWatchControl?: (episode: ShowEpisode) => ReactNode;
+  onToggleEpisodeWatched: (showId: string, episodeId: string, watched: boolean) => Promise<void>;
+  onMarkSeasonWatched: (showId: string, seasonNumber: number) => Promise<void>;
   ratingPicker?: ReactNode;
-  seasonWatchControl?: (season: ShowSeason) => ReactNode;
   show: EpisodeListShow;
 };
 
 export function ShowEpisodeListView({
-  episodeWatchControl,
+  onToggleEpisodeWatched,
+  onMarkSeasonWatched,
   ratingPicker,
-  seasonWatchControl,
   show,
 }: ShowEpisodeListViewProps) {
   const [showSpecials, setShowSpecials] = useState(false);
@@ -141,21 +142,31 @@ export function ShowEpisodeListView({
             const seasonWatched = season.episodes.filter(
               (ep) => (ep.watchActivity?.length ?? 0) > 0,
             ).length;
+            const unwatchedCount = season.episodes.length - seasonWatched;
             return (
               <CollapsibleSeason
                 defaultExpanded={season.seasonNumber === currentSeasonNumber(regularSeasons)}
                 episodeCount={season.episodes.length}
                 key={season.seasonNumber}
                 seasonNumber={season.seasonNumber}
-                seasonWatchControl={seasonWatchControl?.(season)}
+                seasonWatchControl={
+                  unwatchedCount > 0 ? (
+                    <SeasonWatchButton
+                      onMarkSeasonWatched={onMarkSeasonWatched}
+                      seasonNumber={season.seasonNumber}
+                      showId={show.id}
+                      unwatchedCount={unwatchedCount}
+                    />
+                  ) : null
+                }
                 watchedCount={seasonWatched}
               >
                 {season.episodes.map((episode) => (
                   <EpisodeRow
                     episode={episode}
                     key={episode.id}
+                    onToggleEpisodeWatched={onToggleEpisodeWatched}
                     showId={show.id}
-                    watchControl={episodeWatchControl?.(episode)}
                   />
                 ))}
               </CollapsibleSeason>
@@ -213,14 +224,136 @@ function effectiveStatus(
   return status;
 }
 
+function EpisodeWatchButton({
+  episodeId,
+  isWatched,
+  onToggleEpisodeWatched,
+  showId,
+}: {
+  episodeId: string;
+  isWatched: boolean;
+  onToggleEpisodeWatched: (showId: string, episodeId: string, watched: boolean) => Promise<void>;
+  showId: string;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [optimisticWatched, setOptimisticWatched] = useState(isWatched);
+
+  function toggle() {
+    const nextWatched = !optimisticWatched;
+    setOptimisticWatched(nextWatched);
+    startTransition(async () => {
+      try {
+        await onToggleEpisodeWatched(showId, episodeId, nextWatched);
+      } catch {
+        setOptimisticWatched(!nextWatched);
+      }
+    });
+  }
+
+  return (
+    <button
+      aria-label={optimisticWatched ? "Mark episode unwatched" : "Mark episode watched"}
+      className={[
+        "grid h-11 w-11 place-items-center rounded-full active:opacity-70 disabled:opacity-50",
+        optimisticWatched ? "bg-accent text-black" : "bg-surface text-text-muted",
+      ].join(" ")}
+      disabled={isPending}
+      onClick={toggle}
+      type="button"
+    >
+      {isPending ? (
+        <LoaderCircle aria-hidden="true" className="h-5 w-5 animate-spin" strokeWidth={2.2} />
+      ) : (
+        <Check aria-hidden="true" className="h-5 w-5" strokeWidth={2.7} />
+      )}
+    </button>
+  );
+}
+
+function SeasonWatchButton({
+  onMarkSeasonWatched,
+  seasonNumber,
+  showId,
+  unwatchedCount,
+}: {
+  onMarkSeasonWatched: (showId: string, seasonNumber: number) => Promise<void>;
+  seasonNumber: number;
+  showId: string;
+  unwatchedCount: number;
+}) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function markSeason() {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await onMarkSeasonWatched(showId, seasonNumber);
+        setConfirmOpen(false);
+      } catch {
+        setError("Season was not saved. Try again.");
+      }
+    });
+  }
+
+  return (
+    <>
+      <button
+        className="inline-flex min-h-8 items-center px-1 text-[12px] font-bold text-accent active:opacity-70"
+        onClick={() => setConfirmOpen(true)}
+        type="button"
+      >
+        Mark all
+      </button>
+
+      {confirmOpen ? (
+        <BottomSheet
+          ariaLabel="Mark season watched"
+          contentClassName="px-5 pt-3"
+          dismissButtonLabel="Close confirmation"
+          onClose={() => setConfirmOpen(false)}
+        >
+          <p className="text-[17px] font-semibold text-foreground">Mark season watched?</p>
+          <p className="mt-2 text-[14px] leading-[1.35] text-text-2">
+            {unwatchedCount} {unwatchedCount === 1 ? "episode" : "episodes"} will be marked watched.
+          </p>
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            <button
+              className="flex min-h-11 items-center justify-center rounded-xl border border-border px-3 text-[15px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
+              disabled={isPending}
+              onClick={() => setConfirmOpen(false)}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-accent px-3 text-[15px] font-semibold text-black active:opacity-70 disabled:opacity-50"
+              disabled={isPending}
+              onClick={markSeason}
+              type="button"
+            >
+              {isPending ? (
+                <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+              ) : null}
+              Mark watched
+            </button>
+          </div>
+          {error ? <p className="mt-3 text-[13px] text-unsynced">{error}</p> : null}
+        </BottomSheet>
+      ) : null}
+    </>
+  );
+}
+
 function EpisodeRow({
   episode,
+  onToggleEpisodeWatched,
   showId,
-  watchControl,
 }: {
   episode: ShowEpisode;
+  onToggleEpisodeWatched: (showId: string, episodeId: string, watched: boolean) => Promise<void>;
   showId: string;
-  watchControl?: ReactNode;
 }) {
   const isWatched = (episode.watchActivity?.length ?? 0) > 0;
   const latestWatch = [...(episode.watchActivity ?? [])].sort(
@@ -267,17 +400,12 @@ function EpisodeRow({
         ) : null}
       </Link>
       <div className="justify-self-end">
-        {watchControl ?? (
-          <span
-            aria-label={isWatched ? "Watched" : "Unwatched"}
-            className={[
-              "grid h-11 w-11 place-items-center rounded-full",
-              isWatched ? "bg-accent text-black" : "bg-surface text-text-muted",
-            ].join(" ")}
-          >
-            <Check aria-hidden="true" className="h-5 w-5" strokeWidth={2.7} />
-          </span>
-        )}
+        <EpisodeWatchButton
+          episodeId={episode.id}
+          isWatched={isWatched}
+          onToggleEpisodeWatched={onToggleEpisodeWatched}
+          showId={showId}
+        />
       </div>
     </div>
   );
