@@ -110,29 +110,27 @@ export function ShowEpisodeListView({
       <section className="grid grid-cols-[74px_minmax(0,1fr)] gap-3 border-b border-divider px-4 py-4">
         <ShowPosterSmall posterPath={show.poster_path} title={show.title} />
         <div className="min-w-0 self-center space-y-1">
-          <p className="text-[18px] font-bold leading-[1.2]">{headingLabel}</p>
-          {countLine ? (
-            <p className="text-[13px] leading-[1.35] text-text-2">{countLine}</p>
-          ) : null}
+          <p className="text-[16px] font-bold leading-[1.2]">
+            {headingLabel}
+            {countLine ? (
+              <span className="font-normal text-text-2"> · {countLine}</span>
+            ) : null}
+          </p>
           {metaLine ? (
             <p className="text-[12px] leading-[1.35] text-text-muted">{metaLine}</p>
           ) : null}
-          <div className="flex flex-wrap items-center gap-2.5 pt-0.5">
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
             {ratingPicker ?? <PersonalRating rating={show.personalRating ?? null} />}
             {tmdbRating ? <TmdbRatingBadge rating={tmdbRating} /> : null}
+            {tags.map((tag) => (
+              <span
+                className="rounded-lg border border-accent/25 bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent"
+                key={tag.id}
+              >
+                {tag.name}
+              </span>
+            ))}
           </div>
-          {tags.length > 0 ? (
-            <div className="flex flex-wrap gap-1 pt-0.5">
-              {tags.map((tag) => (
-                <span
-                  className="rounded-lg border border-accent/25 bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent"
-                  key={tag.id}
-                >
-                  {tag.name}
-                </span>
-              ))}
-            </div>
-          ) : null}
         </div>
       </section>
 
@@ -254,7 +252,7 @@ function EpisodeWatchButton({
     <button
       aria-label={optimisticWatched ? "Mark episode unwatched" : "Mark episode watched"}
       className={[
-        "grid h-11 w-11 place-items-center rounded-full active:opacity-70 disabled:opacity-50",
+        "grid h-9 w-9 place-items-center rounded-full active:opacity-70 disabled:opacity-50",
         optimisticWatched ? "bg-accent text-black" : "bg-surface text-text-muted",
       ].join(" ")}
       disabled={isPending}
@@ -300,7 +298,7 @@ function SeasonWatchButton({
   return (
     <>
       <button
-        className="inline-flex min-h-8 items-center px-1 text-[12px] font-bold text-accent active:opacity-70"
+        className="inline-flex min-h-8 items-center px-1 text-[12px] font-bold text-text-2 active:opacity-70"
         onClick={() => setConfirmOpen(true)}
         type="button"
       >
@@ -362,7 +360,7 @@ function EpisodeRow({
   const airDate = episode.air_date ? formatDateParts(episode.air_date) : null;
 
   return (
-    <div className="grid min-h-[56px] grid-cols-[56px_minmax(0,1fr)_76px_44px] items-center gap-2.5 border-b border-divider px-4 py-1.5 last:border-b-0">
+    <div className="grid min-h-[44px] grid-cols-[56px_minmax(0,1fr)_76px_36px] items-center gap-2 border-b border-divider px-4 py-1 last:border-b-0">
       <Link
         aria-label={`${episode.title} episode detail`}
         className="tabnum text-[13px] font-semibold leading-[1.2] text-text-2 active:opacity-70"
