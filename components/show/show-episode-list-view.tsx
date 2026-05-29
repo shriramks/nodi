@@ -8,7 +8,7 @@ import { Check, LoaderCircle } from "lucide-react";
 import { BackButton } from "@/components/navigation/back-button";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { CollapsibleSeason } from "@/components/show/collapsible-season";
-import { ShowInfoPanel } from "@/components/show/show-detail-view";
+import { MediaInfoPanel } from "@/components/media/media-info-panel";
 import type { Episode, MediaStatus, MediaWatchActivity, Tag } from "@/lib/db/types";
 import { countShowProgress } from "@/lib/show/progress";
 import { formatDate } from "@/lib/media/format";
@@ -91,10 +91,18 @@ export function ShowEpisodeListView({
         </Link>
       </header>
 
-      <ShowInfoPanel
+      <MediaInfoPanel
         className="border-b border-divider px-4 py-4"
+        title={show.title}
+        posterPath={show.poster_path}
+        releaseYear={show.release_year}
+        originalLanguage={show.original_language}
+        primaryGenreName={show.primary_genre_name}
+        tmdbVoteAverage={show.tmdb_vote_average}
+        tmdbVoteCount={show.tmdb_vote_count}
+        tags={show.tags}
+        personalRating={show.personalRating}
         ratingPicker={ratingPicker}
-        show={show}
         statusLabel={countLine ? `${headingLabel} · ${countLine}` : null}
         statusClassName={
           status === "done" ? "text-watched" : status === "stopped" ? "text-text-muted" : "text-accent"

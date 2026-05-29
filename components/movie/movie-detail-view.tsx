@@ -18,7 +18,7 @@ import { DetailRow } from "@/components/ui/detail";
 import type { MovieStatus } from "@/lib/db/types";
 import { tmdbImage, tmdbImagePrefetchUrls } from "@/lib/providers/tmdb/images";
 import { formatDate, getTmdbRating, languageDisplayName } from "@/lib/media/format";
-import type { TmdbRating } from "@/lib/media/format";
+import { MediaInfoPanel } from "@/components/media/media-info-panel";
 
 type DetailMovie = {
   title: string;
@@ -81,14 +81,6 @@ export function MovieDetailView({
       : status === "to_watch"
         ? "text-to-watch"
         : null;
-  const metaLine = [
-    movie.release_year,
-    movie.original_language ? languageDisplayName(movie.original_language) : null,
-    movie.primary_genre_name,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  const visibleTags = (movie.tags ?? []).slice(0, 3);
   const tmdbRating = getTmdbRating(movie);
   const prefetchUrls = tmdbImagePrefetchUrls([
     ...movie.cast.map((member) => ({
@@ -142,59 +134,21 @@ export function MovieDetailView({
         </div>
       </section>
 
-      <section className="relative -mt-[92px] flex min-h-[194px] items-start gap-4">
-        <div className="flex aspect-[2/3] w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-[5px] border-background bg-surface-muted shadow-sm">
-          {movie.poster_path ? (
-            <Image
-              alt=""
-              aria-hidden="true"
-              className="h-full w-full object-cover"
-              priority
-              {...tmdbImage(movie.poster_path, "detailPoster")}
-            />
-          ) : (
-            <Film aria-hidden="true" className="h-8 w-8 text-text-faint" strokeWidth={1.8} />
-          )}
-        </div>
-
-        <div className="min-w-0 flex-1 space-y-1.5 pt-1">
-          <h1 className="text-[22px] font-bold leading-[1.2]">{movie.title}</h1>
-
-          {metaLine && (
-            <p className="text-[13px] leading-[1.35] text-text-2">{metaLine}</p>
-          )}
-
-          {watchedSummary ??
-            (statusLabel && statusColour ? (
-              <p className={`text-[15px] font-semibold ${statusColour}`}>
-                {statusLabel}
-              </p>
-            ) : null)}
-
-          <div className="flex items-center gap-2.5 pt-0.5">
-            {ratingPicker}
-            {tmdbRating ? <TmdbRatingBadge rating={tmdbRating} /> : null}
-          </div>
-
-          {visibleTags.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {visibleTags.map((tag) => (
-                <span
-                  key={tag.id}
-                  className="rounded-lg border border-accent/25 bg-accent/10 px-2 py-0.5 text-[11px] font-medium text-accent"
-                >
-                  {tag.name}
-                </span>
-              ))}
-              {(movie.tags?.length ?? 0) > 3 && (
-                <span className="rounded-lg border border-border px-2 py-0.5 text-[11px] text-text-faint">
-                  +{(movie.tags?.length ?? 0) - 3}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      </section>
+      <MediaInfoPanel
+        className="relative -mt-[92px] min-h-[194px]"
+        title={movie.title}
+        posterPath={movie.poster_path}
+        releaseYear={movie.release_year}
+        originalLanguage={movie.original_language}
+        primaryGenreName={movie.primary_genre_name}
+        tmdbVoteAverage={movie.tmdb_vote_average}
+        tmdbVoteCount={movie.tmdb_vote_count}
+        tags={movie.tags}
+        ratingPicker={ratingPicker}
+        statusLabel={statusLabel}
+        statusClassName={statusColour}
+        statusOverride={watchedSummary}
+      />
 
       {actions}
 
@@ -305,24 +259,6 @@ function MovieRelatedMoviesSection({
   );
 }
 
-function TmdbRatingBadge({ rating }: { rating: TmdbRating }) {
-  const voteLabel = rating.voteCount
-    ? ` from ${rating.voteCount.toLocaleString()} votes`
-    : "";
-
-  return (
-    <span
-      className="inline-flex h-6 max-w-full shrink-0 items-center gap-1.5 overflow-hidden rounded-md border border-border bg-background px-2 align-middle text-[11px] font-medium leading-none text-text-muted"
-      title={`TMDB rating: ${rating.value}${voteLabel}`}
-      aria-label={`TMDB rating ${rating.value}${voteLabel}`}
-    >
-      <span className="text-[9px] font-semibold uppercase tracking-normal text-text-faint">
-        TMDB
-      </span>
-      <span className="tabnum text-text-2">{rating.value}</span>
-    </span>
-  );
-}
 
 function CastMemberLink({
   backdropPath,
