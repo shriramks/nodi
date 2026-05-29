@@ -227,7 +227,7 @@ function EpisodeWatchButton({
     <button
       aria-label={optimisticWatched ? "Mark episode unwatched" : "Mark episode watched"}
       className={[
-        "grid h-9 w-9 place-items-center rounded-full active:opacity-70 disabled:opacity-50",
+        "grid h-11 w-11 place-items-center rounded-full active:opacity-70 disabled:opacity-50",
         optimisticWatched ? "bg-accent text-black" : "bg-surface text-text-muted",
       ].join(" ")}
       disabled={isPending}
@@ -329,13 +329,10 @@ function EpisodeRow({
   showId: string;
 }) {
   const isWatched = (episode.watchActivity?.length ?? 0) > 0;
-  const latestWatch = [...(episode.watchActivity ?? [])].sort(
-    (left, right) => Date.parse(right.watched_at) - Date.parse(left.watched_at),
-  )[0];
-  const airDate = episode.air_date ? formatDateParts(episode.air_date) : null;
+  const airDate = episode.air_date ? formatDate(episode.air_date) : null;
 
   return (
-    <div className="grid min-h-[44px] grid-cols-[56px_minmax(0,1fr)_76px_36px] items-center gap-2 border-b border-divider px-4 py-1 last:border-b-0">
+    <div className="grid min-h-[48px] grid-cols-[56px_minmax(0,1fr)_auto_44px] items-center gap-2 border-b border-divider px-4 py-1 last:border-b-0">
       <Link
         aria-label={`${episode.title} episode detail`}
         className="tabnum text-[13px] font-semibold leading-[1.2] text-text-2 active:opacity-70"
@@ -349,28 +346,17 @@ function EpisodeRow({
         className="min-w-0 active:opacity-70"
         href={`/show/${showId}/episode/${episode.id}`}
       >
-        <p className="truncate text-[15px] font-bold leading-[1.15] text-foreground">
+        <p className="truncate text-[16px] font-bold leading-[1.15] text-foreground">
           {episode.title}
         </p>
-        {latestWatch ? (
-          <p className="mt-0.5 text-[11px] leading-[1.2] text-watched">
-            Watched {formatDate(latestWatch.watched_at.slice(0, 10))}
-          </p>
-        ) : null}
       </Link>
       <Link
         aria-hidden="true"
-        className="tabnum text-center text-[12px] leading-[1.15] text-text-2 active:opacity-70"
+        className="tabnum text-right text-[12px] leading-[1.15] text-text-2 active:opacity-70"
         href={`/show/${showId}/episode/${episode.id}`}
         tabIndex={-1}
       >
-        {airDate ? (
-          <>
-            {airDate.dayMonth}
-            <br />
-            {airDate.year}
-          </>
-        ) : null}
+        {airDate ?? null}
       </Link>
       <div className="justify-self-end">
         <EpisodeWatchButton
@@ -384,16 +370,3 @@ function EpisodeRow({
   );
 }
 
-function formatDateParts(dateStr: string) {
-  const label = formatDate(dateStr);
-  const lastSpaceIndex = label.lastIndexOf(" ");
-
-  if (lastSpaceIndex === -1) {
-    return { dayMonth: label, year: "" };
-  }
-
-  return {
-    dayMonth: label.slice(0, lastSpaceIndex),
-    year: label.slice(lastSpaceIndex + 1),
-  };
-}
