@@ -14,7 +14,6 @@ import {
   loadTmdbAuthForCurrentUser,
   type TmdbTvSeasonDetails,
 } from "@/lib/providers/tmdb/client";
-import { ShowCompletionRepair } from "../episode-watch-client";
 import { toggleEpisodeWatchedAction, markSeasonWatchedAction } from "../../actions";
 
 type ShowEpisodesPageProps = {
@@ -53,13 +52,9 @@ export default async function ShowEpisodesPage({
 
   const personalRating = show.userMedia?.personal_rating ?? null;
   const userStatus = show.userMedia?.status ?? null;
-  const needsCompletionRepair =
-    show.userMedia?.status === "watching" ||
-    show.userMedia?.completion_mode === "auto_all_aired";
 
   return (
     <>
-    {needsCompletionRepair ? <ShowCompletionRepair showId={show.id} /> : null}
     <ShowEpisodeListView
       onMarkSeasonWatched={markSeasonWatchedAction}
       onToggleEpisodeWatched={toggleEpisodeWatchedAction}

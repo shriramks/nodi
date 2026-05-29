@@ -580,7 +580,6 @@ async function refreshShowMediaLastWatchedAt({
   userId: string;
 }): Promise<UserMedia> {
   const supabase = await createSupabaseServerClient();
-  console.log("[refreshShowMediaLastWatchedAt] starting", { mediaId, userId });
 
   const [
     currentResult,
@@ -603,7 +602,6 @@ async function refreshShowMediaLastWatchedAt({
   }
 
   const currentUserMedia = (currentResult.data as UserMedia | null) ?? null;
-  console.log("[refreshShowMediaLastWatchedAt] state", { mediaId, userId, status: currentUserMedia?.status, completionMode: currentUserMedia?.completion_mode, autoComplete: autoCompletion.isComplete });
   const isManualCompletion =
     currentUserMedia?.status === "done" &&
     currentUserMedia.completion_mode === "manual";
@@ -683,7 +681,6 @@ async function getShowAutoCompletionState({
 }) {
   const supabase = await createSupabaseServerClient();
   const today = new Date().toISOString().slice(0, 10);
-  console.log("[getShowAutoCompletionState] starting", { mediaId, userId, today });
   // Include episodes with no air_date (treat as aired) alongside those with air_date <= today.
   // Future-dated episodes already in the DB are still excluded, which correctly keeps
   // in-progress shows from auto-completing while there are unwatched upcoming episodes.
@@ -700,7 +697,6 @@ async function getShowAutoCompletionState({
   }
 
   const airedEpisodeIds = ((episodes ?? []) as Pick<Episode, "id">[]).map((episode) => episode.id);
-  console.log("[getShowAutoCompletionState] aired episodes", { mediaId, userId, airedCount: airedEpisodeIds.length });
 
   if (airedEpisodeIds.length === 0) {
     return { completedAt: null, isComplete: false };
@@ -724,7 +720,6 @@ async function getShowAutoCompletionState({
       .flatMap((row) => row.episode_id ? [row.episode_id] : []),
   );
   const isComplete = airedEpisodeIds.every((episodeId) => watchedEpisodeIds.has(episodeId));
-  console.log("[getShowAutoCompletionState] result", { mediaId, userId, airedCount: airedEpisodeIds.length, watchedCount: watchedEpisodeIds.size, isComplete });
 
   return {
     completedAt: isComplete
@@ -1017,17 +1012,6 @@ export async function updateMediaEpisodeWatchActivityDate(
     mediaId,
     userId: user.id,
   });
-}
-
-/**
- * Recalculates a show's watched status from its episode watch activity.
- * Safe to call on page load to repair a stale "watching" status when all
- * episodes have already been marked watched (e.g. via Trakt sync).
- */
-export async function refreshShowWatchedState(showId: string): Promise<UserMedia> {
-  const user = await requireUser();
-  const mediaId = validateUuid(showId, "showId");
-  return refreshShowMediaLastWatchedAt({ mediaId, userId: user.id });
 }
 
 export async function setMediaMovieWatchStatus(

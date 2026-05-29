@@ -12,7 +12,6 @@ import {
   markMediaEpisodeUnwatched,
   markMediaSeasonWatched,
   markMediaEpisodeWatched,
-  refreshShowWatchedState,
   removeUserMediaShow,
   setMediaShowStatus,
   updateMediaShowRating,
@@ -150,19 +149,6 @@ export async function deleteEpisodeWatchActivityAction(
 ): Promise<void> {
   await deleteMediaEpisodeWatchActivity(showId, episodeId, activityId);
   revalidateEpisodeState(showId, episodeId);
-}
-
-export async function repairShowCompletionStateAction(showId: string): Promise<void> {
-  console.log("[repairShowCompletionStateAction] starting", { showId });
-  try {
-    await refreshShowWatchedState(showId);
-    console.log("[repairShowCompletionStateAction] repair succeeded", { showId });
-  } catch (error) {
-    console.error("[repairShowCompletionStateAction] repair failed", { showId, error });
-    throw error;
-  }
-  revalidatePath(`/show/${showId}`);
-  revalidatePath(`/show/${showId}/episodes`);
 }
 
 export async function updateEpisodeWatchActivityDateAction(
