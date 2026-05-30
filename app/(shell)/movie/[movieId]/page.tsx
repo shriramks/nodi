@@ -12,6 +12,11 @@ import { getMediaDetail, listTags } from "@/lib/db/queries";
 import type { MovieStatus } from "@/lib/db/types";
 import { enrichTmdbMovieOnDemand } from "@/lib/providers/tmdb/enrichment";
 import { getRelatedTmdbMovies } from "@/lib/providers/tmdb/related";
+import { toMovieCastPayloads } from "@/lib/providers/tmdb/adapters";
+import {
+  getTmdbMovieCreditsWithAuth,
+  loadTmdbAuthForCurrentUser,
+} from "@/lib/providers/tmdb/client";
 import {
   RatingSheet,
   TagEditor,
@@ -52,6 +57,7 @@ export default async function MovieDetailPage({
   );
   const tmdbId = tmdbMapping ? Number(tmdbMapping.provider_id) : null;
   const relatedMovies = tmdbId ? getRelatedTmdbMovies(tmdbId) : null;
+  const cast = await loadMovieCast(movie);
   const { userMedia } = movie;
   const mediaStatus = userMedia?.status;
   const status: MovieStatus | null =
@@ -65,6 +71,7 @@ export default async function MovieDetailPage({
       movie={{
         ...movie,
         tmdb_id: tmdbId ?? undefined,
+        cast,
       }}
       ratingPicker={
         status === "watched" ? (
@@ -112,3 +119,27 @@ async function loadMovieOrNotFound(movieId: string) {
 }
 
 const loadInitialMovieOrNotFound = cache(loadMovieOrNotFound);
+
+async function loadMovieCast(movie: Awaited<ReturnType<typeof loadMovieOrNotFound>>) {
+  const tmdbId = movie.providerMappings.find(
+    (m) => m.provider === "tmdb" && m.provider_media_type === "movie",
+  )?.provider_id;
+
+  if (!tmdbId || !/^\d+$/.test(tmdbId)) return [];
+
+  try {
+    const auth = await loadTmdbAuthForCurrentUser();
+    const credits = await getTmdbMovieCreditsWithAuth(auth, Number(tmdbId));
+    return toMovieCastPayloads(credits).map((member) => ({
+      id: `${member.tmdb_person_id}-${member.cast_order ?? "x"}-${member.character_name ?? ""}`,
+      tmdb_person_id: member.tmdb_person_id,
+      name: member.name,
+      character_name: member.character_name,
+      profile_path: member.profile_path,
+    }));
+  } catch (error) {
+    if (isAppError(error) && error.status === 404) return [];
+    console.error("TMDB movie cast load failed", { error, movieId: movie.id, tmdbId });
+    return [];
+  }
+}
