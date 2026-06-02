@@ -88,12 +88,14 @@ export async function addWatchDateAction(
 
 export async function addTagAction(movieId: string, name: string): Promise<void> {
   await createAndAttachTagToMediaMovie(movieId, { name });
-  revalidateMovieState(movieId);
+  revalidatePath(`/movie/${movieId}`);
+  revalidatePath("/library");
 }
 
 export async function attachTagByIdAction(movieId: string, tagId: string): Promise<void> {
   await attachTagToMediaMovie(movieId, tagId);
-  revalidateMovieState(movieId);
+  revalidatePath(`/movie/${movieId}`);
+  revalidatePath("/library");
 }
 
 export async function removeTagAction(
@@ -101,7 +103,8 @@ export async function removeTagAction(
   tagId: string,
 ): Promise<void> {
   await detachTagFromMediaMovie(movieId, tagId);
-  revalidateMovieState(movieId);
+  revalidatePath(`/movie/${movieId}`);
+  revalidatePath("/library");
 }
 
 export async function deleteWatchLogAction(

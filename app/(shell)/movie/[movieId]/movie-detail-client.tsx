@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useState, useTransition } from "react";
+import { type FormEvent, useOptimistic, useRef, useState, useTransition } from "react";
 import {
   Check,
   ChevronDown,
@@ -376,8 +376,17 @@ export function TagEditor({
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [isCreatingTag, setIsCreatingTag] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const movieTagIds = new Set(tags.map((t) => t.id));
+  const [optimisticTags, applyOptimistic] = useOptimistic(
+    tags,
+    (state, action: { type: "add"; tag: MovieTag } | { type: "remove"; tagId: string }) =>
+      action.type === "add"
+        ? [...state, action.tag]
+        : state.filter((t) => t.id !== action.tagId),
+  );
+
+  const movieTagIds = new Set(optimisticTags.map((t) => t.id));
 
   const searchTerm = newTagName.toLowerCase().trim();
   const suggestions =
@@ -386,8 +395,11 @@ export function TagEditor({
       : [];
 
   function handleAttach(tagId: string) {
+    const tag = allTags.find((t) => t.id === tagId);
+    if (!tag) return;
     setError(null);
     startTransition(async () => {
+      applyOptimistic({ type: "add", tag });
       try {
         await attachTagByIdAction(movieId, tagId);
       } catch {
@@ -399,6 +411,7 @@ export function TagEditor({
   function handleRemove(tagId: string) {
     setError(null);
     startTransition(async () => {
+      applyOptimistic({ type: "remove", tagId });
       try {
         await removeTagAction(movieId, tagId);
       } catch {
@@ -413,7 +426,9 @@ export function TagEditor({
     if (!name) return;
     setError(null);
     setIsCreatingTag(true);
+    inputRef.current?.blur();
     startTransition(async () => {
+      applyOptimistic({ type: "add", tag: { id: `optimistic-${Date.now()}`, name } });
       try {
         await addTagAction(movieId, name);
         setNewTagName("");
@@ -429,9 +444,9 @@ export function TagEditor({
     <CollapsibleSection title="Tags">
       <div>
         {/* Current tags — single scrollable row */}
-        {tags.length > 0 && (
+        {optimisticTags.length > 0 && (
           <SectionScrollBleed className="flex gap-2 pb-3 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {tags.map((tag) => (
+            {optimisticTags.map((tag) => (
               <button
                 key={tag.id}
                 type="button"
@@ -467,6 +482,7 @@ export function TagEditor({
         {/* New tag input */}
         <form className="flex items-center gap-1 border-t border-divider py-2" onSubmit={handleCreateNew}>
           <input
+            ref={inputRef}
             aria-label="New tag name"
             className="min-w-0 flex-1 bg-transparent py-2 text-[15px] text-foreground outline-none placeholder:text-text-muted"
             maxLength={80}
