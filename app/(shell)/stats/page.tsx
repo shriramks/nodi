@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
+import { Clapperboard } from "lucide-react";
 import { getLibraryStats, listTags } from "@/lib/db/queries";
 import type {
   LibraryStats,
@@ -240,28 +241,25 @@ function StatsHero({
   );
 }
 
-function ClapperboardIcon() {
-  return (
-    <svg width="14" height="13" viewBox="0 0 18 16" fill="none" aria-hidden>
-      <rect x="1" y="5" width="16" height="10" rx="1.5" fill="currentColor" />
-      <rect x="1" y="1.5" width="16" height="4" rx="1" fill="currentColor" />
-      <line x1="4.5" y1="1.5" x2="3" y2="5.5" stroke="black" strokeWidth="1.2" strokeOpacity="0.45" />
-      <line x1="8" y1="1.5" x2="6.5" y2="5.5" stroke="black" strokeWidth="1.2" strokeOpacity="0.45" />
-      <line x1="11.5" y1="1.5" x2="10" y2="5.5" stroke="black" strokeWidth="1.2" strokeOpacity="0.45" />
-      <line x1="15" y1="1.5" x2="13.5" y2="5.5" stroke="black" strokeWidth="1.2" strokeOpacity="0.45" />
-    </svg>
-  );
-}
-
 function TvIcon() {
+  // Retro TV — matches the lucide outline style used by the Library/Clapperboard icon.
   return (
-    <svg width="14" height="14" viewBox="0 0 18 18" fill="none" aria-hidden>
-      <line x1="6" y1="5.5" x2="3.5" y2="1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <line x1="12" y1="5.5" x2="14.5" y2="1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <rect x="1" y="5.5" width="16" height="10" rx="2" fill="currentColor" />
-      <rect x="2.5" y="7" width="13" height="7" rx="1" fill="black" fillOpacity="0.25" />
-      <rect x="4" y="15.5" width="3" height="1.5" rx="0.75" fill="currentColor" fillOpacity="0.75" />
-      <rect x="11" y="15.5" width="3" height="1.5" rx="0.75" fill="currentColor" fillOpacity="0.75" />
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M8 7l4-4M16 7l-4-4" />
+      <rect x="2" y="7" width="20" height="12" rx="2" />
+      <line x1="17" y1="11" x2="17" y2="11" />
+      <line x1="17" y1="15" x2="17" y2="15" />
+      <path d="M7 19l-1.5 3M15 19l1.5 3" />
     </svg>
   );
 }
@@ -300,7 +298,7 @@ function AllStatsHero({ stats, hasData }: { stats: LibraryStats; hasData: boolea
               }}
             >
               <span className="shrink-0 opacity-50" style={{ color: "rgba(255,255,255,0.9)" }}>
-                <ClapperboardIcon />
+                <Clapperboard size={14} strokeWidth={2} aria-hidden />
               </span>
               <span className="tabnum truncate" style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.55)" }}>
                 {formatRuntime(stats.movieRuntimeMinutes)}

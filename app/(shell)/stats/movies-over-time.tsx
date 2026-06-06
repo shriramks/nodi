@@ -91,12 +91,11 @@ export function MoviesOverTime({
         style={{ scrollbarWidth: "none" }}
       >
         <div
-          className="flex items-end"
+          className="flex"
           style={{
             gap: barGap,
-            height: 120,
-            paddingBottom: 20,
-            paddingTop: 20,
+            paddingTop: 8,
+            paddingBottom: 4,
             width: buckets.length * (barWidth + barGap) - barGap,
             minWidth: "100%",
           }}
@@ -108,25 +107,27 @@ export function MoviesOverTime({
               : "2px";
             const bucketContent = (
               <>
+                {/* count — fixed height so every bar track starts at the same y */}
                 <span
-                  className={`tabnum text-[10px] ${isOutlier ? "text-accent font-semibold" : "text-text-faint"}`}
-                  style={{ minHeight: 14 }}
+                  className={`tabnum text-[10px] leading-[14px] ${isOutlier ? "text-accent font-semibold" : "text-text-faint"}`}
+                  style={{ height: 14 }}
                 >
                   {bucket.count > 0 ? bucket.count : ""}
                 </span>
-                <div
-                  className={`w-full bg-watched transition-all duration-300 ${isOutlier ? "rounded-md" : "rounded-t-md"}`}
-                  style={{
-                    height: barHeight,
-                    opacity: bucket.count > 0 ? 1 : 0.15,
-                    position: "relative",
-                  }}
-                  aria-label={`${bucket.label}: ${bucket.count}`}
-                >
+                {/* fixed-height bar track — bars grow from a shared baseline */}
+                <div className="flex w-full items-end" style={{ height: 64, position: "relative" }}>
+                  <div
+                    className={`w-full bg-watched transition-all duration-300 ${isOutlier ? "rounded-md" : "rounded-t-md"}`}
+                    style={{
+                      height: barHeight,
+                      opacity: bucket.count > 0 ? 1 : 0.15,
+                    }}
+                    aria-label={`${bucket.label}: ${bucket.count}`}
+                  />
                   {isOutlier && (
                     <span
                       className="absolute text-[9px] text-accent font-bold"
-                      style={{ top: -12, left: "50%", transform: "translateX(-50%)" }}
+                      style={{ top: -2, left: "50%", transform: "translateX(-50%)" }}
                     >
                       ↑
                     </span>
@@ -134,7 +135,7 @@ export function MoviesOverTime({
                 </div>
                 <span
                   className="tabnum text-[10px] text-text-faint truncate"
-                  style={{ width: barWidth, textAlign: "center" }}
+                  style={{ width: barWidth, textAlign: "center", marginTop: 6 }}
                 >
                   {yearFilter ? bucket.label : axisLabel(bucket.key, index)}
                 </span>
@@ -151,8 +152,8 @@ export function MoviesOverTime({
                   tagFilter,
                   returnTo,
                 })}
-                className="flex flex-col items-center justify-end gap-1"
-                style={{ width: barWidth, flexShrink: 0, height: "100%" }}
+                className="flex flex-col items-center"
+                style={{ width: barWidth, flexShrink: 0 }}
                 aria-label={`View ${bucket.label} library items`}
               >
                 {bucketContent}
@@ -160,8 +161,8 @@ export function MoviesOverTime({
             ) : (
               <div
                 key={bucket.key}
-                className="flex flex-col items-center justify-end gap-1"
-                style={{ width: barWidth, flexShrink: 0, height: "100%" }}
+                className="flex flex-col items-center"
+                style={{ width: barWidth, flexShrink: 0 }}
               >
                 {bucketContent}
               </div>

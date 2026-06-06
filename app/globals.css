@@ -100,6 +100,10 @@ html {
   min-height: 100%;
   background: var(--bg-primary);
   color-scheme: light dark;
+  /* Reserve the scrollbar gutter so toggling filters (which changes page
+     height, showing/hiding the vertical scrollbar) doesn't re-center and
+     shift the whole app horizontally. */
+  scrollbar-gutter: stable;
 }
 
 body {
