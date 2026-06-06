@@ -2,7 +2,11 @@
 
 ## Primary rule
 
-Start from `AGENT.md` and local memory before doing anything substantial in this repo.
+Start from `AGENT.md` before doing anything substantial in this repo.
+
+This repo has no separate memory store. Write any durable feedback, conventions, or pointers into
+`AGENT.md` itself (or the doc it points to) — never into a `memory/` directory or other side file.
+The `memory/` directory is not tracked and must stay empty.
 
 When making changes, giving recommendations, or answering repo-specific questions, use this order:
 - `AGENT.md` for repo operating rules
