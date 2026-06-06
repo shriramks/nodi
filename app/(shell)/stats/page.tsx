@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Clapperboard } from "lucide-react";
-import { RetroTvIcon } from "@/components/icons/retro-tv";
 import { getLibraryStats, listTags } from "@/lib/db/queries";
 import type {
   LibraryStats,
@@ -242,6 +241,19 @@ function StatsHero({
   );
 }
 
+function TvIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <line x1="6" y1="5.5" x2="3.5" y2="1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <line x1="12" y1="5.5" x2="14.5" y2="1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <rect x="1" y="5.5" width="16" height="10" rx="2" fill="currentColor" />
+      <rect x="2.5" y="7" width="13" height="7" rx="1" fill="black" fillOpacity="0.25" />
+      <rect x="4" y="15.5" width="3" height="1.5" rx="0.75" fill="currentColor" fillOpacity="0.75" />
+      <rect x="11" y="15.5" width="3" height="1.5" rx="0.75" fill="currentColor" fillOpacity="0.75" />
+    </svg>
+  );
+}
+
 function AllStatsHero({ stats, hasData }: { stats: LibraryStats; hasData: boolean }) {
   const movieFlex = Math.max(stats.movieRuntimeMinutes, 1);
   const tvFlex = Math.max(stats.showRuntimeMinutes, 1);
@@ -293,7 +305,7 @@ function AllStatsHero({ stats, hasData }: { stats: LibraryStats; hasData: boolea
               }}
             >
               <span className="shrink-0 opacity-50" style={{ color: "rgba(255,255,255,0.9)" }}>
-                <RetroTvIcon width={14} height={14} aria-hidden />
+                <TvIcon />
               </span>
               <span className="tabnum truncate" style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.55)" }}>
                 {formatRuntime(stats.showRuntimeMinutes)}
