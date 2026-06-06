@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Clapperboard } from "lucide-react";
+import { RetroTvIcon } from "@/components/icons/retro-tv";
 import { getLibraryStats, listTags } from "@/lib/db/queries";
 import type {
   LibraryStats,
@@ -241,29 +242,6 @@ function StatsHero({
   );
 }
 
-function TvIcon() {
-  // Retro TV — matches the lucide outline style used by the Library/Clapperboard icon.
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M8 7l4-4M16 7l-4-4" />
-      <rect x="2" y="7" width="20" height="12" rx="2" />
-      <line x1="17" y1="11" x2="17" y2="11" />
-      <line x1="17" y1="15" x2="17" y2="15" />
-      <path d="M7 19l-1.5 3M15 19l1.5 3" />
-    </svg>
-  );
-}
-
 function AllStatsHero({ stats, hasData }: { stats: LibraryStats; hasData: boolean }) {
   const movieFlex = Math.max(stats.movieRuntimeMinutes, 1);
   const tvFlex = Math.max(stats.showRuntimeMinutes, 1);
@@ -315,7 +293,7 @@ function AllStatsHero({ stats, hasData }: { stats: LibraryStats; hasData: boolea
               }}
             >
               <span className="shrink-0 opacity-50" style={{ color: "rgba(255,255,255,0.9)" }}>
-                <TvIcon />
+                <RetroTvIcon width={14} height={14} aria-hidden />
               </span>
               <span className="tabnum truncate" style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.55)" }}>
                 {formatRuntime(stats.showRuntimeMinutes)}
