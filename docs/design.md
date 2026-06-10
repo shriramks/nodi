@@ -165,6 +165,15 @@ Do not hand-code those bleed class strings at call sites. The negative margin ca
 container padding while the matching inner padding keeps the first and last items aligned to the
 normal content edge.
 
+Because each bleed element's border-box is intentionally 32px wider than its container, the protected
+shell wrapper (`app/(shell)/layout.tsx`) carries `overflow-x-clip`. This is load-bearing: it clips any
+sub-pixel bleed leak so the page never gains a horizontal scrollbar. Use `overflow-x: clip` — not
+`overflow-x: hidden` — here. `hidden` paired with a visible vertical axis computes the vertical axis to
+`auto`, turning the wrapper into a scroll container and breaking the fixed bottom nav (this was the
+regression behind the recurring "adding a tag introduces side-scrolling" bug). `clip` clips without
+creating a scroll container, so the nav stays fixed and bleed rows keep their own internal scrolling.
+Do not remove `overflow-x-clip` from the shell wrapper.
+
 ---
 
 ## 4. Shape
