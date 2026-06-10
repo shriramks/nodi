@@ -4,9 +4,10 @@ import Link from "next/link";
 import { Film } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
+import { CastMemberCard } from "@/components/media/cast-member-card";
 import { OverviewText } from "@/components/movie/overview-text";
 import { DetailRow } from "@/components/ui/detail";
-import { Section, SectionHeader } from "@/components/ui/section";
+import { Section, SectionHeader, SectionScrollBleed } from "@/components/ui/section";
 import type { Episode, MediaItem, MediaWatchActivity, Tag, UserMedia } from "@/lib/db/types";
 import { tmdbImage } from "@/lib/providers/tmdb/images";
 import { formatDate, getTmdbRating } from "@/lib/media/format";
@@ -20,8 +21,17 @@ type DetailEpisode = Episode & {
   watchActivity?: MediaWatchActivity[];
 };
 
+type EpisodeCastMember = {
+  character_name: string | null;
+  id: string | number;
+  name: string;
+  profile_path: string | null;
+  tmdb_person_id?: number | null;
+};
+
 type EpisodeDetailViewProps = {
   actions?: ReactNode;
+  cast?: EpisodeCastMember[];
   episode: DetailEpisode;
   show: EpisodeDetailShow;
   watchHistory?: ReactNode;
@@ -29,6 +39,7 @@ type EpisodeDetailViewProps = {
 
 export function EpisodeDetailView({
   actions,
+  cast,
   episode,
   show,
   watchHistory,
@@ -111,6 +122,25 @@ export function EpisodeDetailView({
           <SectionHeader>Plot</SectionHeader>
           <OverviewText text={episode.overview} />
         </Section>
+
+        {(cast?.length ?? 0) > 0 ? (
+          <Section className="border-b border-divider py-4">
+            <SectionHeader>Cast</SectionHeader>
+            <SectionScrollBleed className="flex gap-3 pb-1">
+              {(cast ?? []).map((member) => (
+                <CastMemberCard
+                  key={member.id}
+                  characterName={member.character_name}
+                  name={member.name}
+                  personHref={
+                    member.tmdb_person_id ? `/person/tmdb/${member.tmdb_person_id}` : undefined
+                  }
+                  profilePath={member.profile_path}
+                />
+              ))}
+            </SectionScrollBleed>
+          </Section>
+        ) : null}
 
         <Section className="border-b border-divider py-4">
           <SectionHeader>Details</SectionHeader>
