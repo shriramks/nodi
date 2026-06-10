@@ -94,7 +94,7 @@ export function MoviesOverTime({
           className="flex"
           style={{
             gap: barGap,
-            paddingTop: 8,
+            paddingTop: 24,
             paddingBottom: 4,
             width: buckets.length * (barWidth + barGap) - barGap,
             minWidth: "100%",
@@ -102,32 +102,33 @@ export function MoviesOverTime({
         >
           {buckets.map((bucket, index) => {
             const isOutlier = bucket.count > scaleMax;
-            const barHeight = bucket.count > 0
-              ? `${Math.max((Math.min(bucket.count, scaleMax) / scaleMax) * 64, 5)}px`
-              : "2px";
+            const barHeightPx = bucket.count > 0
+              ? Math.max((Math.min(bucket.count, scaleMax) / scaleMax) * 64, 5)
+              : 2;
             const bucketContent = (
               <>
-                {/* count — fixed height so every bar track starts at the same y */}
-                <span
-                  className={`tabnum text-[10px] leading-[14px] ${isOutlier ? "text-accent font-semibold" : "text-text-faint"}`}
-                  style={{ height: 14 }}
-                >
-                  {bucket.count > 0 ? bucket.count : ""}
-                </span>
-                {/* fixed-height bar track — bars grow from a shared baseline */}
+                {/* fixed-height bar track — bars grow from a shared baseline, count rides just above each bar */}
                 <div className="flex w-full items-end" style={{ height: 64, position: "relative" }}>
                   <div
                     className={`w-full bg-watched transition-all duration-300 ${isOutlier ? "rounded-md" : "rounded-t-md"}`}
                     style={{
-                      height: barHeight,
+                      height: `${barHeightPx}px`,
                       opacity: bucket.count > 0 ? 1 : 0.15,
                     }}
                     aria-label={`${bucket.label}: ${bucket.count}`}
                   />
+                  {bucket.count > 0 && (
+                    <span
+                      className={`tabnum absolute left-1/2 -translate-x-1/2 text-[10px] leading-[14px] ${isOutlier ? "text-accent font-semibold" : "text-text-faint"}`}
+                      style={{ bottom: barHeightPx + 2 }}
+                    >
+                      {bucket.count}
+                    </span>
+                  )}
                   {isOutlier && (
                     <span
-                      className="absolute text-[9px] text-accent font-bold"
-                      style={{ top: -2, left: "50%", transform: "translateX(-50%)" }}
+                      className="absolute left-1/2 -translate-x-1/2 text-[9px] text-accent font-bold"
+                      style={{ bottom: barHeightPx + 16 }}
                     >
                       ↑
                     </span>
