@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useState, useTransition } from "react";
-import { Check, ChevronDown, Heart, LoaderCircle, Plus, X } from "lucide-react";
+import { Bookmark, Check, ChevronDown, Heart, LoaderCircle, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -121,7 +121,7 @@ export function LocalShowStateActions({
     if (status === null) {
       return [
         { key: "library", label: "Add to Library", style: "primary" },
-        { key: "wishlist", label: "+ Wishlist", style: "secondary" },
+        { key: "wishlist", label: "Wishlist", style: "primary" },
       ];
     }
     if (status === "wishlist") {
@@ -160,8 +160,8 @@ export function LocalShowStateActions({
           btn.style === "primary"
             ? "bg-accent/15 text-accent"
             : btn.style === "danger"
-              ? "border border-border text-unsynced"
-              : "border border-border text-text-2",
+              ? "border border-unsynced/40 text-unsynced"
+              : "border border-accent/40 text-accent",
         ].join(" ")}
         disabled={isPending}
         key={btn.key}
@@ -170,6 +170,8 @@ export function LocalShowStateActions({
       >
         {pendingAction === btn.key ? (
           <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+        ) : btn.key === "wishlist" ? (
+          <Bookmark aria-hidden="true" className="h-4 w-4" strokeWidth={2.2} />
         ) : null}
         {btn.label}
       </button>
@@ -456,15 +458,17 @@ function ShowActionButtons({
         </button>
 
         <button
-          className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-xl border border-border px-4 text-[15px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
+          className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-xl bg-accent/15 px-4 text-[15px] font-semibold text-accent active:opacity-70 disabled:opacity-50"
           disabled={isPending}
           onClick={onAddToWishlist}
           type="button"
         >
           {pendingAction === "wishlist" ? (
             <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
-          ) : null}
-          + Wishlist
+          ) : (
+            <Bookmark aria-hidden="true" className="h-4 w-4" strokeWidth={2.2} />
+          )}
+          Wishlist
         </button>
       </div>
 

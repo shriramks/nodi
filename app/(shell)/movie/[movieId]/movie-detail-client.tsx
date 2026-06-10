@@ -2,6 +2,7 @@
 
 import { type FormEvent, useOptimistic, useRef, useState, useTransition } from "react";
 import {
+  Bookmark,
   Check,
   ChevronDown,
   ChevronRight,
@@ -92,12 +93,14 @@ export function UserStateActions({
           <button
             onClick={() => run("watchlist", () => addToWatchlistAction(movieId))}
             disabled={isPending}
-            className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-xl border border-border px-4 text-[15px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
+            className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-xl bg-accent/15 px-4 text-[15px] font-semibold text-accent active:opacity-70 disabled:opacity-50"
           >
             {pendingAction === "watchlist" ? (
               <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
-            ) : null}
-            + Watchlist
+            ) : (
+              <Bookmark aria-hidden="true" className="h-4 w-4" strokeWidth={2.2} />
+            )}
+            Watchlist
           </button>
         )}
 
@@ -105,7 +108,7 @@ export function UserStateActions({
           <button
             onClick={() => run("remove", () => removeFromLibraryAction(movieId))}
             disabled={isPending}
-            className="flex h-[50px] items-center justify-center gap-2 rounded-xl border border-border px-4 text-[15px] font-semibold text-unsynced active:opacity-70 disabled:opacity-50"
+            className="flex h-[50px] items-center justify-center gap-2 rounded-xl border border-unsynced/40 px-4 text-[15px] font-semibold text-unsynced active:opacity-70 disabled:opacity-50"
           >
             {pendingAction === "remove" ? (
               <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
@@ -118,7 +121,7 @@ export function UserStateActions({
           <button
             onClick={() => run("remove", () => removeFromLibraryAction(movieId))}
             disabled={isPending}
-            className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-xl border border-border px-4 text-[15px] font-semibold text-unsynced active:opacity-70 disabled:opacity-50"
+            className="flex h-[50px] flex-1 items-center justify-center gap-2 rounded-xl border border-unsynced/40 px-4 text-[15px] font-semibold text-unsynced active:opacity-70 disabled:opacity-50"
           >
             {pendingAction === "remove" ? (
               <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
