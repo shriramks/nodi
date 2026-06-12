@@ -48,16 +48,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   images: {
-    deviceSizes: [384, 448, 640, 750, 828, 1080],
-    imageSizes: [64, 96, 112, 128, 160, 185, 256, 342],
-    minimumCacheTTL: 60 * 60 * 24 * 30,
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "image.tmdb.org",
-        pathname: "/t/p/**",
-      },
-    ],
+    // TMDB already serves CDN-cached, pre-sized variants (w185/w342/w780);
+    // routing them through Vercel's optimizer burns the free-tier
+    // transformation quota for no real gain.
+    unoptimized: true,
   },
   async headers() {
     return [

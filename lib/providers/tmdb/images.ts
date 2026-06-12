@@ -15,8 +15,6 @@ export type TmdbImageRole =
 
 type TmdbImageSpec = {
   height: number;
-  prefetchWidth: number;
-  sizes: string;
   tmdbSize: TmdbImageSize;
   width: number;
 };
@@ -24,50 +22,36 @@ type TmdbImageSpec = {
 export const tmdbImageSpecs = {
   gridPoster: {
     height: 278,
-    prefetchWidth: 256,
-    sizes: "(max-width: 640px) 25vw, 160px",
     tmdbSize: "w185",
     width: 185,
   },
   railPoster: {
     height: 513,
-    prefetchWidth: 256,
-    sizes: "112px",
     tmdbSize: "w342",
     width: 342,
   },
   detailPoster: {
     height: 513,
-    prefetchWidth: 256,
-    sizes: "128px",
     tmdbSize: "w342",
     width: 342,
   },
   searchPoster: {
     height: 278,
-    prefetchWidth: 256,
-    sizes: "(max-width: 640px) 30vw, 128px",
     tmdbSize: "w185",
     width: 185,
   },
   heroBackdrop: {
     height: 439,
-    prefetchWidth: 640,
-    sizes: "(max-width: 448px) 100vw, 448px",
     tmdbSize: "w780",
     width: 780,
   },
   profileAvatar: {
     height: 278,
-    prefetchWidth: 128,
-    sizes: "64px",
     tmdbSize: "w185",
     width: 185,
   },
   profilePortrait: {
     height: 513,
-    prefetchWidth: 256,
-    sizes: "144px",
     tmdbSize: "w342",
     width: 342,
   },
@@ -75,7 +59,6 @@ export const tmdbImageSpecs = {
 
 export type TmdbImageDescriptor = {
   height: number;
-  sizes: string;
   src: string;
   width: number;
 };
@@ -90,21 +73,9 @@ export function tmdbImage(path: string, role: TmdbImageRole): TmdbImageDescripto
 
   return {
     height: spec.height,
-    sizes: spec.sizes,
     src: tmdbImageUrl(path, spec.tmdbSize),
     width: spec.width,
   };
-}
-
-export function tmdbOptimizedImageUrl(
-  path: string,
-  role: TmdbImageRole,
-  quality = 75,
-) {
-  const spec = tmdbImageSpecs[role];
-  const src = tmdbImageUrl(path, spec.tmdbSize);
-
-  return `/_next/image?url=${encodeURIComponent(src)}&w=${spec.prefetchWidth}&q=${quality}`;
 }
 
 export function tmdbImagePrefetchUrls(
@@ -119,7 +90,7 @@ export function tmdbImagePrefetchUrls(
       continue;
     }
 
-    const url = tmdbOptimizedImageUrl(image.path, image.role);
+    const url = tmdbImageUrl(image.path, tmdbImageSpecs[image.role].tmdbSize);
 
     if (seen.has(url)) {
       continue;

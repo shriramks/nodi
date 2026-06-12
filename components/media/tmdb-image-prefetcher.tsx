@@ -61,7 +61,7 @@ function normalizePrefetchUrls(urls: string[]) {
     try {
       const url = new URL(rawUrl, window.location.origin);
 
-      if (url.origin !== window.location.origin || url.pathname !== "/_next/image") {
+      if (url.origin !== "https://image.tmdb.org" || !url.pathname.startsWith("/t/p/")) {
         continue;
       }
 
