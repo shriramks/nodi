@@ -15,7 +15,7 @@ const securityHeaders = [
       "frame-ancestors 'none'",
       "form-action 'self'",
       "img-src 'self' data: blob: https://image.tmdb.org",
-      "connect-src 'self' https://*.supabase.co https://api.themoviedb.org https://api.trakt.tv",
+      "connect-src 'self' https://*.supabase.co https://api.themoviedb.org https://api.trakt.tv https://image.tmdb.org",
       `script-src ${scriptSrc}`,
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data:",
