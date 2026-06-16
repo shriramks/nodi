@@ -35,7 +35,7 @@ export default async function EpisodeDetailPage({
   const { episodeId, showId } = await params;
   const { episode, show } = await loadEpisodeOrNotFound(showId, episodeId);
   const isWatched = episode.watchActivity.length > 0;
-  const cast = await loadEpisodeCast(show, episode);
+  const { cast, tmdbRating } = await loadEpisodeTmdb(show, episode);
 
   return (
     <EpisodeDetailView
@@ -52,6 +52,7 @@ export default async function EpisodeDetailPage({
         ...show,
         userMedia: show.userMedia,
       }}
+      tmdbRating={tmdbRating}
       watchHistory={
         <EpisodeWatchHistoryEditor
           activity={episode.watchActivity}
@@ -63,16 +64,23 @@ export default async function EpisodeDetailPage({
   );
 }
 
-async function loadEpisodeCast(
+type EpisodeTmdbData = {
+  cast: ReturnType<typeof toEpisodeGuestStars>;
+  tmdbRating: { value: number; voteCount: number | null } | null;
+};
+
+const EMPTY_EPISODE_TMDB: EpisodeTmdbData = { cast: [], tmdbRating: null };
+
+async function loadEpisodeTmdb(
   show: EpisodeDetail["show"],
   episode: EpisodeDetail["episode"],
-) {
+): Promise<EpisodeTmdbData> {
   const tmdbId = show.providerMappings.find(
     (mapping) => mapping.provider === "tmdb" && mapping.provider_media_type === "show",
   )?.provider_id;
 
   if (!tmdbId || !/^\d+$/.test(tmdbId)) {
-    return [];
+    return EMPTY_EPISODE_TMDB;
   }
 
   try {
@@ -95,20 +103,33 @@ async function loadEpisodeCast(
       (member) => !guestIds.has(member.tmdb_person_id),
     );
 
-    return [...guestStars, ...regularCast];
+    return {
+      cast: [...guestStars, ...regularCast],
+      tmdbRating: toEpisodeTmdbRating(detail),
+    };
   } catch (error) {
     if (isAppError(error) && error.status === 404) {
-      return [];
+      return EMPTY_EPISODE_TMDB;
     }
 
-    console.error("TMDB episode cast load failed", {
+    console.error("TMDB episode detail load failed", {
       episodeId: episode.id,
       error,
       showId: show.id,
       tmdbId,
     });
-    return [];
+    return EMPTY_EPISODE_TMDB;
   }
+}
+
+function toEpisodeTmdbRating(detail: TmdbTvEpisodeDetails) {
+  if (typeof detail.vote_average === "number" && detail.vote_average > 0) {
+    return {
+      value: Math.round(detail.vote_average * 10) / 10,
+      voteCount: detail.vote_count ?? null,
+    };
+  }
+  return null;
 }
 
 function toEpisodeGuestStars(detail: TmdbTvEpisodeDetails) {
