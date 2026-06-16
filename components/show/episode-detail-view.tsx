@@ -6,7 +6,6 @@ import { Film, Star } from "lucide-react";
 import { BackButton } from "@/components/navigation/back-button";
 import { CastMemberCard } from "@/components/media/cast-member-card";
 import { OverviewText } from "@/components/movie/overview-text";
-import { DetailRow } from "@/components/ui/detail";
 import { Section, SectionHeader, SectionScrollBleed } from "@/components/ui/section";
 import type { Episode, MediaItem, MediaWatchActivity, Tag, UserMedia } from "@/lib/db/types";
 import { tmdbImage } from "@/lib/providers/tmdb/images";
@@ -63,14 +62,6 @@ export function EpisodeDetailView({
   ]
     .filter(Boolean)
     .join(" · ");
-  const detailRows = [
-    show.userMedia?.personal_rating
-      ? { label: "Rating", value: String(show.userMedia.personal_rating) }
-      : null,
-    tmdbRating?.voteCount
-      ? { label: "TMDB votes", value: tmdbRating.voteCount.toLocaleString() }
-      : null,
-  ].filter((row): row is { label: string; value: string } => row !== null);
 
   return (
     <main className="-mx-4 -mt-6 pb-4">
@@ -152,17 +143,6 @@ export function EpisodeDetailView({
                 />
               ))}
             </SectionScrollBleed>
-          </Section>
-        ) : null}
-
-        {detailRows.length > 0 ? (
-          <Section className="border-b border-divider py-4">
-            <SectionHeader>Details</SectionHeader>
-            <div>
-              {detailRows.map((row) => (
-                <DetailRow divider={false} key={row.label} label={row.label} value={row.value} />
-              ))}
-            </div>
           </Section>
         ) : null}
 

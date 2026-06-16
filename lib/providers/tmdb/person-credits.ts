@@ -72,13 +72,43 @@ export function topPersonCreditTitle(credits: TmdbPersonCombinedCredits): string
       continue;
     }
 
-    const score = personMovieScore(credit, null);
+    const score = personHeadlineScore(credit);
     if (!best || score > best.score) {
       best = { title, score };
     }
   }
 
   return best?.title ?? null;
+}
+
+/**
+ * Scores how strongly a person is "known for" a credit. Driven by enduring reach
+ * (vote_count) weighted by how significant their role was — top billing for film,
+ * episode count for TV — so a 120-episode lead beats a one-off guest spot, and a
+ * defining role beats whatever happens to be trending. Popularity is only a
+ * tiebreaker because TMDB popularity reflects current buzz, not lasting fame.
+ */
+function personHeadlineScore(credit: TmdbPersonCredit): number {
+  const votes = typeof credit.vote_count === "number" ? credit.vote_count : 0;
+  const popularity = typeof credit.popularity === "number" ? credit.popularity : 0;
+
+  return votes * roleSignificance(credit) + popularity * 2;
+}
+
+function roleSignificance(credit: TmdbPersonCredit): number {
+  if (credit.media_type === "tv") {
+    // Series regulars define what a person is known for; one-off guests barely count.
+    const episodes = typeof credit.episode_count === "number" ? credit.episode_count : 0;
+    return clamp(episodes / 25, 0.05, 1);
+  }
+
+  // Top billing (order 0) is a lead; missing order (most crew) is a moderate role.
+  const order = typeof credit.order === "number" ? credit.order : null;
+  return order === null ? 0.5 : clamp(1 - order / 15, 0.1, 1);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
 
 function toRelevantPersonMovie(
