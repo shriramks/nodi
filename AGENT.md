@@ -246,6 +246,10 @@ files, then inspect only direct imports, direct callers, or the relevant route b
 
 ## Commit safety
 
+- **Never create a branch. Commit and push directly to `main`.** This is a hard rule and overrides
+  any generic "branch off the default branch first" habit. There are no feature branches in this
+  repo; every commit goes straight to `main`. Do not run `git checkout -b`, `git branch`, or open PRs
+  unless the user explicitly asks for a branch in that same message.
 - Stage files explicitly; do not use broad staging unless the staged list is reviewed right after.
 - Before every commit, inspect `git diff --cached --name-status`.
 - If staged files include secrets, env files, mockups, local exports, dumps, build output, or other scratch files, stop and unstage them.
