@@ -54,6 +54,33 @@ export function toRelevantPersonMovies(
     }));
 }
 
+/**
+ * The single most notable credit a person is known for, across both film and TV.
+ * Used for the "Known for ..." headline, so it must include TV (e.g. Lost) which
+ * {@link toRelevantPersonMovies} deliberately drops.
+ */
+export function topPersonCreditTitle(credits: TmdbPersonCombinedCredits): string | null {
+  const candidates = [...(credits.cast ?? []), ...(credits.crew ?? [])].filter(
+    (credit) =>
+      credit.id > 0 && (credit.media_type === "movie" || credit.media_type === "tv"),
+  );
+
+  let best: { title: string; score: number } | null = null;
+  for (const credit of candidates) {
+    const title = normalizeText(credit.title) ?? normalizeText(credit.name);
+    if (!title) {
+      continue;
+    }
+
+    const score = personMovieScore(credit, null);
+    if (!best || score > best.score) {
+      best = { title, score };
+    }
+  }
+
+  return best?.title ?? null;
+}
+
 function toRelevantPersonMovie(
   credit: TmdbPersonCredit,
   sourceMovieId: number | null,

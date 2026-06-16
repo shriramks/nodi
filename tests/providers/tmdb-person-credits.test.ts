@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { toRelevantPersonMovies } from "@/lib/providers/tmdb/person-credits";
+import {
+  toRelevantPersonMovies,
+  topPersonCreditTitle,
+} from "@/lib/providers/tmdb/person-credits";
 import type { TmdbPersonCombinedCredits } from "@/lib/providers/tmdb/client";
 
 describe("TMDB person movie credits", () => {
@@ -72,5 +75,40 @@ describe("TMDB person movie credits", () => {
       30,
       20,
     ]);
+  });
+});
+
+describe("top person credit title", () => {
+  it("returns the most notable title across both film and TV", () => {
+    const credits: TmdbPersonCombinedCredits = {
+      id: 1,
+      cast: [
+        {
+          id: 10,
+          media_type: "tv",
+          name: "Lost",
+          character: "Jack Shephard",
+          order: 0,
+          popularity: 80,
+          poster_path: "/lost.jpg",
+          vote_average: 8,
+          vote_count: 9000,
+        },
+        {
+          id: 20,
+          media_type: "movie",
+          title: "Minor Film",
+          order: 30,
+          popularity: 5,
+          vote_count: 100,
+        },
+      ],
+    };
+
+    expect(topPersonCreditTitle(credits)).toBe("Lost");
+  });
+
+  it("returns null when there are no usable credits", () => {
+    expect(topPersonCreditTitle({ id: 1, cast: [], crew: [] })).toBeNull();
   });
 });

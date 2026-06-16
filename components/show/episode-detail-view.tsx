@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Film } from "lucide-react";
+import { Film, Star } from "lucide-react";
 
 import { BackButton } from "@/components/navigation/back-button";
 import { CastMemberCard } from "@/components/media/cast-member-card";
@@ -54,6 +54,15 @@ export function EpisodeDetailView({
     (left, right) => Date.parse(right.watched_at) - Date.parse(left.watched_at),
   )[0];
   const runtimeMinutes = episode.runtime_minutes ?? show.runtime_minutes;
+  const metaLine = [
+    `S${episode.season_number.toString().padStart(2, "0")}E${episode.episode_number
+      .toString()
+      .padStart(2, "0")}`,
+    runtimeMinutes ? `${runtimeMinutes} min` : null,
+    episode.air_date ? formatDate(episode.air_date) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const detailRows = [
     show.userMedia?.personal_rating
       ? { label: "Rating", value: String(show.userMedia.personal_rating) }
@@ -92,46 +101,28 @@ export function EpisodeDetailView({
             <Film aria-hidden="true" className="h-9 w-9 text-text-faint" strokeWidth={1.8} />
           )}
         </div>
-        <div className="flex items-start justify-between gap-4 px-4 py-4">
-          <div className="min-w-0">
-            <p className="text-[13px] font-semibold leading-[1.3] text-text-2">{show.title}</p>
-            <h1 className="mt-1 text-[29px] font-bold leading-[1.05]">{episode.title}</h1>
-            <p className="tabnum mt-2 text-[14px] leading-[1.35] text-text-2">
-              S{episode.season_number.toString().padStart(2, "0")}E
-              {episode.episode_number.toString().padStart(2, "0")}
-              {runtimeMinutes ? ` · ${runtimeMinutes} min` : ""}
-            </p>
-            {latestWatch ? (
-              <p className="mt-2 text-[13px] font-semibold text-watched">
-                Watched {formatDate(latestWatch.watched_at.slice(0, 10))}
-              </p>
-            ) : isWatched ? (
-              <p className="mt-2 text-[13px] font-semibold text-watched">Watched</p>
+        <div className="px-4 py-4">
+          <div className="flex items-end justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[13px] font-semibold leading-[1.3] text-text-2">{show.title}</p>
+              <h1 className="mt-1 text-[29px] font-bold leading-[1.05]">{episode.title}</h1>
+            </div>
+            {tmdbRating ? (
+              <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-accent/15 px-2.5 py-1.5">
+                <Star aria-hidden="true" className="h-3.5 w-3.5 fill-accent text-accent" strokeWidth={0} />
+                <span className="tabnum text-[17px] font-bold leading-none text-foreground">
+                  {tmdbRating.value}
+                </span>
+              </span>
             ) : null}
           </div>
-          {episode.air_date || tmdbRating ? (
-            <div className="flex shrink-0 flex-col items-end gap-3 pt-0.5 text-right">
-              {tmdbRating ? (
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-text-faint">
-                    Rating
-                  </p>
-                  <p className="tabnum mt-0.5 text-[17px] font-bold leading-none text-foreground">
-                    {tmdbRating.value}
-                  </p>
-                </div>
-              ) : null}
-              {episode.air_date ? (
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-text-faint">
-                    Aired
-                  </p>
-                  <p className="tabnum mt-0.5 text-[14px] font-semibold leading-none text-text-2">
-                    {formatDate(episode.air_date)}
-                  </p>
-                </div>
-              ) : null}
-            </div>
+          <p className="tabnum mt-2.5 text-[14px] leading-[1.35] text-text-2">{metaLine}</p>
+          {latestWatch ? (
+            <p className="mt-2 text-[13px] font-semibold text-watched">
+              Watched {formatDate(latestWatch.watched_at.slice(0, 10))}
+            </p>
+          ) : isWatched ? (
+            <p className="mt-2 text-[13px] font-semibold text-watched">Watched</p>
           ) : null}
         </div>
       </section>

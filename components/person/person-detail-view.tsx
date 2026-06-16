@@ -28,6 +28,7 @@ export type PersonDetail = {
   deathday: string | null;
   birthplace: string | null;
   department: string | null;
+  notableTitle: string | null;
   knownFor: KnownForCredit[];
 };
 
@@ -51,9 +52,11 @@ export function PersonDetailView({
   const roleLine =
     contextCharacter && contextMovie
       ? `as ${contextCharacter} in ${contextMovie}`
-      : person.department
-        ? `Known for ${person.department}`
-        : null;
+      : person.notableTitle
+        ? `Known for ${person.notableTitle}`
+        : person.department
+          ? `Known for ${person.department}`
+          : null;
   const prefetchUrls = tmdbImagePrefetchUrls([
     ...person.knownFor.map((credit) => ({
       path: credit.posterPath,

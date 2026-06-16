@@ -13,7 +13,10 @@ import {
   type TmdbPersonCombinedCredits,
   type TmdbPersonDetailsWithCombinedCredits,
 } from "@/lib/providers/tmdb/client";
-import { toRelevantPersonMovies } from "@/lib/providers/tmdb/person-credits";
+import {
+  toRelevantPersonMovies,
+  topPersonCreditTitle,
+} from "@/lib/providers/tmdb/person-credits";
 
 type PersonDetailPageProps = {
   params: Promise<{ personId: string }>;
@@ -103,6 +106,7 @@ function toPersonDetail(
     deathday: normalizeDate(detail.deathday),
     birthplace: normalizeText(detail.place_of_birth),
     department: normalizeText(detail.known_for_department),
+    notableTitle: topPersonCreditTitle(credits),
     knownFor,
   };
 }
