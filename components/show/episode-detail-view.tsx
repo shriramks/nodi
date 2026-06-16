@@ -55,17 +55,11 @@ export function EpisodeDetailView({
   )[0];
   const runtimeMinutes = episode.runtime_minutes ?? show.runtime_minutes;
   const detailRows = [
-    episode.air_date ? { label: "Airdate", value: formatDate(episode.air_date) } : null,
     show.userMedia?.personal_rating
       ? { label: "Rating", value: String(show.userMedia.personal_rating) }
       : null,
-    tmdbRating
-      ? {
-          label: "TMDB",
-          value: tmdbRating.voteCount
-            ? `${tmdbRating.value} · ${tmdbRating.voteCount.toLocaleString()} votes`
-            : `${tmdbRating.value}`,
-        }
+    tmdbRating?.voteCount
+      ? { label: "TMDB votes", value: tmdbRating.voteCount.toLocaleString() }
       : null,
   ].filter((row): row is { label: string; value: string } => row !== null);
 
@@ -98,20 +92,46 @@ export function EpisodeDetailView({
             <Film aria-hidden="true" className="h-9 w-9 text-text-faint" strokeWidth={1.8} />
           )}
         </div>
-        <div className="min-w-0 px-4 py-4">
-          <p className="text-[13px] font-semibold leading-[1.3] text-text-2">{show.title}</p>
-          <h1 className="mt-1 text-[29px] font-bold leading-[1.05]">{episode.title}</h1>
-          <p className="tabnum mt-2 text-[14px] leading-[1.35] text-text-2">
-            S{episode.season_number.toString().padStart(2, "0")}E
-            {episode.episode_number.toString().padStart(2, "0")}
-            {runtimeMinutes ? ` · ${runtimeMinutes} min` : ""}
-          </p>
-          {latestWatch ? (
-            <p className="mt-2 text-[13px] font-semibold text-watched">
-              Watched {formatDate(latestWatch.watched_at.slice(0, 10))}
+        <div className="flex items-start justify-between gap-4 px-4 py-4">
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold leading-[1.3] text-text-2">{show.title}</p>
+            <h1 className="mt-1 text-[29px] font-bold leading-[1.05]">{episode.title}</h1>
+            <p className="tabnum mt-2 text-[14px] leading-[1.35] text-text-2">
+              S{episode.season_number.toString().padStart(2, "0")}E
+              {episode.episode_number.toString().padStart(2, "0")}
+              {runtimeMinutes ? ` · ${runtimeMinutes} min` : ""}
             </p>
-          ) : isWatched ? (
-            <p className="mt-2 text-[13px] font-semibold text-watched">Watched</p>
+            {latestWatch ? (
+              <p className="mt-2 text-[13px] font-semibold text-watched">
+                Watched {formatDate(latestWatch.watched_at.slice(0, 10))}
+              </p>
+            ) : isWatched ? (
+              <p className="mt-2 text-[13px] font-semibold text-watched">Watched</p>
+            ) : null}
+          </div>
+          {episode.air_date || tmdbRating ? (
+            <div className="flex shrink-0 flex-col items-end gap-3 pt-0.5 text-right">
+              {tmdbRating ? (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-text-faint">
+                    Rating
+                  </p>
+                  <p className="tabnum mt-0.5 text-[17px] font-bold leading-none text-foreground">
+                    {tmdbRating.value}
+                  </p>
+                </div>
+              ) : null}
+              {episode.air_date ? (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-text-faint">
+                    Aired
+                  </p>
+                  <p className="tabnum mt-0.5 text-[14px] font-semibold leading-none text-text-2">
+                    {formatDate(episode.air_date)}
+                  </p>
+                </div>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </section>
@@ -144,20 +164,16 @@ export function EpisodeDetailView({
           </Section>
         ) : null}
 
-        <Section className="border-b border-divider py-4">
-          <SectionHeader>Details</SectionHeader>
-          {detailRows.length > 0 ? (
+        {detailRows.length > 0 ? (
+          <Section className="border-b border-divider py-4">
+            <SectionHeader>Details</SectionHeader>
             <div>
               {detailRows.map((row) => (
                 <DetailRow divider={false} key={row.label} label={row.label} value={row.value} />
               ))}
             </div>
-          ) : (
-            <p className="text-[15px] leading-[1.4] text-text-muted">
-              No extra details available.
-            </p>
-          )}
-        </Section>
+          </Section>
+        ) : null}
 
         {(show.tags?.length ?? 0) > 0 ? (
           <Section className="py-4">
