@@ -41,6 +41,11 @@ export function BottomPillNav() {
   }
 
   const isAddActive = pathname === addHref;
+  // Shared pill chrome. Lives on the outer wrapper while collapsed (so the pill
+  // and the Add button render as one continuous shape) and on the inner tab
+  // group while expanded (so the Add button can float beside it as its own
+  // circular CTA).
+  const chrome = "h-[72px] items-center rounded-full border border-border bg-nav-surface p-2 backdrop-blur-md";
 
   return (
     <nav
@@ -48,13 +53,16 @@ export function BottomPillNav() {
       style={{ bottom: "env(safe-area-inset-bottom)" }}
     >
       <div
-        className="mx-auto flex w-full max-w-md items-center justify-center gap-2.5 transition-[gap] duration-200"
+        className={[
+          "mx-auto flex items-center justify-center transition-all duration-200",
+          collapsed ? ["w-fit", "gap-1", chrome].join(" ") : "w-full max-w-md gap-2.5",
+        ].join(" ")}
         onClickCapture={handleNavClickCapture}
       >
         <div
           className={[
-            "flex h-[72px] items-center gap-1 rounded-full border border-border bg-nav-surface p-2 backdrop-blur-md transition-[flex] duration-200",
-            collapsed ? "flex-none" : "flex-1",
+            "flex items-center transition-all duration-200",
+            collapsed ? "flex-none gap-1" : ["flex-1", "gap-1", chrome].join(" "),
           ].join(" ")}
         >
           {tabs.map((item) => {
@@ -90,8 +98,10 @@ export function BottomPillNav() {
           aria-label="Add a movie or show"
           aria-current={isAddActive ? "page" : undefined}
           className={[
-            "flex shrink-0 items-center justify-center rounded-full bg-accent text-black shadow-[0_8px_20px_rgba(0,0,0,0.22)] transition-all duration-200",
-            collapsed ? "h-[52px] w-[52px]" : "h-[60px] w-[60px]",
+            "flex shrink-0 items-center justify-center rounded-full transition-all duration-200",
+            collapsed
+              ? "h-11 w-11 bg-transparent text-accent"
+              : "h-[60px] w-[60px] bg-accent text-black shadow-[0_8px_20px_rgba(0,0,0,0.22)]",
           ].join(" ")}
         >
           <Plus

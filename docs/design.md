@@ -265,12 +265,15 @@ Keep the floating pill treatment as an intentional branded navigation pattern ra
 it with a conventional full-width tab bar.
 
 **Scroll collapse.** Past ~20px of scroll (listened on `window`, since the shell has no dedicated
-scroll container), the pill and the Add FAB both collapse:
+scroll container), the pill and the Add button merge into a single shape:
 - Every pill tab (including the active one) drops its label and shrinks to icon-only; inactive tabs
-  shrink to zero width and are hidden. The pill itself shrinks from a full-width `flex-1` bar to an
-  intrinsic width that hugs its now-smaller content.
-- The Add FAB shrinks slightly and the gap between it and the pill tightens, so the two read as one
-  compact dock rather than a full-width bar with dead space.
+  shrink to zero width and are hidden.
+- The pill's own chrome (border, `bg-nav-surface`, blur) moves up to the outer wrapper, which
+  shrinks from a full-width bar to an intrinsic width hugging its content. The Add button loses its
+  independent `bg-accent` circle and shadow and becomes a plain `text-accent` icon sitting inside
+  that same wrapper — so collapsed, there is one continuous pill (tab icon(s) + Add icon), not two
+  separate shapes touching. Expanding reverses this: the pill regains its own chrome and the Add
+  button pops back out as its own floating accent-filled circle beside it.
 - The first tap on any nav element while collapsed only re-expands the nav (the tap is intercepted
   in the capture phase and never reaches the underlying `Link`); a second tap navigates normally.
   This guards against fat-thumbing navigation — especially the Add action — while scrolling.
