@@ -240,26 +240,41 @@ Rules:
 ### BottomPillNav
 
 ```text
-[Film  Movies] [Bookmark  To Watch] [BarChart2  Stats] [Search  Search]  <- inactive
-[Film  Movies] [Bookmark  To Watch] ...                                  <- active tab: bg-accent/10 text-accent
+[RetroTvIcon  Library] [Bookmark  Wishlist] [BarChart2  Stats]   (+)   <- expanded: 3-tab pill + separate Add FAB
+      [Library]              [Wishlist]         [Stats]          +    <- collapsed: icon-only pill + FAB tucked in
 ```
 
-Icon assignments (lucide-react):
-- Movies → `Film`
-- To Watch → `Bookmark`
+The nav is two elements, not one: a 3-tab pill (Library / Wishlist / Stats) and a separate circular
+"Add" button next to it. The Add button is not a 4th pill item — it routes to `/search` (the TMDB
+search-and-ingest flow for adding a new movie or show), so its icon is `Plus`, not `Search`, and it
+uses `bg-accent text-black` like other primary CTAs rather than the pill's `bg-accent/10 text-accent`
+tab treatment.
+
+Icon assignments (lucide-react unless noted):
+- Library → `RetroTvIcon` (custom, `components/icons/retro-tv.tsx`)
+- Wishlist → `Bookmark`
 - Stats → `BarChart2`
-- Search → `Search`
+- Add (separate FAB, routes to `/search`) → `Plus`
 
-Planned media expansion:
-- Movies becomes Library and may keep the `Film` icon unless a better combined library icon is chosen.
-- To Watch becomes Wishlist and keeps `Bookmark`.
-- Bottom nav should remain one app-level nav, not split into separate movie and TV navs.
-
-Active state: `bg-accent/10 text-accent` on the individual pill. Icon and label share the same
-`text-accent` colour — no separate fill behind the icon. Never invert the whole pill.
+Active state (pill tabs only): `bg-accent/10 text-accent` on the individual pill. Icon and label
+share the same `text-accent` colour — no separate fill behind the icon. Never invert the whole pill.
+The Add FAB has no distinct "active" treatment on `/search` — it is an action button, not a
+destination indicator.
 
 Keep the floating pill treatment as an intentional branded navigation pattern rather than replacing
 it with a conventional full-width tab bar.
+
+**Scroll collapse.** Past ~20px of scroll (listened on `window`, since the shell has no dedicated
+scroll container), the pill and the Add FAB both collapse:
+- Every pill tab (including the active one) drops its label and shrinks to icon-only; inactive tabs
+  shrink to zero width and are hidden. The pill itself shrinks from a full-width `flex-1` bar to an
+  intrinsic width that hugs its now-smaller content.
+- The Add FAB shrinks slightly and the gap between it and the pill tightens, so the two read as one
+  compact dock rather than a full-width bar with dead space.
+- The first tap on any nav element while collapsed only re-expands the nav (the tap is intercepted
+  in the capture phase and never reaches the underlying `Link`); a second tap navigates normally.
+  This guards against fat-thumbing navigation — especially the Add action — while scrolling.
+- Scrolling back near the top re-expands the nav automatically.
 
 ### PosterCard
 ```text

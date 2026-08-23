@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ArrowUpDown, Check, ChevronDown, ChevronRight, Clapperboard, CircleCheck, ListFilter, LoaderCircle, X } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Check, ChevronDown, ChevronRight, Clapperboard, CircleCheck, ListFilter, LoaderCircle, Search, X } from "lucide-react";
 import { PosterCard } from "@/components/movie/poster-card";
 import { BulkActionsBar } from "@/components/movie/bulk-actions-bar";
 import { TmdbImagePrefetcher } from "@/components/media/tmdb-image-prefetcher";
@@ -185,6 +185,12 @@ export function LibraryGrid({
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoadingFullSet, setIsLoadingFullSet] = useState(false);
+  const [fullSetError, setFullSetError] = useState<string | null>(null);
+  const fullSetLoadedRef = useRef(false);
+
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
   function openSortSheet() {
@@ -281,8 +287,82 @@ export function LibraryGrid({
       return;
     }
 
+    if (fullSetLoadedRef.current) {
+      // Everything is already loaded locally — resorting happens client-side.
+      loadedSortRef.current = sortState;
+      return;
+    }
+
     void loadPage(0, "replace");
   }, [loadPage, sortHydrated, sortState]);
+
+  const ensureFullSetLoaded = useCallback(async () => {
+    if (fullSetLoadedRef.current || isLoadingFullSet) {
+      return;
+    }
+
+    if (!hasMore) {
+      fullSetLoadedRef.current = true;
+      return;
+    }
+
+    setIsLoadingFullSet(true);
+    setFullSetError(null);
+
+    try {
+      let offset: number | null = nextOffset;
+      let more: boolean = hasMore;
+      let collected: LibraryMovie[] = [];
+
+      while (more && offset !== null) {
+        const params = new URLSearchParams({
+          status: pageStatus,
+          type: libraryType,
+          offset: String(offset),
+          sortKey,
+          sortDir,
+        });
+        appendFilterParams(params, activeFilters);
+
+        const response = await fetch(`/api/library/items?${params.toString()}`, {
+          headers: { accept: "application/json" },
+        });
+        const payload = (await response.json()) as LibraryMoviePage | { error?: string };
+
+        if (!response.ok) {
+          throw new Error(
+            "error" in payload ? payload.error ?? "Failed to load all items." : "Failed to load all items.",
+          );
+        }
+
+        const page = payload as LibraryMoviePage;
+        collected = [...collected, ...page.movies];
+        more = page.hasMore;
+        offset = page.nextOffset;
+      }
+
+      if (collected.length > 0) {
+        setMovies((current) => [...current, ...collected]);
+      }
+      setHasMore(false);
+      setNextOffset(null);
+      fullSetLoadedRef.current = true;
+    } catch (error) {
+      setFullSetError(error instanceof Error ? error.message : "Failed to load all items for search.");
+    } finally {
+      setIsLoadingFullSet(false);
+    }
+  }, [activeFilters, hasMore, isLoadingFullSet, libraryType, nextOffset, pageStatus, sortDir, sortKey]);
+
+  function openSearch() {
+    setIsSearchOpen(true);
+    void ensureFullSetLoaded();
+  }
+
+  function closeSearch() {
+    setIsSearchOpen(false);
+    setSearchQuery("");
+  }
 
   useEffect(() => {
     const sentinel = loadMoreSentinelRef.current;
@@ -453,10 +533,27 @@ export function LibraryGrid({
       : "All time";
   const activeFilterChips = activeFilterChipItems(activeFilters);
 
+  // ─── Local search ─────────────────────────────────────────────────────────
+
+  const normalizedSearchQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+  const searchTokens = useMemo(
+    () => normalizedSearchQuery.split(/\s+/).filter(Boolean),
+    [normalizedSearchQuery],
+  );
+  const searchIndex = useMemo(
+    () => new Map(movies.map(({ movie }) => [movie.id, movie.title.toLowerCase()])),
+    [movies],
+  );
+
   // ─── Processed movies ─────────────────────────────────────────────────────
 
   const processed = useMemo(() => {
-    let result = movies;
+    let result = isSearchOpen && searchTokens.length > 0
+      ? movies.filter(({ movie }) => {
+          const haystack = searchIndex.get(movie.id) ?? "";
+          return searchTokens.every((token) => haystack.includes(token));
+        })
+      : movies;
 
     result = [...result].sort((a, b) => {
       let cmp = 0;
@@ -488,7 +585,7 @@ export function LibraryGrid({
     });
 
     return result;
-  }, [movies, sortKey, sortDir]);
+  }, [movies, sortKey, sortDir, isSearchOpen, searchTokens, searchIndex]);
   const canBulkSelect = processed.every((item) => (item.movie.type ?? "movie") === "movie");
 
   // ─── Grouping ─────────────────────────────────────────────────────────────
@@ -496,6 +593,7 @@ export function LibraryGrid({
   type Group = { label: string; items: LibraryMovie[] };
 
   const groups = useMemo((): Group[] | null => {
+    if (isSearchOpen && searchTokens.length > 0) return null;
     if (sortKey === "title") return null;
 
     const map = new Map<string, LibraryMovie[]>();
@@ -518,7 +616,7 @@ export function LibraryGrid({
     }
 
     return [...map.entries()].map(([label, items]) => ({ label, items }));
-  }, [processed, sortKey]);
+  }, [processed, sortKey, isSearchOpen, searchTokens]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -541,6 +639,32 @@ export function LibraryGrid({
             <span className="text-[13px] text-text-2">
               {selectedIds.size > 0 ? `${selectedIds.size} selected` : "Tap to select"}
             </span>
+          ) : isSearchOpen ? (
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <div className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full border border-border bg-surface-muted pl-3.5 pr-1">
+                <Search aria-hidden="true" className="h-4 w-4 shrink-0 text-text-muted" />
+                <input
+                  autoFocus
+                  aria-label={`Search ${isWatched ? "library" : "wishlist"}`}
+                  className="min-w-0 flex-1 appearance-none bg-transparent text-[15px] text-foreground outline-none placeholder:text-text-muted [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder={`Search ${isWatched ? "library" : "wishlist"}`}
+                  type="search"
+                  value={searchQuery}
+                />
+                {isLoadingFullSet ? (
+                  <LoaderCircle aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin text-text-muted" strokeWidth={2.2} />
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={closeSearch}
+                aria-label="Close search"
+                className="flex size-11 shrink-0 items-center justify-center rounded-full text-text-2 active:bg-tap-active active:text-foreground"
+              >
+                <X aria-hidden="true" className="h-4 w-4" strokeWidth={2.2} />
+              </button>
+            </div>
           ) : (
             <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <button
@@ -606,7 +730,19 @@ export function LibraryGrid({
             </div>
           )}
 
-          {canBulkSelect && (
+          {!isSelecting && !isSearchOpen && (
+            <button
+              type="button"
+              onClick={openSearch}
+              aria-label={`Search ${isWatched ? "library" : "wishlist"}`}
+              title="Search"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-full border border-border text-text-2 active:bg-tap-active active:text-foreground"
+            >
+              <Search aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={2.2} />
+            </button>
+          )}
+
+          {canBulkSelect && !isSearchOpen && (
             <button
               type="button"
               onClick={isSelecting ? exitSelectMode : enterSelectMode}
@@ -624,7 +760,11 @@ export function LibraryGrid({
           )}
         </div>
 
-        {isWatched && hasActiveFilter && !isSelecting && (
+        {isSearchOpen && fullSetError ? (
+          <p className="px-1 text-[13px] text-danger">{fullSetError}</p>
+        ) : null}
+
+        {isWatched && hasActiveFilter && !isSelecting && !isSearchOpen && (
           <div className="flex flex-wrap gap-2">
             {activeFilterChips.map((chip) => (
               <button
@@ -643,7 +783,9 @@ export function LibraryGrid({
         {/* Grid */}
         {processed.length === 0 ? (
           <section className="rounded-2xl border border-dashed border-border bg-surface p-4 text-[15px] leading-[1.4] text-text-2">
-            No library items match the current filter.
+            {isSearchOpen && searchTokens.length > 0
+              ? `No titles match "${searchQuery.trim()}".`
+              : "No library items match the current filter."}
           </section>
         ) : groups ? (
           <div className="space-y-1">
@@ -687,7 +829,7 @@ export function LibraryGrid({
           </section>
         )}
 
-        {hasMore || isLoadingPage || loadError ? (
+        {!isSearchOpen && (hasMore || isLoadingPage || loadError) ? (
           <div className="flex flex-col items-center gap-2 py-3">
             <div ref={loadMoreSentinelRef} className="h-px w-full" aria-hidden="true" />
             {loadError ? (

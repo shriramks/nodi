@@ -202,7 +202,12 @@ files, then inspect only direct imports, direct callers, or the relevant route b
 ### Navigation and return paths
 
 - Shell layout and bottom nav: `app/(shell)/layout.tsx`, `components/navigation/bottom-pill-nav.tsx`
-  - Bottom nav includes `/library`, `/wishlist`, `/stats`, and `/search`. (`/movies` and `/to-watch` redirect to these.)
+  - Bottom nav is a 3-tab pill (`/library`, `/wishlist`, `/stats`) plus a separate circular Add
+    button that routes to `/search` (the TMDB search-and-ingest flow), not a 4th pill tab.
+    (`/movies` and `/to-watch` redirect to `/library` and `/wishlist`.)
+  - The pill and the Add button collapse together on scroll; see `docs/design.md` §BottomPillNav.
+  - Library and Wishlist both get instant client-side title search via `LibraryGrid`'s search
+    toggle — no server round-trip per keystroke; see `components/library/library-grid.tsx`.
 - Generic back button: `components/navigation/back-button.tsx`
   - Client component calling `router.back()`.
 - Movie detail pages:
