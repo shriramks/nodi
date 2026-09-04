@@ -4,16 +4,9 @@ import { cache } from "react";
 
 import { ShowEpisodeListView } from "@/components/show/show-episode-list-view";
 import { ShowRatingSheet } from "@/components/show/show-state-actions";
-import { getShowDetail, type ShowDetail } from "@/lib/db/queries";
-import { ingestTmdbShow } from "@/lib/db/mutations";
+import { getShowDetail } from "@/lib/db/queries";
 import { isAppError } from "@/lib/errors";
-import { needsShowEpisodeHydration } from "@/lib/show/episode-hydration";
-import {
-  getTmdbTvDetailsWithAuth,
-  getTmdbTvSeasonDetailsWithAuth,
-  loadTmdbAuthForCurrentUser,
-  type TmdbTvSeasonDetails,
-} from "@/lib/providers/tmdb/client";
+import { hydrateShowEpisodesOnDemand } from "@/lib/show/hydrate-show-episodes";
 import { toggleEpisodeWatchedAction, markSeasonWatchedAction } from "../../actions";
 
 type ShowEpisodesPageProps = {
@@ -105,43 +98,3 @@ async function loadFreshShowOrNotFound(showId: string) {
   }
 }
 
-async function hydrateShowEpisodesOnDemand(show: ShowDetail) {
-  if (!needsShowEpisodeHydration(show)) {
-    return false;
-  }
-
-  const tmdbId = show.providerMappings.find(
-    (mapping) => mapping.provider === "tmdb" && mapping.provider_media_type === "show",
-  )?.provider_id;
-
-  if (!tmdbId || !/^\d+$/.test(tmdbId)) {
-    return false;
-  }
-
-  try {
-    const auth = await loadTmdbAuthForCurrentUser();
-    const detail = await getTmdbTvDetailsWithAuth(auth, Number(tmdbId));
-    const seasonsToHydrate = (detail.seasons ?? []).filter(
-      (season) => season.season_number >= 0 && (season.episode_count ?? 0) > 0,
-    );
-    const seasons: TmdbTvSeasonDetails[] = await Promise.all(
-      seasonsToHydrate.map((season) =>
-        getTmdbTvSeasonDetailsWithAuth(auth, Number(tmdbId), season.season_number),
-      ),
-    );
-
-    await ingestTmdbShow(detail, seasons);
-    return true;
-  } catch (error) {
-    if (isAppError(error) && (error.status === 404 || error.status === 409)) {
-      return false;
-    }
-
-    console.error("Lazy TMDB show episode hydration failed", {
-      error,
-      showId: show.id,
-      tmdbId,
-    });
-    return false;
-  }
-}

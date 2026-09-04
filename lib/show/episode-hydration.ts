@@ -24,9 +24,15 @@ export function needsShowEpisodeHydration(show: ShowDetail) {
     return true;
   }
 
-  // For shows still being watched, re-sync if TMDB metadata is stale so
-  // newly-aired episodes are picked up even when episode_count hasn't changed.
-  if (show.userMedia?.status === "watching") {
+  // Re-sync stale TMDB metadata so newly-aired episodes are picked up even when
+  // the stored episode_count hasn't changed. This covers shows still being
+  // watched and shows auto-completed on "all aired episodes watched" — the
+  // latter is the state a returning series sits in between seasons, and the only
+  // one that can otherwise never gain a whole new season.
+  const status = show.userMedia?.status;
+  const autoCompleted =
+    status === "done" && show.userMedia?.completion_mode === "auto_all_aired";
+  if (status === "watching" || autoCompleted) {
     const updatedAt = show.metadata_updated_at
       ? new Date(show.metadata_updated_at).getTime()
       : 0;

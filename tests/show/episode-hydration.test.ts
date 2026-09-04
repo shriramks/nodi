@@ -3,9 +3,27 @@ import { describe, expect, it, vi } from "vitest";
 import type { ShowDetail } from "@/lib/db/queries";
 import { needsShowEpisodeHydration } from "@/lib/show/episode-hydration";
 
+function userMedia(overrides: Partial<NonNullable<ShowDetail["userMedia"]>> = {}) {
+  return {
+    added_at: "2026-05-28T00:00:00.000Z",
+    completed_at: null,
+    completion_mode: null,
+    id: "20000000-0000-4000-8000-000000000001",
+    last_watched_at: "2026-05-28T00:00:00.000Z",
+    media_id: "00000000-0000-4000-8000-000000000001",
+    personal_rating: null,
+    status: "watching" as const,
+    updated_at: "2026-05-28T00:00:00.000Z",
+    user_id: "30000000-0000-4000-8000-000000000001",
+    watchlisted_at: null,
+    ...overrides,
+  } satisfies NonNullable<ShowDetail["userMedia"]>;
+}
+
 function showDetail(overrides: Partial<ShowDetail> = {}): ShowDetail {
   return {
     backdrop_path: null,
+    cast: [],
     created_at: "2026-05-28T00:00:00.000Z",
     episode_count: 1,
     first_air_date: "2005-09-13",
@@ -49,7 +67,6 @@ function showDetail(overrides: Partial<ShowDetail> = {}): ShowDetail {
     tmdb_vote_average: null,
     tmdb_vote_count: null,
     type: "show",
-    updated_at: "2026-05-28T00:00:00.000Z",
     userMedia: null,
     watchActivity: [],
     ...overrides,
@@ -92,22 +109,67 @@ describe("show episode hydration", () => {
       needsShowEpisodeHydration(
         showDetail({
           metadata_updated_at: "2026-05-20T00:00:00.000Z",
-          userMedia: {
-            added_at: "2026-05-28T00:00:00.000Z",
-            completed_at: null,
-            completion_mode: null,
-            id: "20000000-0000-4000-8000-000000000001",
-            last_watched_at: "2026-05-28T00:00:00.000Z",
-            media_id: "00000000-0000-4000-8000-000000000001",
-            personal_rating: null,
-            status: "watching",
-            updated_at: "2026-05-28T00:00:00.000Z",
-            user_id: "30000000-0000-4000-8000-000000000001",
-            watchlisted_at: null,
-          },
+          userMedia: userMedia({ status: "watching" }),
         }),
       ),
     ).toBe(true);
+
+    vi.useRealTimers();
+  });
+
+  it("hydrates stale auto-completed shows so a new season can appear", () => {
+    vi.setSystemTime(new Date("2026-05-28T00:00:00.000Z"));
+
+    expect(
+      needsShowEpisodeHydration(
+        showDetail({
+          metadata_updated_at: "2026-05-20T00:00:00.000Z",
+          userMedia: userMedia({
+            status: "done",
+            completion_mode: "auto_all_aired",
+            completed_at: "2026-05-20T00:00:00.000Z",
+          }),
+        }),
+      ),
+    ).toBe(true);
+
+    vi.useRealTimers();
+  });
+
+  it("does not hydrate stale manually-completed shows", () => {
+    vi.setSystemTime(new Date("2026-05-28T00:00:00.000Z"));
+
+    expect(
+      needsShowEpisodeHydration(
+        showDetail({
+          metadata_updated_at: "2026-05-20T00:00:00.000Z",
+          userMedia: userMedia({
+            status: "done",
+            completion_mode: "manual",
+            completed_at: "2026-05-20T00:00:00.000Z",
+          }),
+        }),
+      ),
+    ).toBe(false);
+
+    vi.useRealTimers();
+  });
+
+  it("does not hydrate fresh auto-completed shows", () => {
+    vi.setSystemTime(new Date("2026-05-28T00:00:00.000Z"));
+
+    expect(
+      needsShowEpisodeHydration(
+        showDetail({
+          metadata_updated_at: "2026-05-27T00:00:00.000Z",
+          userMedia: userMedia({
+            status: "done",
+            completion_mode: "auto_all_aired",
+            completed_at: "2026-05-27T00:00:00.000Z",
+          }),
+        }),
+      ),
+    ).toBe(false);
 
     vi.useRealTimers();
   });

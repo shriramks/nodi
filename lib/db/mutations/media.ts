@@ -648,6 +648,38 @@ async function refreshShowMediaLastWatchedAt({
   return userMedia as UserMedia;
 }
 
+/**
+ * Recompute a show's completion state for the current user, but only when the
+ * show is already in their library. Used after lazy TMDB hydration ingests new
+ * seasons so an auto-completed show with freshly-added unwatched aired episodes
+ * moves back to "watching" without waiting for the next episode toggle. Never
+ * creates a user_media row for an untracked show.
+ */
+export async function refreshShowCompletionStateIfTracked(
+  showId: string,
+): Promise<void> {
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const id = validateUuid(showId, "showId");
+
+  const { data: existing, error } = await supabase
+    .from("user_media")
+    .select("media_id")
+    .eq("user_id", user.id)
+    .eq("media_id", id)
+    .maybeSingle();
+
+  if (error) {
+    throwDatabaseError("Failed to check show tracking state.", error);
+  }
+
+  if (!existing) {
+    return;
+  }
+
+  await refreshShowMediaLastWatchedAt({ mediaId: id, userId: user.id });
+}
+
 async function getLatestShowWatchActivityTimestamp({
   mediaId,
   userId,
