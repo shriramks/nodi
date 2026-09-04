@@ -63,6 +63,40 @@ Reading the actual browser error message that the user shared: `"Functions canno
 
 ---
 
+## BUG-003 — New season of an existing show never appears; episode ingest fails on missing `episodes.id` default (2026-09-04)
+
+**Issue:** A show already in the library that gains a new season on TMDB (Reacher S4) never showed that season. The season list stopped at the last previously-synced season, there were no rows to mark watched, and tapping **Resume** appeared to do nothing.
+
+**Expected:** Opening the show or its Episodes page re-syncs from TMDB; the new season's episodes appear and are markable.
+
+**Actual:** Season absent across many reloads. Repeated Resume taps had no visible effect. The real failure only surfaced after reading the Vercel runtime log.
+
+**Root cause — two stacked failures:**
+
+1. **Schema drift in production.** `episodes.id` had lost its `DEFAULT gen_random_uuid()`. Migration `20260526100000_add_media_schema_foundation.sql:48` defines it, but the live DB no longer had the default (PRIMARY KEY / NOT NULL still intact — only the default gone, consistent with a manual table recreation or a dump/restore that dropped column defaults). `ingestPreparedTmdbShow` and the Trakt episode sync both omit `id` on insert and rely on the default, so every new-episode insert failed with `null value in column "id" of relation "episodes" violates not-null constraint` (SQLSTATE `23502`). The existing S1–S3 rows were written while the default still existed.
+2. **The failure was invisible and unrecoverable from the UI.** `hydrateShowEpisodesOnDemand` catches the ingest error, `console.error`s it, and returns `false`; the page then renders normally with stale data. No user-facing error, and no manual "refresh from TMDB" affordance — so the only way to retry was a code change. Separately, `isShowDone()` on the show page recomputes "done" from locally-known episodes, so with the new season missing it forced the action bar to show Resume/Remove even though `user_media.status` was already `watching` — making Resume look broken.
+
+**Why diagnosis was slow:**
+
+- Repeated the BUG-001 / BUG-002 pattern: theorized from application code (the hydration gate, the 3-day staleness window, the `status === "watching"` guard) for several rounds instead of reading the server log first. The log named the SQLSTATE and the failing row immediately.
+- The staleness gate was a red herring that absorbed attention — `needsShowEpisodeHydration` was actually returning `true` and the ingest *was* running; the failure was one layer down, in the DB write.
+- `ingestPreparedTmdbShow` upserts `media_items` (bumping `metadata_updated_at` and `episode_count`) *before* the episode insert in the same function, so a failed hydration still moved those columns — muddying "is it even trying?" reasoning.
+
+**Fixes:**
+
+- `supabase/migrations/20260904140000_fix_episodes_id_default.sql` — re-assert `default gen_random_uuid()` on `episodes.id`, and defensively on `media_items.id` and `media_provider_mappings.id`.
+- Loud + recoverable path: surface hydration/ingest failure on the show + Episodes pages, plus an explicit **Check for new episodes** action that force re-ingests (bypasses the staleness gate) and shows the real error. Show-page action state now trusts `user_media.status` instead of the recomputed `isShowDone`.
+
+**Future points to keep in mind:**
+
+- **Read the server/runtime log before theorizing.** Third time this exact lesson has cost multiple rounds. A `23502` with the failing row is unambiguous and points straight at the layer that failed.
+- After any manual change in the Supabase SQL editor, or a DB restore / branch / dump-reload, verify column **defaults and constraints**, not just that tables and columns exist. `CREATE TABLE AS`, `pg_dump` variants, and dashboard edits can silently drop a `DEFAULT`. A schema-assertion check (compare live `information_schema.columns` against a manifest) run in CI or on boot would catch the next one.
+- A server-side write path that depends on a DB-generated value should fail **loudly and recoverably** — never `catch → console.error → return false` for a data-integrity error the user is actively waiting on. Always leave a retry affordance in the UI.
+- Ingestion that partially writes (`media_items` updated, `episodes` failed) leaves misleading state. Either wrap the show + episode writes in one transactional RPC, or write episodes before bumping `metadata_updated_at` / `episode_count`.
+- Don't let a client-side recomputation override an explicit persisted status (`isShowDone` vs `user_media.status`). If the computed state is meant to be authoritative, write it back — already an AGENT.md rule.
+
+---
+
 ## BUG-001 history note
 
 ### Why diagnosis took longer than it should have

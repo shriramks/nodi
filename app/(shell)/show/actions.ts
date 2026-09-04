@@ -17,7 +17,10 @@ import {
   updateMediaShowRating,
   updateMediaEpisodeWatchActivityDate,
 } from "@/lib/db/mutations";
+import { getShowDetail } from "@/lib/db/queries";
+import { isAppError } from "@/lib/errors";
 import type { TmdbShowIngestPayload } from "@/lib/providers/tmdb/adapters";
+import { refreshShowEpisodesFromTmdb } from "@/lib/show/hydrate-show-episodes";
 import { normalizeTmdbId, watchDateToTimestamp } from "../action-utils";
 
 type ShowSaveStatus = "watching" | "wishlist";
@@ -69,6 +72,29 @@ export async function markShowStoppedAction(showId: string): Promise<void> {
 export async function resumeShowAction(showId: string): Promise<void> {
   await setMediaShowStatus(showId, "watching");
   revalidateShowState(showId);
+}
+
+export type RefreshShowResult = { ok: true } | { ok: false; message: string };
+
+export async function refreshShowFromTmdbAction(
+  showId: string,
+): Promise<RefreshShowResult> {
+  try {
+    const show = await getShowDetail(showId);
+    await refreshShowEpisodesFromTmdb(show);
+  } catch (error) {
+    console.error("[refreshShowFromTmdbAction] failed", { showId, error });
+    return {
+      ok: false,
+      message: isAppError(error)
+        ? error.message
+        : "Couldn't reach TMDB. Try again in a moment.",
+    };
+  }
+
+  revalidateShowState(showId);
+  revalidatePath(`/show/${showId}/episodes`);
+  return { ok: true };
 }
 
 export async function addShowToWishlistAction(showId: string): Promise<void> {

@@ -10,7 +10,6 @@ import {
 import { ShowDetailView } from "@/components/show/show-detail-view";
 import { getShowDetail, listTags, type ShowDetail } from "@/lib/db/queries";
 import { isAppError } from "@/lib/errors";
-import { countShowProgress } from "@/lib/show/progress";
 import { hydrateShowEpisodesOnDemand } from "@/lib/show/hydrate-show-episodes";
 import {
   getTmdbTvAggregateCreditsWithAuth,
@@ -21,6 +20,7 @@ import {
   addShowToWishlistAction,
   markShowDoneAction,
   markShowStoppedAction,
+  refreshShowFromTmdbAction,
   removeShowFromLibraryAction,
   resumeShowAction,
   saveShowToLibraryAction,
@@ -57,10 +57,11 @@ export default async function ShowDetailPage({ params }: ShowDetailPageProps) {
           addToWishlist={addShowToWishlistAction.bind(null, show.id)}
           markDone={markShowDoneAction.bind(null, show.id)}
           markStopped={markShowStoppedAction.bind(null, show.id)}
+          refreshFromTmdb={status ? refreshShowFromTmdbAction.bind(null, show.id) : undefined}
           removeFromLibrary={removeShowFromLibraryAction.bind(null, show.id)}
           resume={resumeShowAction.bind(null, show.id)}
           saveToLibrary={saveShowToLibraryAction.bind(null, show.id)}
-          status={isShowDone(show) ? "done" : status}
+          status={status}
         />
       }
       ratingPicker={
@@ -75,20 +76,6 @@ export default async function ShowDetailPage({ params }: ShowDetailPageProps) {
       tagEditor={<ShowTagEditor allTags={allTags} showId={show.id} tags={show.tags} />}
     />
   );
-}
-
-function isShowDone(show: ShowDetail) {
-  if (show.userMedia?.status === "done") {
-    return true;
-  }
-
-  const { watched, total } = countShowProgress(show.seasons);
-
-  if (total === 0) {
-    return false;
-  }
-
-  return watched >= total;
 }
 
 async function loadShowOrNotFound(showId: string) {

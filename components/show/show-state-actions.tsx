@@ -72,10 +72,13 @@ export function RemoteShowStateActions({
   );
 }
 
+type RefreshResult = { ok: true } | { ok: false; message: string };
+
 export function LocalShowStateActions({
   addToWishlist,
   markDone,
   markStopped,
+  refreshFromTmdb,
   removeFromLibrary,
   resume,
   saveToLibrary,
@@ -84,6 +87,7 @@ export function LocalShowStateActions({
   addToWishlist: () => Promise<void>;
   markDone: () => Promise<void>;
   markStopped: () => Promise<void>;
+  refreshFromTmdb?: () => Promise<RefreshResult>;
   removeFromLibrary: () => Promise<void>;
   resume: () => Promise<void>;
   saveToLibrary: () => Promise<void>;
@@ -185,6 +189,54 @@ export function LocalShowStateActions({
         {renderBtn(right)}
       </div>
       {error ? <p className="text-[13px] text-unsynced">{error}</p> : null}
+      {refreshFromTmdb ? <RefreshFromTmdbButton action={refreshFromTmdb} /> : null}
+    </div>
+  );
+}
+
+function RefreshFromTmdbButton({ action }: { action: () => Promise<RefreshResult> }) {
+  const [isPending, startTransition] = useTransition();
+  const [note, setNote] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+
+  function run() {
+    setNote(null);
+    startTransition(async () => {
+      try {
+        const result = await action();
+        setNote(
+          result.ok
+            ? { tone: "ok", text: "Synced with TMDB." }
+            : { tone: "error", text: result.message },
+        );
+      } catch {
+        setNote({ tone: "error", text: "Couldn't check for new episodes. Try again." });
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <button
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border text-[14px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
+        disabled={isPending}
+        onClick={run}
+        type="button"
+      >
+        {isPending ? (
+          <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
+        ) : null}
+        Check for new episodes
+      </button>
+      {note ? (
+        <p
+          className={[
+            "text-[13px]",
+            note.tone === "ok" ? "text-text-muted" : "text-unsynced",
+          ].join(" ")}
+        >
+          {note.text}
+        </p>
+      ) : null}
     </div>
   );
 }
