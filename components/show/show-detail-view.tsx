@@ -119,12 +119,16 @@ export function ShowDetailView({
       />
 
       {actions || show.id ? (
-        <div className="space-y-2">
-          {autoSyncFailed && refreshFromTmdb ? (
-            <AutoSyncFailedNotice refreshFromTmdb={refreshFromTmdb} />
-          ) : null}
-          {show.id ? <EpisodesRow refreshFromTmdb={refreshFromTmdb} showId={show.id} /> : null}
+        <div className="space-y-3">
           {actions}
+          {show.id ? (
+            <div className="space-y-1.5">
+              {autoSyncFailed && refreshFromTmdb ? (
+                <AutoSyncFailedNotice refreshFromTmdb={refreshFromTmdb} />
+              ) : null}
+              <EpisodesRow refreshFromTmdb={refreshFromTmdb} showId={show.id} />
+            </div>
+          ) : null}
         </div>
       ) : null}
 
