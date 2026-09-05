@@ -548,14 +548,15 @@ export function LibraryGrid({
   // ─── Processed movies ─────────────────────────────────────────────────────
 
   const processed = useMemo(() => {
-    let result = isSearchOpen && searchTokens.length > 0
+    const searching = isSearchOpen && searchTokens.length > 0;
+    let result = searching
       ? movies.filter(({ movie }) => {
           const haystack = searchIndex.get(movie.id) ?? "";
           return searchTokens.every((token) => haystack.includes(token));
         })
       : movies;
 
-    result = [...result].sort((a, b) => {
+    const compareBySort = (a: LibraryMovie, b: LibraryMovie) => {
       let cmp = 0;
       switch (sortKey) {
         case "watched_date": {
@@ -582,10 +583,19 @@ export function LibraryGrid({
         }
       }
       return sortDir === "asc" ? cmp : -cmp;
-    });
+    };
+
+    result = searching
+      ? [...result].sort((a, b) => {
+          const rankA = searchMatchRank(searchIndex.get(a.movie.id) ?? "", normalizedSearchQuery);
+          const rankB = searchMatchRank(searchIndex.get(b.movie.id) ?? "", normalizedSearchQuery);
+          if (rankA !== rankB) return rankA - rankB;
+          return compareBySort(a, b);
+        })
+      : [...result].sort(compareBySort);
 
     return result;
-  }, [movies, sortKey, sortDir, isSearchOpen, searchTokens, searchIndex]);
+  }, [movies, sortKey, sortDir, isSearchOpen, searchTokens, searchIndex, normalizedSearchQuery]);
   const canBulkSelect = processed.every((item) => (item.movie.type ?? "movie") === "movie");
 
   // ─── Grouping ─────────────────────────────────────────────────────────────
@@ -1488,6 +1498,13 @@ function sameSort(
 
 function libraryHref(movie: LibraryMovie["movie"]) {
   return movie.type === "show" ? `/show/${movie.id}/episodes` : `/movie/${movie.id}`;
+}
+
+function searchMatchRank(title: string, query: string) {
+  if (title.startsWith(query)) return 0;
+  const words = title.split(/[^a-z0-9]+/).filter(Boolean);
+  if (words.some((word) => word.startsWith(query))) return 1;
+  return 2;
 }
 
 function libraryTypeLabel(type: MediaTypeFilter) {
