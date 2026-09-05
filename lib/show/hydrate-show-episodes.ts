@@ -42,32 +42,46 @@ async function ingestShowFromTmdb(show: ShowDetail, tmdbId: string): Promise<voi
   await refreshShowCompletionStateIfTracked(show.id);
 }
 
+export type HydrateShowEpisodesResult = {
+  /** New metadata was ingested; the caller should reload the show from the database. */
+  hydrated: boolean;
+  /**
+   * A real sync error was swallowed (anything other than a 404/409, which just
+   * mean "nothing to sync"). The caller should surface a retry affordance
+   * instead of pretending the page is fully up to date.
+   */
+  failed: boolean;
+};
+
 /**
  * Lazily re-sync a show's season/episode metadata from TMDB when the local copy
- * looks stale (see needsShowEpisodeHydration). Returns true when new metadata
- * was ingested and the caller should reload the show from the database.
+ * looks stale (see needsShowEpisodeHydration).
  *
- * Failures are logged and swallowed (returns false) so a TMDB/DB hiccup never
+ * Errors are logged and swallowed (never thrown) so a TMDB/DB hiccup never
  * takes down the show page — the explicit refresh action below is the loud,
- * recoverable path.
+ * recoverable path — but `failed` is still reported back so the page can show
+ * a retry notice instead of silently rendering stale data (see BUG-003 /
+ * Todo #188).
  */
-export async function hydrateShowEpisodesOnDemand(show: ShowDetail): Promise<boolean> {
+export async function hydrateShowEpisodesOnDemand(
+  show: ShowDetail,
+): Promise<HydrateShowEpisodesResult> {
   if (!needsShowEpisodeHydration(show)) {
-    return false;
+    return { hydrated: false, failed: false };
   }
 
   const tmdbId = showTmdbId(show);
 
   if (!tmdbId) {
-    return false;
+    return { hydrated: false, failed: false };
   }
 
   try {
     await ingestShowFromTmdb(show, tmdbId);
-    return true;
+    return { hydrated: true, failed: false };
   } catch (error) {
     if (isAppError(error) && (error.status === 404 || error.status === 409)) {
-      return false;
+      return { hydrated: false, failed: false };
     }
 
     console.error("Lazy TMDB show episode hydration failed", {
@@ -75,7 +89,7 @@ export async function hydrateShowEpisodesOnDemand(show: ShowDetail): Promise<boo
       showId: show.id,
       tmdbId,
     });
-    return false;
+    return { hydrated: false, failed: true };
   }
 }
 

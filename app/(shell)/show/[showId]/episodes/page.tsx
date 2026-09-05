@@ -7,7 +7,11 @@ import { ShowRatingSheet } from "@/components/show/show-state-actions";
 import { getShowDetail } from "@/lib/db/queries";
 import { isAppError } from "@/lib/errors";
 import { hydrateShowEpisodesOnDemand } from "@/lib/show/hydrate-show-episodes";
-import { toggleEpisodeWatchedAction, markSeasonWatchedAction } from "../../actions";
+import {
+  refreshShowFromTmdbAction,
+  toggleEpisodeWatchedAction,
+  markSeasonWatchedAction,
+} from "../../actions";
 
 type ShowEpisodesPageProps = {
   params: Promise<{ showId: string }>;
@@ -34,8 +38,10 @@ export default async function ShowEpisodesPage({
     throw error;
   }
 
+  let hydrateResult;
   try {
-    if (await hydrateShowEpisodesOnDemand(show)) {
+    hydrateResult = await hydrateShowEpisodesOnDemand(show);
+    if (hydrateResult.hydrated) {
       show = await loadFreshShowOrNotFound(showId);
     }
   } catch (error) {
@@ -49,6 +55,7 @@ export default async function ShowEpisodesPage({
   return (
     <>
     <ShowEpisodeListView
+      autoSyncFailed={hydrateResult.failed}
       onMarkSeasonWatched={markSeasonWatchedAction}
       onToggleEpisodeWatched={toggleEpisodeWatchedAction}
       ratingPicker={
@@ -56,6 +63,7 @@ export default async function ShowEpisodesPage({
           <ShowRatingSheet currentRating={personalRating} showId={show.id} />
         ) : null
       }
+      refreshFromTmdb={userStatus ? refreshShowFromTmdbAction.bind(null, show.id) : undefined}
       show={{
         ...show,
         userStatus,

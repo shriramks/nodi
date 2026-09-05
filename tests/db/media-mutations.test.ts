@@ -374,6 +374,172 @@ describe("media movie mutations", () => {
     );
   });
 
+  it("defers an existing show's metadata bump until after episodes ingest (BUG-003 hardening)", async () => {
+    const existingShowId = "50000000-0000-4000-8000-000000000000";
+    const show = {
+      backdrop_path: "/backdrop.jpg",
+      created_at: "2026-05-26T00:00:00.000Z",
+      episode_count: 3,
+      first_air_date: "2008-01-20",
+      id: existingShowId,
+      metadata_updated_at: "2026-05-26T00:00:00.000Z",
+      network: "AMC",
+      original_language: "en",
+      original_title: "Example Show",
+      overview: "Overview",
+      popularity: 100,
+      poster_path: "/poster.jpg",
+      primary_genre_id: 18,
+      primary_genre_name: "Drama",
+      release_date: null,
+      release_year: 2008,
+      runtime_minutes: 47,
+      season_count: 2,
+      studio: "High Bridge",
+      title: "Example Show",
+      tmdb_enriched_at: "2026-05-26T00:00:00.000Z",
+      tmdb_vote_average: 8.9,
+      tmdb_vote_count: 1000,
+      type: "show" as const,
+    };
+    const newSeasonEpisode = {
+      air_date: "2009-01-11",
+      created_at: "2026-05-26T00:00:00.000Z",
+      episode_number: 1,
+      id: "60000000-0000-4000-8000-000000000002",
+      metadata_updated_at: "2026-05-26T00:00:00.000Z",
+      overview: "Season 2 premiere",
+      poster_path: "/season2.jpg",
+      runtime_minutes: 47,
+      season_number: 2,
+      show_id: existingShowId,
+      still_path: "/s2e1.jpg",
+      title: "Premiere",
+    };
+    const existingShowMapping = createQuery({ data: { media_id: existingShowId }, error: null });
+    const showUpsert = createQuery({ data: show, error: null });
+    const showMappingUpsert = createQuery({ data: null, error: null });
+    const existingEpisodeMappings = createQuery({ data: [], error: null });
+    const existingEpisodesForShow = createQuery({ data: [], error: null });
+    const episodesUpsert = createQuery({ data: [newSeasonEpisode], error: null });
+    const episodeMappingsUpsert = createQuery({ data: null, error: null });
+    const { from } = createSupabaseAdminWithQueues({
+      episodes: [existingEpisodesForShow, episodesUpsert],
+      media_items: [showUpsert],
+      media_provider_mappings: [
+        existingShowMapping,
+        existingEpisodeMappings,
+        episodeMappingsUpsert,
+        showMappingUpsert,
+      ],
+    });
+
+    await expect(
+      ingestPreparedTmdbShow({
+        show: {
+          tmdbId: 1396,
+          title: "Example Show",
+          originalTitle: "Example Show",
+          firstAirDate: "2008-01-20",
+          primaryGenreId: 18,
+          primaryGenreName: "Drama",
+          originalLanguage: "en",
+          overview: "Overview",
+          posterPath: "/poster.jpg",
+          backdropPath: "/backdrop.jpg",
+          runtimeMinutes: 47,
+          tmdbVoteAverage: 8.9,
+          tmdbVoteCount: 1000,
+          popularity: 100,
+          studio: "High Bridge",
+          network: "AMC",
+          seasonCount: 2,
+          episodeCount: 3,
+        },
+        episodes: [
+          {
+            tmdbId: 99001,
+            seasonNumber: 2,
+            episodeNumber: 1,
+            title: "Premiere",
+            airDate: "2009-01-11",
+            runtimeMinutes: 47,
+            overview: "Season 2 premiere",
+            posterPath: "/season2.jpg",
+            stillPath: "/s2e1.jpg",
+          },
+        ],
+      }),
+    ).resolves.toEqual(show);
+
+    // The media_items write (which bumps metadata_updated_at/episode_count --
+    // the columns that signal "did this sync succeed") must land after the
+    // episodes write, not before it -- see BUG-003 / Todo #188.
+    const tableCallOrder = from.mock.calls.map((call) => call[0]);
+    const mediaItemsIndex = tableCallOrder.indexOf("media_items");
+    const episodesUpsertIndex = tableCallOrder.lastIndexOf("episodes");
+    expect(mediaItemsIndex).toBeGreaterThan(episodesUpsertIndex);
+    expect(showUpsert.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ id: existingShowId }),
+      { onConflict: "id" },
+    );
+  });
+
+  it("never bumps an existing show's metadata when the episode upsert fails (BUG-003 hardening)", async () => {
+    const existingShowId = "50000000-0000-4000-8000-000000000000";
+    const existingShowMapping = createQuery({ data: { media_id: existingShowId }, error: null });
+    const existingEpisodeMappings = createQuery({ data: [], error: null });
+    const existingEpisodesForShow = createQuery({ data: [], error: null });
+    const episodesUpsertFailure = createQuery({
+      data: null,
+      error: { code: "23502", message: 'null value in column "id"' },
+    });
+    const { from } = createSupabaseAdminWithQueues({
+      episodes: [existingEpisodesForShow, episodesUpsertFailure],
+      media_provider_mappings: [existingShowMapping, existingEpisodeMappings],
+    });
+
+    await expect(
+      ingestPreparedTmdbShow({
+        show: {
+          tmdbId: 1396,
+          title: "Example Show",
+          originalTitle: "Example Show",
+          firstAirDate: "2008-01-20",
+          primaryGenreId: 18,
+          primaryGenreName: "Drama",
+          originalLanguage: "en",
+          overview: "Overview",
+          posterPath: "/poster.jpg",
+          backdropPath: "/backdrop.jpg",
+          runtimeMinutes: 47,
+          tmdbVoteAverage: 8.9,
+          tmdbVoteCount: 1000,
+          popularity: 100,
+          studio: "High Bridge",
+          network: "AMC",
+          seasonCount: 2,
+          episodeCount: 3,
+        },
+        episodes: [
+          {
+            tmdbId: 99001,
+            seasonNumber: 2,
+            episodeNumber: 1,
+            title: "Premiere",
+            airDate: "2009-01-11",
+            runtimeMinutes: 47,
+            overview: "Season 2 premiere",
+            posterPath: "/season2.jpg",
+            stillPath: "/s2e1.jpg",
+          },
+        ],
+      }),
+    ).rejects.toThrow();
+
+    expect(from).not.toHaveBeenCalledWith("media_items");
+  });
+
   it("marks watched through media tables and queues the current movie push event", async () => {
     const userMediaUpsert = createQuery({ data: watchedUserMedia, error: null });
     const activityInsert = createQuery({ data: watchActivity, error: null });

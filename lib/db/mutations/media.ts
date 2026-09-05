@@ -196,35 +196,51 @@ export async function ingestPreparedTmdbShow(
   }
 
   const existingMediaId = (existingMapping as ExistingMediaMappingRow | null)?.media_id ?? null;
-  const { data: show, error: showError } = await supabase
-    .from("media_items")
-    .upsert(showMediaItemInsert(payload.show, existingMediaId, metadataTimestamp), {
-      onConflict: "id",
-    })
-    .select("*")
-    .single();
 
-  if (showError) {
-    throwDatabaseError("Failed to ingest TMDB show metadata.", showError);
+  async function upsertShowAndMapping(mediaId: string | null): Promise<MediaItem> {
+    const { data: upsertedShow, error: showError } = await supabase
+      .from("media_items")
+      .upsert(showMediaItemInsert(payload.show, mediaId, metadataTimestamp), {
+        onConflict: "id",
+      })
+      .select("*")
+      .single();
+
+    if (showError) {
+      throwDatabaseError("Failed to ingest TMDB show metadata.", showError);
+    }
+
+    const showMapping: MediaProviderMappingInsert = {
+      media_id: upsertedShow.id,
+      episode_id: null,
+      provider: "tmdb",
+      provider_media_type: "show",
+      provider_id: tmdbShowId,
+    };
+    const { error: showMappingError } = await supabase
+      .from("media_provider_mappings")
+      .upsert(showMapping, { onConflict: "provider,provider_media_type,provider_id" });
+
+    if (showMappingError) {
+      throwDatabaseError("Failed to upsert TMDB show provider mapping.", showMappingError);
+    }
+
+    return upsertedShow as MediaItem;
   }
 
-  const showMapping: MediaProviderMappingInsert = {
-    media_id: show.id,
-    episode_id: null,
-    provider: "tmdb",
-    provider_media_type: "show",
-    provider_id: tmdbShowId,
-  };
-  const { error: showMappingError } = await supabase
-    .from("media_provider_mappings")
-    .upsert(showMapping, { onConflict: "provider,provider_media_type,provider_id" });
-
-  if (showMappingError) {
-    throwDatabaseError("Failed to upsert TMDB show provider mapping.", showMappingError);
-  }
+  // A brand-new show's media_items row must exist before episodes can reference
+  // it as show_id, so it's created up front -- there's no prior "last synced"
+  // state to mislead since this is the first write for it. An existing show's
+  // media_items write (which bumps metadata_updated_at/episode_count -- the
+  // columns that signal "did this sync succeed") is deferred until after the
+  // episode writes below actually land, so a failed episode upsert can never
+  // leave those columns looking fresher than the real data (see BUG-003).
+  const show: MediaItem = existingMediaId
+    ? ({ id: existingMediaId } as MediaItem)
+    : await upsertShowAndMapping(null);
 
   if (payload.episodes.length === 0) {
-    return show as MediaItem;
+    return existingMediaId ? await upsertShowAndMapping(existingMediaId) : show;
   }
 
   const episodeProviderIds = payload.episodes.map((episode) => String(episode.tmdbId));
@@ -320,7 +336,7 @@ export async function ingestPreparedTmdbShow(
     }
   }
 
-  return show as MediaItem;
+  return existingMediaId ? await upsertShowAndMapping(existingMediaId) : show;
 }
 
 export async function ingestPreparedTmdbMovieMedia(

@@ -15,7 +15,11 @@ import {
   PersonalRating,
   TmdbRatingBadge,
 } from "@/components/media/media-info-panel";
-import { EpisodesRow, type RefreshResult } from "@/components/show/show-state-actions";
+import {
+  AutoSyncFailedNotice,
+  EpisodesRow,
+  type RefreshResult,
+} from "@/components/show/show-state-actions";
 import type { Episode, MediaStatus, MediaWatchActivity, Tag } from "@/lib/db/types";
 import { countShowProgress } from "@/lib/show/progress";
 import { formatDate, getTmdbRating, languageDisplayName } from "@/lib/media/format";
@@ -55,6 +59,7 @@ type DetailShow = {
 
 type ShowDetailViewProps = {
   actions?: ReactNode;
+  autoSyncFailed?: boolean;
   ratingPicker?: ReactNode;
   refreshFromTmdb?: () => Promise<RefreshResult>;
   show: DetailShow;
@@ -63,6 +68,7 @@ type ShowDetailViewProps = {
 
 export function ShowDetailView({
   actions,
+  autoSyncFailed,
   ratingPicker,
   refreshFromTmdb,
   show,
@@ -114,6 +120,9 @@ export function ShowDetailView({
 
       {actions || show.id ? (
         <div className="space-y-2">
+          {autoSyncFailed && refreshFromTmdb ? (
+            <AutoSyncFailedNotice refreshFromTmdb={refreshFromTmdb} />
+          ) : null}
           {show.id ? <EpisodesRow refreshFromTmdb={refreshFromTmdb} showId={show.id} /> : null}
           {actions}
         </div>

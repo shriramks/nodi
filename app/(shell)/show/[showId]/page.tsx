@@ -42,7 +42,8 @@ export default async function ShowDetailPage({ params }: ShowDetailPageProps) {
   const { showId } = await params;
   let show = await loadShowOrNotFound(showId);
 
-  if (await hydrateShowEpisodesOnDemand(show)) {
+  const hydrateResult = await hydrateShowEpisodesOnDemand(show);
+  if (hydrateResult.hydrated) {
     show = await loadFreshShowOrNotFound(showId);
   }
 
@@ -66,6 +67,7 @@ export default async function ShowDetailPage({ params }: ShowDetailPageProps) {
       ratingPicker={
         status ? <ShowRatingSheet currentRating={personalRating} showId={show.id} /> : null
       }
+      autoSyncFailed={hydrateResult.failed}
       refreshFromTmdb={status ? refreshShowFromTmdbAction.bind(null, show.id) : undefined}
       show={{
         ...show,

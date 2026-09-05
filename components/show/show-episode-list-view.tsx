@@ -9,6 +9,10 @@ import { BackButton } from "@/components/navigation/back-button";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { CollapsibleSeason } from "@/components/show/collapsible-season";
 import { MediaInfoPanel } from "@/components/media/media-info-panel";
+import {
+  AutoSyncFailedNotice,
+  type RefreshResult,
+} from "@/components/show/show-state-actions";
 import type { Episode, MediaStatus, MediaWatchActivity, Tag } from "@/lib/db/types";
 import { countShowProgress } from "@/lib/show/progress";
 import { formatDate } from "@/lib/media/format";
@@ -38,16 +42,20 @@ type EpisodeListShow = {
 };
 
 type ShowEpisodeListViewProps = {
+  autoSyncFailed?: boolean;
   onToggleEpisodeWatched: (showId: string, episodeId: string, watched: boolean) => Promise<void>;
   onMarkSeasonWatched: (showId: string, seasonNumber: number) => Promise<void>;
   ratingPicker?: ReactNode;
+  refreshFromTmdb?: () => Promise<RefreshResult>;
   show: EpisodeListShow;
 };
 
 export function ShowEpisodeListView({
+  autoSyncFailed,
   onToggleEpisodeWatched,
   onMarkSeasonWatched,
   ratingPicker,
+  refreshFromTmdb,
   show,
 }: ShowEpisodeListViewProps) {
   const [showSpecials, setShowSpecials] = useState(false);
@@ -90,6 +98,12 @@ export function ShowEpisodeListView({
           Show
         </Link>
       </header>
+
+      {autoSyncFailed && refreshFromTmdb ? (
+        <div className="px-4 pt-3">
+          <AutoSyncFailedNotice refreshFromTmdb={refreshFromTmdb} />
+        </div>
+      ) : null}
 
       <MediaInfoPanel
         className="border-b border-divider px-4 py-4"

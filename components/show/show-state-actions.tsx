@@ -266,6 +266,66 @@ export function EpisodesRow({
   );
 }
 
+/**
+ * Dismissible notice for a failed *automatic* TMDB sync (the lazy on-demand
+ * path in hydrateShowEpisodesOnDemand, which otherwise fails silently) --
+ * shares the RefreshResult retry action with the manual EpisodesRow button,
+ * so the automatic path is also visibly recoverable. See BUG-003 / Todo #188.
+ */
+export function AutoSyncFailedNotice({
+  refreshFromTmdb,
+}: {
+  refreshFromTmdb: () => Promise<RefreshResult>;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [visible, setVisible] = useState(true);
+  const [message, setMessage] = useState("Couldn't sync new episodes.");
+
+  if (!visible) {
+    return null;
+  }
+
+  function retry() {
+    startTransition(async () => {
+      try {
+        const result = await refreshFromTmdb();
+        if (result.ok) {
+          setVisible(false);
+        } else {
+          setMessage(result.message);
+        }
+      } catch {
+        setMessage("Couldn't sync new episodes. Try again.");
+      }
+    });
+  }
+
+  return (
+    <div className="flex items-start gap-2 rounded-xl bg-unsynced/10 px-4 py-3">
+      <p className="flex-1 text-[13px] text-unsynced">
+        {message}{" "}
+        <button
+          className="font-bold underline underline-offset-2 active:opacity-70 disabled:opacity-50"
+          disabled={isPending}
+          onClick={retry}
+          type="button"
+        >
+          {isPending ? "Retrying…" : "Try again"}
+        </button>
+      </p>
+      <button
+        aria-label="Dismiss"
+        className="-m-1 shrink-0 p-1 text-unsynced/70 active:opacity-70"
+        disabled={isPending}
+        onClick={() => setVisible(false)}
+        type="button"
+      >
+        <X aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2.5} />
+      </button>
+    </div>
+  );
+}
+
 export function ShowRatingSheet({
   currentRating,
   showId,
