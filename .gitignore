@@ -50,6 +50,9 @@ docs/nodi_security_audit.md
 # vercel
 .vercel
 
+# supabase CLI local cache
+supabase/.temp/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
