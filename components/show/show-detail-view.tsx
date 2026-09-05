@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
 
 import { DetailHeroSection } from "@/components/media/detail-hero-section";
 import { CastMemberCard } from "@/components/media/cast-member-card";
@@ -16,6 +15,7 @@ import {
   PersonalRating,
   TmdbRatingBadge,
 } from "@/components/media/media-info-panel";
+import { EpisodesRow, type RefreshResult } from "@/components/show/show-state-actions";
 import type { Episode, MediaStatus, MediaWatchActivity, Tag } from "@/lib/db/types";
 import { countShowProgress } from "@/lib/show/progress";
 import { formatDate, getTmdbRating, languageDisplayName } from "@/lib/media/format";
@@ -56,6 +56,7 @@ type DetailShow = {
 type ShowDetailViewProps = {
   actions?: ReactNode;
   ratingPicker?: ReactNode;
+  refreshFromTmdb?: () => Promise<RefreshResult>;
   show: DetailShow;
   tagEditor?: ReactNode;
 };
@@ -63,6 +64,7 @@ type ShowDetailViewProps = {
 export function ShowDetailView({
   actions,
   ratingPicker,
+  refreshFromTmdb,
   show,
   tagEditor,
 }: ShowDetailViewProps) {
@@ -112,14 +114,7 @@ export function ShowDetailView({
 
       {actions || show.id ? (
         <div className="space-y-2">
-          {show.id ? (
-            <Link
-              className="flex h-11 w-full items-center justify-center rounded-xl bg-surface px-4 text-[14px] font-bold text-foreground active:opacity-70"
-              href={`/show/${show.id}/episodes`}
-            >
-              Episodes
-            </Link>
-          ) : null}
+          {show.id ? <EpisodesRow refreshFromTmdb={refreshFromTmdb} showId={show.id} /> : null}
           {actions}
         </div>
       ) : null}

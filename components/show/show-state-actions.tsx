@@ -1,7 +1,8 @@
 "use client";
 
 import { type FormEvent, useState, useTransition } from "react";
-import { Bookmark, Check, ChevronDown, Heart, LoaderCircle, Plus, X } from "lucide-react";
+import { Bookmark, Check, ChevronDown, Heart, LoaderCircle, Plus, RefreshCw, X } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { BottomSheet } from "@/components/ui/bottom-sheet";
@@ -72,13 +73,12 @@ export function RemoteShowStateActions({
   );
 }
 
-type RefreshResult = { ok: true } | { ok: false; message: string };
+export type RefreshResult = { ok: true } | { ok: false; message: string };
 
 export function LocalShowStateActions({
   addToWishlist,
   markDone,
   markStopped,
-  refreshFromTmdb,
   removeFromLibrary,
   resume,
   saveToLibrary,
@@ -87,7 +87,6 @@ export function LocalShowStateActions({
   addToWishlist: () => Promise<void>;
   markDone: () => Promise<void>;
   markStopped: () => Promise<void>;
-  refreshFromTmdb?: () => Promise<RefreshResult>;
   removeFromLibrary: () => Promise<void>;
   resume: () => Promise<void>;
   saveToLibrary: () => Promise<void>;
@@ -189,25 +188,37 @@ export function LocalShowStateActions({
         {renderBtn(right)}
       </div>
       {error ? <p className="text-[13px] text-unsynced">{error}</p> : null}
-      {refreshFromTmdb ? <RefreshFromTmdbButton action={refreshFromTmdb} /> : null}
     </div>
   );
 }
 
-function RefreshFromTmdbButton({ action }: { action: () => Promise<RefreshResult> }) {
+/**
+ * Episodes link plus a quiet icon-button affordance for checking TMDB for new
+ * episodes -- same treatment as the settings gear, so it costs no new visual
+ * language and no extra vertical space at rest.
+ */
+export function EpisodesRow({
+  refreshFromTmdb,
+  showId,
+}: {
+  refreshFromTmdb?: () => Promise<RefreshResult>;
+  showId: string;
+}) {
   const [isPending, startTransition] = useTransition();
-  const [note, setNote] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [note, setNote] = useState<{ tone: "error"; text: string } | null>(null);
 
-  function run() {
+  function runRefresh() {
+    if (!refreshFromTmdb) {
+      return;
+    }
+
     setNote(null);
     startTransition(async () => {
       try {
-        const result = await action();
-        setNote(
-          result.ok
-            ? { tone: "ok", text: "Synced with TMDB." }
-            : { tone: "error", text: result.message },
-        );
+        const result = await refreshFromTmdb();
+        if (!result.ok) {
+          setNote({ tone: "error", text: result.message });
+        }
       } catch {
         setNote({ tone: "error", text: "Couldn't check for new episodes. Try again." });
       }
@@ -216,25 +227,39 @@ function RefreshFromTmdbButton({ action }: { action: () => Promise<RefreshResult
 
   return (
     <div className="space-y-1.5">
-      <button
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border text-[14px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
-        disabled={isPending}
-        onClick={run}
-        type="button"
-      >
-        {isPending ? (
-          <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
-        ) : null}
-        Check for new episodes
-      </button>
-      {note ? (
-        <p
-          className={[
-            "text-[13px]",
-            note.tone === "ok" ? "text-text-muted" : "text-unsynced",
-          ].join(" ")}
+      <div className="flex gap-3">
+        <Link
+          className="flex h-11 flex-1 items-center justify-center rounded-xl bg-surface px-4 text-[14px] font-bold text-foreground active:opacity-70"
+          href={`/show/${showId}/episodes`}
         >
-          {note.text}
+          Episodes
+        </Link>
+        {refreshFromTmdb ? (
+          <button
+            aria-label="Check for new episodes"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-surface text-text-2 active:opacity-70 disabled:opacity-50"
+            disabled={isPending}
+            onClick={runRefresh}
+            type="button"
+          >
+            <RefreshCw
+              aria-hidden="true"
+              className={["h-4 w-4", isPending ? "animate-spin" : ""].join(" ")}
+              strokeWidth={2.2}
+            />
+          </button>
+        ) : null}
+      </div>
+      {note ? (
+        <p className="text-[13px] text-unsynced">
+          {note.text}{" "}
+          <button
+            className="font-bold underline underline-offset-2 active:opacity-70"
+            onClick={runRefresh}
+            type="button"
+          >
+            Try again
+          </button>
         </p>
       ) : null}
     </div>

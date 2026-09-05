@@ -57,7 +57,6 @@ export default async function ShowDetailPage({ params }: ShowDetailPageProps) {
           addToWishlist={addShowToWishlistAction.bind(null, show.id)}
           markDone={markShowDoneAction.bind(null, show.id)}
           markStopped={markShowStoppedAction.bind(null, show.id)}
-          refreshFromTmdb={status ? refreshShowFromTmdbAction.bind(null, show.id) : undefined}
           removeFromLibrary={removeShowFromLibraryAction.bind(null, show.id)}
           resume={resumeShowAction.bind(null, show.id)}
           saveToLibrary={saveShowToLibraryAction.bind(null, show.id)}
@@ -67,6 +66,7 @@ export default async function ShowDetailPage({ params }: ShowDetailPageProps) {
       ratingPicker={
         status ? <ShowRatingSheet currentRating={personalRating} showId={show.id} /> : null
       }
+      refreshFromTmdb={status ? refreshShowFromTmdbAction.bind(null, show.id) : undefined}
       show={{
         ...show,
         cast,

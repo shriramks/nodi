@@ -86,9 +86,14 @@ export async function refreshShowFromTmdbAction(
     console.error("[refreshShowFromTmdbAction] failed", { showId, error });
     return {
       ok: false,
-      message: isAppError(error)
-        ? error.message
-        : "Couldn't reach TMDB. Try again in a moment.",
+      // Only VALIDATION_ERROR's message is written for a person (e.g. "This
+      // show has no TMDB link to refresh from."); anything else -- a DB
+      // failure, a TMDB timeout -- gets one plain, consistent message here.
+      // The real detail is already in the server log above.
+      message:
+        isAppError(error) && error.code === "VALIDATION_ERROR"
+          ? error.message
+          : "Couldn't check for new episodes. Try again in a moment.",
     };
   }
 
