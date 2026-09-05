@@ -42,12 +42,14 @@ export default async function ShowDetailPage({ params }: ShowDetailPageProps) {
   const { showId } = await params;
   let show = await loadShowOrNotFound(showId);
 
-  const hydrateResult = await hydrateShowEpisodesOnDemand(show);
+  const [hydrateResult, allTags, cast] = await Promise.all([
+    hydrateShowEpisodesOnDemand(show),
+    listTags(),
+    loadShowCast(show),
+  ]);
   if (hydrateResult.hydrated) {
     show = await loadFreshShowOrNotFound(showId);
   }
-
-  const [allTags, cast] = await Promise.all([listTags(), loadShowCast(show)]);
   const personalRating = show.userMedia?.personal_rating ?? null;
   const status = show.userMedia?.status ?? null;
 

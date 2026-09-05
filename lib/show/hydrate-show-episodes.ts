@@ -7,9 +7,10 @@ import {
   getTmdbTvDetailsWithAuth,
   getTmdbTvSeasonDetailsWithAuth,
   loadTmdbAuthForCurrentUser,
+  type TmdbTvDetails,
   type TmdbTvSeasonDetails,
 } from "@/lib/providers/tmdb/client";
-import { needsShowEpisodeHydration } from "@/lib/show/episode-hydration";
+import { isActivelyTrackedShow, needsShowEpisodeHydration } from "@/lib/show/episode-hydration";
 
 function showTmdbId(show: ShowDetail): string | null {
   const tmdbId = show.providerMappings.find(
@@ -24,9 +25,13 @@ function showTmdbId(show: ShowDetail): string | null {
  * is the core used by both the lazy on-demand path (which swallows) and the
  * explicit "check for new episodes" action (which surfaces the failure).
  */
-async function ingestShowFromTmdb(show: ShowDetail, tmdbId: string): Promise<void> {
+async function ingestShowFromTmdb(
+  show: ShowDetail,
+  tmdbId: string,
+  prefetchedDetail?: TmdbTvDetails,
+): Promise<void> {
   const auth = await loadTmdbAuthForCurrentUser();
-  const detail = await getTmdbTvDetailsWithAuth(auth, Number(tmdbId));
+  const detail = prefetchedDetail ?? (await getTmdbTvDetailsWithAuth(auth, Number(tmdbId)));
   const seasonsToHydrate = (detail.seasons ?? []).filter(
     (season) => season.season_number >= 0 && (season.episode_count ?? 0) > 0,
   );
@@ -53,9 +58,34 @@ export type HydrateShowEpisodesResult = {
   failed: boolean;
 };
 
+async function performHydration(
+  show: ShowDetail,
+  tmdbId: string,
+  prefetchedDetail?: TmdbTvDetails,
+): Promise<HydrateShowEpisodesResult> {
+  try {
+    await ingestShowFromTmdb(show, tmdbId, prefetchedDetail);
+    return { hydrated: true, failed: false };
+  } catch (error) {
+    if (isAppError(error) && (error.status === 404 || error.status === 409)) {
+      return { hydrated: false, failed: false };
+    }
+
+    console.error("Lazy TMDB show episode hydration failed", {
+      error,
+      showId: show.id,
+      tmdbId,
+    });
+    return { hydrated: false, failed: true };
+  }
+}
+
 /**
  * Lazily re-sync a show's season/episode metadata from TMDB when the local copy
- * looks stale (see needsShowEpisodeHydration).
+ * looks stale (see needsShowEpisodeHydration), or when a cheap live check
+ * against TMDB shows a new episode landed before that staleness window elapsed
+ * (Todo #194 -- catches a new season on page load instead of waiting up to
+ * `STALE_METADATA_DAYS`).
  *
  * Errors are logged and swallowed (never thrown) so a TMDB/DB hiccup never
  * takes down the show page — the explicit refresh action below is the loud,
@@ -66,25 +96,39 @@ export type HydrateShowEpisodesResult = {
 export async function hydrateShowEpisodesOnDemand(
   show: ShowDetail,
 ): Promise<HydrateShowEpisodesResult> {
-  if (!needsShowEpisodeHydration(show)) {
-    return { hydrated: false, failed: false };
-  }
-
   const tmdbId = showTmdbId(show);
 
   if (!tmdbId) {
     return { hydrated: false, failed: false };
   }
 
+  if (needsShowEpisodeHydration(show)) {
+    return performHydration(show, tmdbId);
+  }
+
+  if (!isActivelyTrackedShow(show)) {
+    return { hydrated: false, failed: false };
+  }
+
   try {
-    await ingestShowFromTmdb(show, tmdbId);
-    return { hydrated: true, failed: false };
+    const auth = await loadTmdbAuthForCurrentUser();
+    const detail = await getTmdbTvDetailsWithAuth(auth, Number(tmdbId));
+    const localEpisodeCount = show.seasons.reduce(
+      (count, season) => count + season.episodes.length,
+      0,
+    );
+
+    if ((detail.number_of_episodes ?? 0) <= localEpisodeCount) {
+      return { hydrated: false, failed: false };
+    }
+
+    return await performHydration(show, tmdbId, detail);
   } catch (error) {
     if (isAppError(error) && (error.status === 404 || error.status === 409)) {
       return { hydrated: false, failed: false };
     }
 
-    console.error("Lazy TMDB show episode hydration failed", {
+    console.error("Live TMDB episode-count check failed", {
       error,
       showId: show.id,
       tmdbId,

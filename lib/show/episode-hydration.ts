@@ -3,6 +3,18 @@ import type { ShowDetail } from "@/lib/db/queries";
 /** Re-sync from TMDB when metadata hasn't been refreshed in this many days. */
 const STALE_METADATA_DAYS = 3;
 
+/**
+ * A show still gaining episodes from TMDB's perspective: actively being
+ * watched, or auto-completed (which just means "all aired episodes watched
+ * so far" -- a new season should pull it back out of Done).
+ */
+export function isActivelyTrackedShow(show: ShowDetail) {
+  const status = show.userMedia?.status;
+  const autoCompleted =
+    status === "done" && show.userMedia?.completion_mode === "auto_all_aired";
+  return status === "watching" || autoCompleted;
+}
+
 export function needsShowEpisodeHydration(show: ShowDetail) {
   const episodeCount = show.seasons.reduce(
     (count, season) => count + season.episodes.length,
@@ -29,10 +41,7 @@ export function needsShowEpisodeHydration(show: ShowDetail) {
   // watched and shows auto-completed on "all aired episodes watched" — the
   // latter is the state a returning series sits in between seasons, and the only
   // one that can otherwise never gain a whole new season.
-  const status = show.userMedia?.status;
-  const autoCompleted =
-    status === "done" && show.userMedia?.completion_mode === "auto_all_aired";
-  if (status === "watching" || autoCompleted) {
+  if (isActivelyTrackedShow(show)) {
     const updatedAt = show.metadata_updated_at
       ? new Date(show.metadata_updated_at).getTime()
       : 0;
