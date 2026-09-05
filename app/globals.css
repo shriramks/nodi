@@ -132,9 +132,26 @@ a {
 }
 
 a,
-button {
+button,
+input,
+textarea,
+select,
+label,
+[role="button"] {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+}
+
+/* iOS Safari zooms the viewport on focus when a text field's computed
+   font-size is under 16px. Set 16px as the floor here so any input,
+   textarea, or select without an explicit larger size is safe by default;
+   sites that set a smaller Tailwind text-size utility need that utility
+   bumped to 16px directly, since a class selector outranks this element
+   selector in specificity. */
+input,
+textarea,
+select {
+  font-size: 16px;
 }
 
 ::selection {

@@ -82,7 +82,7 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
               autoComplete="off"
               placeholder={sync.credentials.hasClientId ? "Client ID — saved" : "Client ID"}
               required
-              className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-text-faint"
+              className="min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-text-faint"
             />
           </div>
           <div className="h-px bg-divider -mx-4" />
@@ -93,7 +93,7 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
               placeholder={sync.credentials.hasClientSecret ? "Client Secret — saved" : "Client Secret"}
               required
               type="password"
-              className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-text-faint"
+              className="min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-text-faint"
             />
             <button
               type="submit"

@@ -110,7 +110,7 @@ export function SettingsTextInput({ className, ...props }: SettingsTextInputProp
   return (
     <input
       className={joinClasses([
-        "mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-[15px] outline-none focus:border-accent",
+        "mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-[16px] outline-none focus:border-accent",
         className,
       ])}
       {...props}

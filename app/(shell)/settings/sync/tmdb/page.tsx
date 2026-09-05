@@ -65,7 +65,7 @@ export default async function TmdbSettingsPage({ searchParams }: TmdbSettingsPag
               placeholder={sync.credentials.hasApiToken ? "Saved — enter to replace" : "Paste token"}
               required
               type="password"
-              className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-text-faint"
+              className="min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-text-faint"
             />
             <button
               type="submit"

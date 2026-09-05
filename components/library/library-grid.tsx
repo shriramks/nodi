@@ -646,7 +646,7 @@ export function LibraryGrid({
                 <input
                   autoFocus
                   aria-label={`Search ${isWatched ? "library" : "wishlist"}`}
-                  className="min-w-0 flex-1 appearance-none bg-transparent text-[15px] text-foreground outline-none placeholder:text-text-muted [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
+                  className="min-w-0 flex-1 appearance-none bg-transparent text-[16px] text-foreground outline-none placeholder:text-text-muted [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder={`Search ${isWatched ? "library" : "wishlist"}`}
                   type="search"

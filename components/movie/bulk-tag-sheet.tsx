@@ -161,7 +161,7 @@ export function BulkTagSheet({ movieIds, allTags, onClose, onDone }: Props) {
                 value={newTagName}
                 onChange={(e) => setNewTagName(e.target.value)}
                 placeholder="New tag name…"
-                className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-surface-muted px-3 text-[15px] text-foreground placeholder:text-text-faint"
+                className="h-10 min-w-0 flex-1 rounded-xl border border-border bg-surface-muted px-3 text-[16px] text-foreground placeholder:text-text-faint"
               />
               <button
                 type="submit"

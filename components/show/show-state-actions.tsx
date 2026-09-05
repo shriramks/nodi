@@ -480,7 +480,7 @@ export function ShowTagEditor({
         <form className="flex items-center gap-1 border-t border-divider py-2" onSubmit={handleCreateNew}>
           <input
             aria-label="New tag name"
-            className="min-w-0 flex-1 bg-transparent py-2 text-[15px] text-foreground outline-none placeholder:text-text-muted"
+            className="min-w-0 flex-1 bg-transparent py-2 text-[16px] text-foreground outline-none placeholder:text-text-muted"
             maxLength={80}
             onChange={(event) => setNewTagName(event.target.value)}
             placeholder="New tag..."
