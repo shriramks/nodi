@@ -60,6 +60,9 @@ product direction.
     `## Todo` and one `## Done` section.
   - "Local progress log", "update progress", or similar phrases always refer to `progress_nodi.md`;
     do not grep for it.
+  - Never move an entry to `## Done` until its code changes are committed AND pushed. If a task's
+    changes aren't pushed yet, either leave it under `## Todo` or hold off updating the log until
+    the push completes — don't write the `Done` entry first and commit/push after.
 - `progress_nodi.md` is the repo-specific local progress file name. Keep that name instead of a
   generic `progress.md` so local task history stays unambiguous when working across multiple repos.
 - `progress_nodi.md` is local-only and ignored by Git. Update it for local task tracking, but do not
