@@ -84,7 +84,7 @@ Reading the actual browser error message that the user shared: `"Functions canno
 
 **Fixes:**
 
-- `supabase/migrations/20260904140000_fix_episodes_id_default.sql` — re-assert `default gen_random_uuid()` on `episodes.id`, and defensively on `media_items.id` and `media_provider_mappings.id`.
+- `supabase/migrations/20260904140000_fix_episodes_id_default.sql` — re-assert `default gen_random_uuid()` on `episodes.id` and `media_items.id`. (An earlier draft also targeted `media_provider_mappings.id`, without checking that table's schema first — it has no `id` column at all, PK is the composite `(provider, provider_media_type, provider_id)`; running it failed with `42703` and the statement was dropped.)
 - Loud + recoverable path: surface hydration/ingest failure on the show + Episodes pages, plus an explicit **Check for new episodes** action that force re-ingests (bypasses the staleness gate) and shows the real error. Show-page action state now trusts `user_media.status` instead of the recomputed `isShowDone`.
 
 **Future points to keep in mind:**

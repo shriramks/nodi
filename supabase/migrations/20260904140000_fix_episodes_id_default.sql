@@ -15,16 +15,18 @@
 -- which is why a show that gains a new season could not pull its episodes.
 --
 -- Re-assert the default here. ALTER ... SET DEFAULT is a metadata-only change
--- and is a safe no-op where the default is already correct, so the sibling
--- shared-metadata tables the same ingest path writes without an explicit id
--- are re-asserted too, to avoid a follow-on failure if they drifted the same
--- way.
+-- and is a safe no-op where the default is already correct.
+--
+-- media_provider_mappings is NOT included: it has no id column at all -- its
+-- primary key is the composite (provider, provider_media_type, provider_id)
+-- (see 20260526100000_add_media_schema_foundation.sql:107-114). It was never
+-- part of this bug; an earlier version of this migration incorrectly assumed
+-- it had a bare id column and was corrected after `alter table ...
+-- media_provider_mappings alter column id ...` failed with 42703 (column
+-- does not exist).
 
 alter table public.episodes
   alter column id set default gen_random_uuid();
 
 alter table public.media_items
-  alter column id set default gen_random_uuid();
-
-alter table public.media_provider_mappings
   alter column id set default gen_random_uuid();
