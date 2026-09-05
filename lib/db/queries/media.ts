@@ -59,6 +59,7 @@ export type LibraryMoviePageOptions = {
     direction: LibraryMovieSortDirection;
   };
   filters?: UserMovieListOptions["filters"];
+  search?: string;
 };
 
 export type LibraryMoviePage = {
@@ -190,6 +191,7 @@ export async function listMediaLibraryMoviesPage(
     p_rating_value: options.filters?.rating?.value ?? null,
     p_watched_start: watchedRange?.start ?? null,
     p_watched_end: watchedRange?.end ?? null,
+    p_search: options.search?.trim() || null,
   });
 
   if (error) {

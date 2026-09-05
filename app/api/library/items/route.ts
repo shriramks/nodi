@@ -9,6 +9,7 @@ import type { MediaTypeFilter, MovieStatus } from "@/lib/db/types";
 import { isAppError } from "@/lib/errors";
 
 const pageSize = 48;
+const maximumLimit = 100;
 const maximumOffset = 10_000;
 const ratingOps = [">=", ">", "=", "<", "<="] as const;
 const sortKeys = ["watched_date", "added_date", "rating", "title"] as const;
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
     const page = await listMediaLibraryMoviesPage({
       status,
       type: parseLibraryType(params.get("type")),
-      limit: pageSize,
+      limit: parseLimit(params.get("limit")),
       offset: parseOffset(params.get("offset")),
       sort: {
         key: parseSortKey(status, params.get("sortKey")),
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
         watchedYear: parseYear(params.get("year")),
         watchedMonth: parseMonth(params.get("month")),
       },
+      search: cleanParam(params.get("q")),
     });
 
     return NextResponse.json(page);
@@ -61,6 +63,16 @@ function parseLibraryType(value: string | null): MediaTypeFilter {
   return libraryTypes.some((type) => type === value)
     ? (value as MediaTypeFilter)
     : "all";
+}
+
+function parseLimit(value: string | null) {
+  const limit = Number(value ?? pageSize);
+
+  if (!Number.isInteger(limit)) {
+    return pageSize;
+  }
+
+  return Math.min(Math.max(limit, 1), maximumLimit);
 }
 
 function parseOffset(value: string | null) {

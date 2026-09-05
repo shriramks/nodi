@@ -187,9 +187,10 @@ export function LibraryGrid({
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoadingFullSet, setIsLoadingFullSet] = useState(false);
-  const [fullSetError, setFullSetError] = useState<string | null>(null);
-  const fullSetLoadedRef = useRef(false);
+  const [searchResults, setSearchResults] = useState<LibraryMovie[] | null>(null);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const searchRequestRef = useRef<AbortController | null>(null);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
@@ -287,81 +288,86 @@ export function LibraryGrid({
       return;
     }
 
-    if (fullSetLoadedRef.current) {
-      // Everything is already loaded locally — resorting happens client-side.
-      loadedSortRef.current = sortState;
-      return;
-    }
-
     void loadPage(0, "replace");
   }, [loadPage, sortHydrated, sortState]);
 
-  const ensureFullSetLoaded = useCallback(async () => {
-    if (fullSetLoadedRef.current || isLoadingFullSet) {
-      return;
-    }
-
-    if (!hasMore) {
-      fullSetLoadedRef.current = true;
-      return;
-    }
-
-    setIsLoadingFullSet(true);
-    setFullSetError(null);
+  const runSearch = useCallback(async (query: string) => {
+    searchRequestRef.current?.abort();
+    const abortController = new AbortController();
+    searchRequestRef.current = abortController;
+    setIsSearchLoading(true);
+    setSearchError(null);
 
     try {
-      let offset: number | null = nextOffset;
-      let more: boolean = hasMore;
-      let collected: LibraryMovie[] = [];
+      const params = new URLSearchParams({
+        status: pageStatus,
+        type: libraryType,
+        offset: "0",
+        limit: "100",
+        sortKey,
+        sortDir,
+        q: query,
+      });
+      appendFilterParams(params, activeFilters);
 
-      while (more && offset !== null) {
-        const params = new URLSearchParams({
-          status: pageStatus,
-          type: libraryType,
-          offset: String(offset),
-          sortKey,
-          sortDir,
-        });
-        appendFilterParams(params, activeFilters);
+      const response = await fetch(`/api/library/items?${params.toString()}`, {
+        headers: { accept: "application/json" },
+        signal: abortController.signal,
+      });
+      const payload = (await response.json()) as LibraryMoviePage | { error?: string };
 
-        const response = await fetch(`/api/library/items?${params.toString()}`, {
-          headers: { accept: "application/json" },
-        });
-        const payload = (await response.json()) as LibraryMoviePage | { error?: string };
-
-        if (!response.ok) {
-          throw new Error(
-            "error" in payload ? payload.error ?? "Failed to load all items." : "Failed to load all items.",
-          );
-        }
-
-        const page = payload as LibraryMoviePage;
-        collected = [...collected, ...page.movies];
-        more = page.hasMore;
-        offset = page.nextOffset;
+      if (!response.ok) {
+        throw new Error("error" in payload ? payload.error ?? "Search failed." : "Search failed.");
       }
 
-      if (collected.length > 0) {
-        setMovies((current) => [...current, ...collected]);
-      }
-      setHasMore(false);
-      setNextOffset(null);
-      fullSetLoadedRef.current = true;
+      setSearchResults((payload as LibraryMoviePage).movies);
     } catch (error) {
-      setFullSetError(error instanceof Error ? error.message : "Failed to load all items for search.");
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      setSearchError(error instanceof Error ? error.message : "Search failed.");
     } finally {
-      setIsLoadingFullSet(false);
+      if (searchRequestRef.current === abortController) {
+        searchRequestRef.current = null;
+        setIsSearchLoading(false);
+      }
     }
-  }, [activeFilters, hasMore, isLoadingFullSet, libraryType, nextOffset, pageStatus, sortDir, sortKey]);
+  }, [activeFilters, libraryType, pageStatus, sortDir, sortKey]);
+
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+
+    if (!isSearchOpen || !trimmed) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void runSearch(trimmed);
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [isSearchOpen, runSearch, searchQuery]);
 
   function openSearch() {
     setIsSearchOpen(true);
-    void ensureFullSetLoaded();
   }
 
   function closeSearch() {
+    searchRequestRef.current?.abort();
     setIsSearchOpen(false);
     setSearchQuery("");
+    setSearchResults(null);
+    setSearchError(null);
+  }
+
+  function handleSearchQueryChange(value: string) {
+    setSearchQuery(value);
+    if (!value.trim()) {
+      searchRequestRef.current?.abort();
+      setSearchResults(null);
+      setSearchError(null);
+    }
   }
 
   useEffect(() => {
@@ -533,28 +539,18 @@ export function LibraryGrid({
       : "All time";
   const activeFilterChips = activeFilterChipItems(activeFilters);
 
-  // ─── Local search ─────────────────────────────────────────────────────────
+  // ─── Search ───────────────────────────────────────────────────────────────
 
   const normalizedSearchQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
-  const searchTokens = useMemo(
-    () => normalizedSearchQuery.split(/\s+/).filter(Boolean),
-    [normalizedSearchQuery],
-  );
-  const searchIndex = useMemo(
-    () => new Map(movies.map(({ movie }) => [movie.id, movie.title.toLowerCase()])),
-    [movies],
-  );
+  const isSearching = isSearchOpen && normalizedSearchQuery.length > 0;
 
   // ─── Processed movies ─────────────────────────────────────────────────────
 
   const processed = useMemo(() => {
-    const searching = isSearchOpen && searchTokens.length > 0;
-    let result = searching
-      ? movies.filter(({ movie }) => {
-          const haystack = searchIndex.get(movie.id) ?? "";
-          return searchTokens.every((token) => haystack.includes(token));
-        })
-      : movies;
+    if (isSearching) {
+      // Already scoped, ranked, and sorted server-side by the RPC's p_search handling.
+      return searchResults ?? [];
+    }
 
     const compareBySort = (a: LibraryMovie, b: LibraryMovie) => {
       let cmp = 0;
@@ -585,17 +581,8 @@ export function LibraryGrid({
       return sortDir === "asc" ? cmp : -cmp;
     };
 
-    result = searching
-      ? [...result].sort((a, b) => {
-          const rankA = searchMatchRank(searchIndex.get(a.movie.id) ?? "", normalizedSearchQuery);
-          const rankB = searchMatchRank(searchIndex.get(b.movie.id) ?? "", normalizedSearchQuery);
-          if (rankA !== rankB) return rankA - rankB;
-          return compareBySort(a, b);
-        })
-      : [...result].sort(compareBySort);
-
-    return result;
-  }, [movies, sortKey, sortDir, isSearchOpen, searchTokens, searchIndex, normalizedSearchQuery]);
+    return [...movies].sort(compareBySort);
+  }, [movies, sortKey, sortDir, isSearching, searchResults]);
   const canBulkSelect = processed.every((item) => (item.movie.type ?? "movie") === "movie");
 
   // ─── Grouping ─────────────────────────────────────────────────────────────
@@ -603,7 +590,7 @@ export function LibraryGrid({
   type Group = { label: string; items: LibraryMovie[] };
 
   const groups = useMemo((): Group[] | null => {
-    if (isSearchOpen && searchTokens.length > 0) return null;
+    if (isSearching) return null;
     if (sortKey === "title") return null;
 
     const map = new Map<string, LibraryMovie[]>();
@@ -626,7 +613,7 @@ export function LibraryGrid({
     }
 
     return [...map.entries()].map(([label, items]) => ({ label, items }));
-  }, [processed, sortKey, isSearchOpen, searchTokens]);
+  }, [processed, sortKey, isSearching]);
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -657,12 +644,12 @@ export function LibraryGrid({
                   autoFocus
                   aria-label={`Search ${isWatched ? "library" : "wishlist"}`}
                   className="min-w-0 flex-1 appearance-none bg-transparent text-[16px] text-foreground outline-none placeholder:text-text-muted [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none"
-                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onChange={(event) => handleSearchQueryChange(event.target.value)}
                   placeholder={`Search ${isWatched ? "library" : "wishlist"}`}
                   type="search"
                   value={searchQuery}
                 />
-                {isLoadingFullSet ? (
+                {isSearchLoading ? (
                   <LoaderCircle aria-hidden="true" className="h-4 w-4 shrink-0 animate-spin text-text-muted" strokeWidth={2.2} />
                 ) : null}
               </div>
@@ -770,8 +757,8 @@ export function LibraryGrid({
           )}
         </div>
 
-        {isSearchOpen && fullSetError ? (
-          <p className="px-1 text-[13px] text-danger">{fullSetError}</p>
+        {isSearchOpen && searchError ? (
+          <p className="px-1 text-[13px] text-danger">{searchError}</p>
         ) : null}
 
         {isWatched && hasActiveFilter && !isSelecting && !isSearchOpen && (
@@ -793,7 +780,7 @@ export function LibraryGrid({
         {/* Grid */}
         {processed.length === 0 ? (
           <section className="rounded-2xl border border-dashed border-border bg-surface p-4 text-[15px] leading-[1.4] text-text-2">
-            {isSearchOpen && searchTokens.length > 0
+            {isSearching
               ? `No titles match "${searchQuery.trim()}".`
               : "No library items match the current filter."}
           </section>
@@ -1498,13 +1485,6 @@ function sameSort(
 
 function libraryHref(movie: LibraryMovie["movie"]) {
   return movie.type === "show" ? `/show/${movie.id}/episodes` : `/movie/${movie.id}`;
-}
-
-function searchMatchRank(title: string, query: string) {
-  if (title.startsWith(query)) return 0;
-  const words = title.split(/[^a-z0-9]+/).filter(Boolean);
-  if (words.some((word) => word.startsWith(query))) return 1;
-  return 2;
 }
 
 function libraryTypeLabel(type: MediaTypeFilter) {

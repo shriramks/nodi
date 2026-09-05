@@ -222,7 +222,23 @@ describe("media queries", () => {
       p_rating_value: null,
       p_watched_start: "2026-05-01T00:00:00.000Z",
       p_watched_end: "2026-06-01T00:00:00.000Z",
+      p_search: null,
     });
+  });
+
+  it("trims and forwards a search term to the media RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: [], error: null });
+    mocks.createSupabaseServerClient.mockResolvedValue({ rpc });
+
+    await listMediaLibraryMoviesPage({
+      status: "watched",
+      search: "  ted  ",
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "list_media_library_movies_page",
+      expect.objectContaining({ p_search: "ted" }),
+    );
   });
 
   it("loads media detail state, activity, tags, and provider mappings", async () => {
