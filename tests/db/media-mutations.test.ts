@@ -233,10 +233,11 @@ describe("media movie mutations", () => {
     const showUpsert = createQuery({ data: show, error: null });
     const showMappingUpsert = createQuery({ data: null, error: null });
     const existingEpisodeMappings = createQuery({ data: [], error: null });
+    const existingEpisodesForShow = createQuery({ data: [], error: null });
     const episodesUpsert = createQuery({ data: episodes, error: null });
     const episodeMappingsUpsert = createQuery({ data: null, error: null });
     const { from } = createSupabaseAdminWithQueues({
-      episodes: [episodesUpsert],
+      episodes: [existingEpisodesForShow, episodesUpsert],
       media_items: [showUpsert],
       media_provider_mappings: [
         existingShowMapping,
@@ -342,7 +343,16 @@ describe("media movie mutations", () => {
       ],
       { onConflict: "show_id,season_number,episode_number" },
     );
-    expect(episodesUpsert.upsert.mock.calls[0]?.[0]?.[0]).not.toHaveProperty("id");
+    // Every row gets an explicit id (existing or freshly generated) so a batch
+    // mixing new and pre-existing episodes never sends PostgREST a
+    // heterogeneous JSON array -- see the comment in ingestPreparedTmdbShow.
+    const upsertedEpisodeRows = episodesUpsert.upsert.mock.calls[0]?.[0] as { id: string }[];
+    upsertedEpisodeRows.forEach((row) => {
+      expect(row.id).toMatch(/^[0-9a-f-]{36}$/i);
+    });
+    expect(new Set(upsertedEpisodeRows.map((row) => row.id)).size).toBe(
+      upsertedEpisodeRows.length,
+    );
     expect(episodeMappingsUpsert.upsert).toHaveBeenCalledWith(
       [
         {

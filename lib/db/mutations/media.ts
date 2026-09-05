@@ -1,5 +1,7 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
+
 import { requireUser } from "@/lib/auth/server";
 import { throwDatabaseError, throwNotFound } from "@/lib/db/errors";
 import type {
@@ -141,10 +143,11 @@ function showMediaItemInsert(
 function episodeInsert(
   showId: string,
   episode: TmdbShowIngestPayload["episodes"][number],
-  existingEpisodeId: string | null,
+  id: string,
   metadataTimestamp: string,
 ): EpisodeInsert {
-  const row: EpisodeInsert = {
+  return {
+    id,
     show_id: showId,
     season_number: episode.seasonNumber,
     episode_number: episode.episodeNumber,
@@ -156,12 +159,6 @@ function episodeInsert(
     still_path: episode.stillPath,
     metadata_updated_at: metadataTimestamp,
   };
-
-  if (existingEpisodeId) {
-    row.id = existingEpisodeId;
-  }
-
-  return row;
 }
 
 function episodeKey(episode: Pick<Episode, "season_number" | "episode_number">) {
@@ -231,15 +228,28 @@ export async function ingestPreparedTmdbShow(
   }
 
   const episodeProviderIds = payload.episodes.map((episode) => String(episode.tmdbId));
-  const { data: existingEpisodeMappings, error: existingEpisodeMappingsError } = await supabase
-    .from("media_provider_mappings")
-    .select("episode_id, provider_id")
-    .eq("provider", "tmdb")
-    .eq("provider_media_type", "episode")
-    .in("provider_id", episodeProviderIds);
+  const [
+    { data: existingEpisodeMappings, error: existingEpisodeMappingsError },
+    { data: existingEpisodesForShow, error: existingEpisodesForShowError },
+  ] = await Promise.all([
+    supabase
+      .from("media_provider_mappings")
+      .select("episode_id, provider_id")
+      .eq("provider", "tmdb")
+      .eq("provider_media_type", "episode")
+      .in("provider_id", episodeProviderIds),
+    supabase
+      .from("episodes")
+      .select("id, season_number, episode_number")
+      .eq("show_id", show.id),
+  ]);
 
   if (existingEpisodeMappingsError) {
     throwDatabaseError("Failed to resolve existing TMDB episode mappings.", existingEpisodeMappingsError);
+  }
+
+  if (existingEpisodesForShowError) {
+    throwDatabaseError("Failed to resolve existing show episodes.", existingEpisodesForShowError);
   }
 
   const existingEpisodeIdByTmdbId = new Map(
@@ -247,14 +257,28 @@ export async function ingestPreparedTmdbShow(
       .filter((mapping) => mapping.episode_id)
       .map((mapping) => [mapping.provider_id, mapping.episode_id as string]),
   );
-  const episodeRows = payload.episodes.map((episode) =>
-    episodeInsert(
-      show.id,
-      episode,
-      existingEpisodeIdByTmdbId.get(String(episode.tmdbId)) ?? null,
-      metadataTimestamp,
-    ),
+  // Falls back to a (season, episode) match for rows that predate a TMDB
+  // provider mapping (e.g. minimal episodes created by Trakt sync), so they
+  // get reused rather than assigned a second, conflicting id.
+  const existingEpisodeIdByKey = new Map(
+    ((existingEpisodesForShow ?? []) as Pick<Episode, "id" | "season_number" | "episode_number">[])
+      .map((row) => [episodeKey(row), row.id]),
   );
+  // Every row gets an explicit id -- a batch upsert mixing rows that omit id
+  // (new episodes) with rows that set it (existing ones) sends PostgREST a
+  // heterogeneous JSON array, and Postgres fills a JSON object's *missing*
+  // keys with NULL rather than the column's DEFAULT when building the rows.
+  // That's what actually broke ingesting a new season for a show that
+  // already had earlier seasons on file (SQLSTATE 23502 on episodes.id),
+  // even after confirming the DEFAULT itself was correct.
+  const episodeRows = payload.episodes.map((episode) => {
+    const id =
+      existingEpisodeIdByTmdbId.get(String(episode.tmdbId)) ??
+      existingEpisodeIdByKey.get(payloadEpisodeKey(episode)) ??
+      randomUUID();
+
+    return episodeInsert(show.id, episode, id, metadataTimestamp);
+  });
   const { data: episodes, error: episodesError } = await supabase
     .from("episodes")
     .upsert(episodeRows, { onConflict: "show_id,season_number,episode_number" })
