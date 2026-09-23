@@ -13,7 +13,7 @@ const securityHeaders = [
       "default-src 'self'",
       "base-uri 'self'",
       "frame-ancestors 'none'",
-      "form-action 'self'",
+      "form-action 'self' https://trakt.tv",
       "img-src 'self' data: blob: https://image.tmdb.org",
       "connect-src 'self' https://*.supabase.co https://api.themoviedb.org https://api.trakt.tv https://image.tmdb.org",
       `script-src ${scriptSrc}`,
