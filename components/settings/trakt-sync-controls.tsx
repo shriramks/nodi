@@ -148,7 +148,7 @@ export function TraktSyncControls({ initialSync }: TraktSyncControlsProps) {
           {syncState.lastFailure.errorMessage ?? syncState.lastFailure.eventType}
         </p>
       ) : null}
-      {error ? (
+      {error && error !== syncState.lastFailure?.errorMessage ? (
         <p className="pt-2 text-[13px] leading-[1.4] text-unsynced">{error}</p>
       ) : null}
 

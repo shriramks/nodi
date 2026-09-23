@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 
 import { BackButton } from "@/components/navigation/back-button";
 import { SettingsErrorModal } from "@/components/settings/settings-error-modal";
+import { TraktConnectButton } from "@/components/settings/trakt-connect-button";
 import { TraktSyncControls } from "@/components/settings/trakt-sync-controls";
 import { PageHeader } from "@/components/ui/section";
 import { getProviderSyncSettings } from "@/lib/db/queries";
@@ -114,12 +115,7 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
         <div className="h-px bg-divider -mx-4" />
         {hasAppCredentials ? (
           <form action="/api/providers/trakt/connect" method="get">
-            <button
-              type="submit"
-              className="flex w-full items-center py-3 text-[15px] font-semibold text-accent"
-            >
-              {connected ? "Reconnect Trakt" : "Authorize Trakt"}
-            </button>
+            <TraktConnectButton connected={connected} />
           </form>
         ) : (
           <div className="flex items-center py-3">

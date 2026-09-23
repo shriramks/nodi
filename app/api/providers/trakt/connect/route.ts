@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth/server";
 import { AUTH_ROUTE } from "@/lib/auth/paths";
+import { AppError } from "@/lib/errors";
 import { providerErrorRedirect } from "@/lib/providers/provider-error-redirect";
 import { getTraktAuthorizeUrl } from "@/lib/providers/trakt/client";
 import {
@@ -10,7 +11,6 @@ import {
 } from "@/lib/providers/trakt/credentials";
 import {
   checkRateLimit,
-  rateLimitResponse,
   requestRateLimitKey,
 } from "@/lib/rate-limit";
 
@@ -23,6 +23,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(AUTH_ROUTE, request.url));
   }
 
+  const url = new URL("/settings/sync/trakt", request.url);
+
   try {
     const retryAfter = checkRateLimit({
       key: requestRateLimitKey(request, "trakt-connect", user.id),
@@ -31,7 +33,15 @@ export async function GET(request: NextRequest) {
     });
 
     if (retryAfter) {
-      return rateLimitResponse(retryAfter);
+      return providerErrorRedirect({
+        action: `start Trakt authorization — too many attempts, wait ${retryAfter}s and try again`,
+        error: new AppError("Too many Trakt authorization attempts.", {
+          code: "RATE_LIMITED",
+          status: 429,
+        }),
+        label: "Trakt OAuth connect rate limited",
+        redirectUrl: url,
+      });
     }
 
     const { clientId } = await loadTraktAppCredentials(user.id);
@@ -53,7 +63,6 @@ export async function GET(request: NextRequest) {
 
     return response;
   } catch (error) {
-    const url = new URL("/settings/sync/trakt", request.url);
     return providerErrorRedirect({
       action: "start Trakt authorization",
       error,

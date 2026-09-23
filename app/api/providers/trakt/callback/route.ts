@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth/server";
 import { AUTH_ROUTE } from "@/lib/auth/paths";
+import { AppError } from "@/lib/errors";
 import {
   exchangeTraktCode,
   getTraktUserSettings,
@@ -17,7 +18,6 @@ import {
 } from "@/lib/providers/trakt/credentials";
 import {
   checkRateLimit,
-  rateLimitResponse,
   requestRateLimitKey,
 } from "@/lib/rate-limit";
 
@@ -38,7 +38,15 @@ export async function GET(request: NextRequest) {
   });
 
   if (retryAfter) {
-    return rateLimitResponse(retryAfter);
+    return withClearedStateCookie(providerErrorRedirect({
+      action: `finish Trakt authorization — too many attempts, wait ${retryAfter}s and try again`,
+      error: new AppError("Too many Trakt authorization attempts.", {
+        code: "RATE_LIMITED",
+        status: 429,
+      }),
+      label: "Trakt OAuth callback rate limited",
+      redirectUrl,
+    }));
   }
 
   const error = request.nextUrl.searchParams.get("error");
