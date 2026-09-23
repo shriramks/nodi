@@ -114,9 +114,7 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
         </p>
         <div className="h-px bg-divider -mx-4" />
         {hasAppCredentials ? (
-          <form action="/api/providers/trakt/connect" method="get">
-            <TraktConnectButton connected={connected} />
-          </form>
+          <TraktConnectButton connected={connected} />
         ) : (
           <div className="flex items-center py-3">
             <span className="text-[15px] font-semibold text-text-faint">
