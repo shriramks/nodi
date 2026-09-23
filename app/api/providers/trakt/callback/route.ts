@@ -3,14 +3,17 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { getCurrentUser } from "@/lib/auth/server";
 import { AUTH_ROUTE } from "@/lib/auth/paths";
-import { isAppError } from "@/lib/errors";
+import {
+  exchangeTraktCode,
+  getTraktUserSettings,
+  isTraktInvalidGrantError,
+} from "@/lib/providers/trakt/client";
 import { providerErrorRedirect } from "@/lib/providers/provider-error-redirect";
-import { exchangeTraktCode, getTraktUserSettings } from "@/lib/providers/trakt/client";
 import {
   getTraktRedirectUri,
-  hasActiveTraktOAuthConnection,
   loadTraktAppCredentials,
   saveTraktOAuthTokens,
+  wasTraktOAuthJustCompleted,
 } from "@/lib/providers/trakt/credentials";
 import {
   checkRateLimit,
@@ -58,7 +61,7 @@ export async function GET(request: NextRequest) {
   const expectedState = cookieStore.get(stateCookieName)?.value;
 
   if (!code || !state || !expectedState || state !== expectedState) {
-    if (code && state && await hasActiveTraktOAuthConnection(user.id)) {
+    if (code && state && await wasTraktOAuthJustCompleted(user.id)) {
       return redirectConnected(redirectUrl);
     }
 
@@ -93,8 +96,8 @@ export async function GET(request: NextRequest) {
     redirectUrl.searchParams.set("connected", "1");
   } catch (callbackError) {
     if (
-      isInvalidGrant(callbackError) &&
-      await hasActiveTraktOAuthConnection(user.id)
+      isTraktInvalidGrantError(callbackError) &&
+      await wasTraktOAuthJustCompleted(user.id)
     ) {
       return redirectConnected(redirectUrl);
     }
@@ -126,23 +129,4 @@ function withClearedStateCookie(response: Response) {
     `${stateCookieName}=; Max-Age=0; Path=/api/providers/trakt/callback; SameSite=Lax`,
   );
   return response;
-}
-
-function isInvalidGrant(error: unknown) {
-  if (!isAppError(error)) {
-    return false;
-  }
-
-  if (error.message === "invalid_grant") {
-    return true;
-  }
-
-  const cause = error.cause;
-
-  return Boolean(
-    cause &&
-      typeof cause === "object" &&
-      "error" in cause &&
-      cause.error === "invalid_grant",
-  );
 }

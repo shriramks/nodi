@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isAppError } from "@/lib/errors";
 import { parseJsonResponse } from "@/lib/fetch";
 
 const traktBaseUrl = "https://api.trakt.tv";
@@ -342,6 +343,25 @@ export async function refreshTraktToken({
   });
 
   return parseJsonResponse<TraktOAuthTokenResponse>(response);
+}
+
+export function isTraktInvalidGrantError(error: unknown) {
+  if (!isAppError(error)) {
+    return false;
+  }
+
+  if (error.message === "invalid_grant") {
+    return true;
+  }
+
+  const cause = error.cause;
+
+  return Boolean(
+    cause &&
+      typeof cause === "object" &&
+      "error" in cause &&
+      cause.error === "invalid_grant",
+  );
 }
 
 export function getTraktUserSettings(auth: TraktAuth) {

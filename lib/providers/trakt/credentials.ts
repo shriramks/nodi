@@ -12,6 +12,7 @@ import {
   upsertProviderConnectionForUser,
 } from "@/lib/providers/credentials";
 import {
+  isTraktInvalidGrantError,
   refreshTraktToken,
   type TraktAuth,
   type TraktOAuthTokenResponse,
@@ -157,12 +158,28 @@ export async function loadTraktSyncCredentials(
     };
   }
 
-  const refreshedTokens = await refreshTraktToken({
-    clientId: app.clientId,
-    clientSecret: app.clientSecret,
-    refreshToken,
-    redirectUri: getTraktRedirectUri(origin),
-  });
+  let refreshedTokens: TraktOAuthTokenResponse;
+
+  try {
+    refreshedTokens = await refreshTraktToken({
+      clientId: app.clientId,
+      clientSecret: app.clientSecret,
+      refreshToken,
+      redirectUri: getTraktRedirectUri(origin),
+    });
+  } catch (error) {
+    if (isTraktInvalidGrantError(error)) {
+      await markTraktConnectionNeedsReauth(userId, app.connection.id);
+      throw new AppError("Trakt connection expired. Reconnect Trakt to continue syncing.", {
+        cause: error,
+        code: "TRAKT_REAUTH_REQUIRED",
+        status: 409,
+      });
+    }
+
+    throw error;
+  }
+
   const refreshedConnection = await saveTraktOAuthTokens(userId, refreshedTokens);
 
   return {
@@ -174,17 +191,40 @@ export async function loadTraktSyncCredentials(
   };
 }
 
-export async function hasActiveTraktOAuthConnection(userId: string) {
+const duplicateCallbackWindowMs = 20 * 1000;
+
+// A connection that is `active` only proves *some* successful exchange happened at some point —
+// it can't tell a request that just duplicated a moments-ago success from a genuinely failing
+// reconnect attempt that happens to land on top of an old, broken connection. Gating on
+// `updated_at` recency distinguishes the two so a real failure isn't swallowed as "connected".
+export async function wasTraktOAuthJustCompleted(userId: string) {
   const [connection, secrets] = await Promise.all([
     getProviderConnectionForUser(userId, "trakt"),
     loadProviderSecretRefs(userId, "trakt"),
   ]);
 
-  return Boolean(
-    connection?.status === "active" &&
-      secrets.access_token_encrypted &&
-      secrets.refresh_token_encrypted,
-  );
+  if (
+    connection?.status !== "active" ||
+    !secrets.access_token_encrypted ||
+    !secrets.refresh_token_encrypted
+  ) {
+    return false;
+  }
+
+  const updatedAtMs = connection.updated_at ? Date.parse(connection.updated_at) : NaN;
+
+  return Number.isFinite(updatedAtMs) && Date.now() - updatedAtMs <= duplicateCallbackWindowMs;
+}
+
+async function markTraktConnectionNeedsReauth(userId: string, connectionId: string) {
+  await updateProviderEncryptedSecrets(userId, "trakt", connectionId, {
+    access_token_encrypted: null,
+    refresh_token_encrypted: null,
+  });
+  await updateProviderConnectionForUser(userId, "trakt", {
+    status: "error",
+    tokenExpiresAt: null,
+  });
 }
 
 export async function disconnectCurrentUserTrakt() {
