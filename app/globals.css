@@ -162,6 +162,16 @@ select {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * Visually masks input text like a password field without using type="password",
+ * which browsers/password managers key off of to trigger save/fill prompts even
+ * with autocomplete="off". WebKit/Blink only (Safari, Chrome) — this app is
+ * iOS/Safari-first, so that's an acceptable tradeoff over a real password field.
+ */
+.mask-secret {
+  -webkit-text-security: disc;
+}
+
 @layer components {
   .movie-detail-hero-scrim {
     background:

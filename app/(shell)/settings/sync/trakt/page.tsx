@@ -93,8 +93,8 @@ export default async function TraktSyncPage({ searchParams }: TraktSyncPageProps
               autoComplete="off"
               placeholder={sync.credentials.hasClientSecret ? "Client Secret — saved" : "Client Secret"}
               required
-              type="password"
-              className="min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-text-faint"
+              spellCheck={false}
+              className="mask-secret min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-text-faint"
             />
             <button
               type="submit"
