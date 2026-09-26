@@ -16,6 +16,14 @@ import {
 
 const stateCookieName = "nodi_trakt_oauth_state";
 
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
 
@@ -51,7 +59,18 @@ export async function GET(request: NextRequest) {
       redirectUri: getTraktRedirectUri(request.nextUrl.origin),
       state,
     });
-    const response = NextResponse.redirect(authorizeUrl);
+
+    // TEMPORARY DIAGNOSTIC (to be reverted): show the exact authorize URL instead of
+    // auto-redirecting, so it can be inspected directly instead of guessed at.
+    const response = new NextResponse(
+      `<!doctype html><html><body style="font-family:sans-serif;padding:16px;word-break:break-all">
+        <p>client_id length: ${clientId.length}</p>
+        <p>authorize URL:</p>
+        <pre style="white-space:pre-wrap">${escapeHtml(authorizeUrl.toString())}</pre>
+        <p><a href="${escapeHtml(authorizeUrl.toString())}">Continue to Trakt</a></p>
+      </body></html>`,
+      { headers: { "content-type": "text/html" } },
+    );
 
     response.cookies.set(stateCookieName, state, {
       httpOnly: true,
