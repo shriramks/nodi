@@ -662,7 +662,7 @@ Reason:
 - "Last month with Amele": previous calendar month, scoped to the companion tag. Titles and time, change
   vs the month before, share of all watching that month, highest-rated, weekday watched most. Movies and
   shows both count here.
-- in-progress shows no longer appear in Library; its watched view is `status in ('done', 'stopped')`
+- in-progress shows also appear in Library; its watched view is `status in ('done', 'stopped', 'watching')`
 
 ### Insights (formerly Stats)
 - three blocks, top to bottom: All-time, Habits, This year; no type filter; everything covers movies and shows together

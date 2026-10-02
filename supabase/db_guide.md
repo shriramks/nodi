@@ -192,11 +192,10 @@ stays compatible with the existing `MovieStatus` type. The companion code fix in
 `listMediaRatingAnalyticsRowsForUser` so stats show counts, genre/language breakdowns, and average
 ratings include in-progress shows.
 
-`supabase/migrations/20261002120000_library_excludes_watching_status.sql` redefines
-`list_media_library_movies_page` so the watched bucket matches only `done` and `stopped`. In-progress
-shows (`status = 'watching'`) now live on the Now Watching tab (`/watching`) instead of Library. It is
-the 20260905120000 definition with only that status match changed. Stats queries still include
-`watching` rows.
+`supabase/migrations/20261002120000_library_excludes_watching_status.sql` removed `watching` from the
+Library watched bucket; `20261002140000_library_includes_watching_status.sql` reverts that. The watched
+bucket matches `done`, `stopped` and `watching` again, so in-progress shows appear on both Now Watching
+(`/watching`) and Library.
 
 `supabase/migrations/20260528203000_retarget_movie_cast_media_fk.sql` retargets
 `movie_cast.movie_id` from the legacy `movies` table to the same UUID in `media_items`. This keeps
