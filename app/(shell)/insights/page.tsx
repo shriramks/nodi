@@ -151,10 +151,10 @@ function ThisYearRows({
       {thisYear.lowestRated && <InsightRow value={thisYear.lowestRated.title} description={`lowest-rated, ${thisYear.lowestRated.rating}`} />}
       {thisYear.avgRating !== null && (
         <InsightRow
-          value={thisYear.avgRating}
+          value={thisYear.avgRating.toFixed(1)}
           description={
             thisYear.avgRatingLastYear !== null
-              ? `average rating, vs ${thisYear.avgRatingLastYear} last year`
+              ? `average rating, vs ${thisYear.avgRatingLastYear.toFixed(1)} last year`
               : "average rating"
           }
         />

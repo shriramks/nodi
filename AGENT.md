@@ -195,7 +195,7 @@ files, then inspect only direct imports, direct callers, or the relevant route b
     seasons add time but no title. Season completeness comes from `listSeasonEpisodes()` in
     `lib/db/queries/stats.ts`. Time sums every watched runtime.
   - Busiest/least busy month and top weekday rank by time watched, not title count. Ratings are shown
-    as whole numbers.
+    as whole numbers, except the average rating (one decimal, for now).
   - This year compares year-to-date with the same span of last year (UTC).
   - Highest/lowest rated ties go to the most recently watched title.
 - Dropped on purpose: genre treemap, language donut, tag selector, year selector, rating

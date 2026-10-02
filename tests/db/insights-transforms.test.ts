@@ -159,7 +159,7 @@ describe("buildInsights", () => {
 
     expect(insights.thisYear.highestRated).toMatchObject({ title: "Beta", rating: 9 });
     expect(insights.thisYear.lowestRated).toMatchObject({ title: "Delta", rating: 4 });
-    expect(insights.thisYear.avgRating).toBe(7);
+    expect(insights.thisYear.avgRating).toBe(6.5);
     expect(insights.thisYear.avgRatingLastYear).toBe(8);
   });
 

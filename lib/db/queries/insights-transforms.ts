@@ -162,7 +162,7 @@ function ratedTitles(rows: DatedRow[], ratings: Map<string, number>) {
 function averageRating(rated: Array<{ title: InsightsRatedTitle }>) {
   if (rated.length === 0) return null;
   const sum = rated.reduce((total, item) => total + item.title.rating, 0);
-  return Math.round(sum / rated.length);
+  return Math.round((sum / rated.length) * 10) / 10;
 }
 
 // Ties go to the most recently watched title. The lowest is hidden when it is the highest.

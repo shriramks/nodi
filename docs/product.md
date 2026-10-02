@@ -678,7 +678,7 @@ Reason:
   without them
 - a title is a movie or a fully watched season (1 season = 1 title), never an episode; partial seasons
   add time but no title; time sums every watched runtime
-- ratings are always shown as whole numbers (averages are rounded)
+- ratings are shown as whole numbers, except the average rating, which keeps one decimal (for now)
 - rows with no data are hidden; ties for highest/lowest rated go to the most recently watched title
 - no genre, language, tag, or rating-distribution breakdowns, and no money/spend metrics
 
