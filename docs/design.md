@@ -305,6 +305,12 @@ scroll container), the pill and the Add button merge into a single shape:
   This guards against fat-thumbing navigation — especially the Add action — while scrolling.
 - Scrolling back near the top re-expands the nav automatically.
 
+**Where it shows.** Only on the four tab roots (`/watching`, `/library`, `/wishlist`, `/insights`) and
+`/search`. Every pushed route (movie/show/episode/person detail, Trakt/TMDB settings) hides it and
+relies on its own `BackButton`, matching the iOS tab-bar-hides-on-push pattern. `BackButton` falls back
+to `/library` when there is no history to go back to (deep link, PWA cold open), so a screen without
+the nav is never a dead end.
+
 ### PosterCard
 ```text
 [2:3 poster]

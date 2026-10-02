@@ -14,6 +14,9 @@ const tabs = [
 ];
 
 const addHref = "/search";
+// The nav only shows on tab roots and the Add destination; pushed detail/settings routes use their
+// own back button instead.
+const navRoutes = new Set([...tabs.map((tab) => tab.href), addHref]);
 const collapseThreshold = 20;
 
 export function BottomPillNav() {
@@ -40,6 +43,8 @@ export function BottomPillNav() {
       setCollapsed(false);
     }
   }
+
+  if (!navRoutes.has(pathname)) return null;
 
   const isAddActive = pathname === addHref;
   // Shared pill chrome. Lives on the outer wrapper while collapsed (so the pill

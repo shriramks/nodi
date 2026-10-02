@@ -15,10 +15,13 @@ export const metadata: Metadata = {
   title: "Now Watching",
 };
 
+// Hero plus two rows; older in-progress shows live in the Library.
+const maxShows = 3;
+
 export default async function WatchingPage() {
   const { shows, companionMonth } = await getWatchingPageData();
   const companion = companionLabel(getCompanionTagName());
-  const [hero, ...others] = shows;
+  const [hero, ...others] = shows.slice(0, maxShows);
 
   return (
     <main>
@@ -154,7 +157,7 @@ function CompanionMonthRows({ month, companion }: { month: CompanionMonth; compa
         description={`vs ${month.previousMonthLabel}`}
       />
       <InsightRow value={formatPercent(month.sharePercent)} description="of everything you watched" />
-      {month.highestRated && <InsightRow value={month.highestRated.title} description={`highest-rated together, ${month.highestRated.rating.toFixed(1)}`} />}
+      {month.highestRated && <InsightRow value={month.highestRated.title} description={`highest-rated together, ${month.highestRated.rating}`} />}
       {month.topWeekday && <InsightRow value={month.topWeekday} description="day you watch together most" />}
     </InsightRows>
   );

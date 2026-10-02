@@ -129,7 +129,8 @@ files, then inspect only direct imports, direct callers, or the relevant route b
 
 ### Now Watching
 
-- Route: `app/(shell)/watching/page.tsx`. Shows only, no filter.
+- Route: `app/(shell)/watching/page.tsx`. Shows only, no filter; capped at the 3 most recently
+    watched shows (hero plus two rows).
   - Loads in-progress shows and last month with the companion via `getWatchingPageData()` in
     `lib/db/queries/watching.ts`; pure logic in `watching-transforms.ts` and
     `buildCompanionMonth()` in `insights-transforms.ts`.
@@ -190,7 +191,11 @@ files, then inspect only direct imports, direct callers, or the relevant route b
 - All-time totals: `buildMediaLibraryStats()` in `lib/db/queries/stats-transforms.ts`
   (`movieCount`, `showCount`, `movieRuntimeMinutes`, `showRuntimeMinutes`).
 - Companion habits and this-year numbers: `buildInsights()` in `lib/db/queries/insights-transforms.ts`.
-  - A title is a movie or show, never an episode; time sums every watched runtime.
+  - A title is a movie or a fully watched season (1 season = 1 title), never an episode; partial
+    seasons add time but no title. Season completeness comes from `listSeasonEpisodes()` in
+    `lib/db/queries/stats.ts`. Time sums every watched runtime.
+  - Busiest/least busy month and top weekday rank by time watched, not title count. Ratings are shown
+    as whole numbers.
   - This year compares year-to-date with the same span of last year (UTC).
   - Highest/lowest rated ties go to the most recently watched title.
 - Dropped on purpose: genre treemap, language donut, tag selector, year selector, rating
@@ -203,6 +208,8 @@ files, then inspect only direct imports, direct callers, or the relevant route b
     button that routes to `/search` (the TMDB search-and-ingest flow), not a 4th pill tab.
     (`/movies` and `/to-watch` redirect to `/library` and `/wishlist`.)
   - The pill and the Add button collapse together on scroll; see `docs/design.md` §BottomPillNav.
+  - The nav renders only on the four tab roots and `/search`; detail and settings routes hide it and
+    use `BackButton` (which falls back to `/library` when there is no history).
   - Library and Wishlist both get instant client-side title search via `LibraryGrid`'s search
     toggle — no server round-trip per keystroke; see `components/library/library-grid.tsx`.
 - Generic back button: `components/navigation/back-button.tsx`

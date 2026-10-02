@@ -5,7 +5,7 @@ import { throwDatabaseError } from "@/lib/db/errors";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCompanionMonth } from "./insights-transforms";
 import { getMediaStatsInput } from "./media";
-import { getCompanionTagName } from "./stats";
+import { getCompanionTagName, listSeasonEpisodes } from "./stats";
 import {
   buildWatchingShows,
   type WatchingEpisodeRow,
@@ -17,11 +17,13 @@ const pageSize = 1000;
 // One load feeds the Now Watching screen: in-progress shows plus last month with the companion.
 export async function getWatchingPageData() {
   const [shows, mediaStats] = await Promise.all([listWatchingShows(), getMediaStatsInput("all")]);
+  const seasonEpisodes = await listSeasonEpisodes(mediaStats.watchRows);
 
   return {
     shows,
     companionMonth: buildCompanionMonth({
       watchRows: mediaStats.watchRows,
+      seasonEpisodes,
       tagRows: mediaStats.tagRows,
       ratingRows: mediaStats.ratingRows,
       companionTag: getCompanionTagName(),

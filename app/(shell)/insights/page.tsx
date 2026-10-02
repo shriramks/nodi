@@ -6,7 +6,6 @@ import { InsightRow, InsightRows } from "@/components/ui/insight-row";
 import { PageHeader, Section, SectionHeader } from "@/components/ui/section";
 import {
   companionLabel,
-  formatPercent,
   formatRuntime,
   signed,
   signedRuntime,
@@ -112,16 +111,16 @@ function HabitRows({ habits }: { habits: Insights["habits"] }) {
       {habits.busiestMonth && (
         <InsightRow
             value={habits.busiestMonth.label}
-          description={`busiest month, ${titleCountLabel(habits.busiestMonth.titleCount)}`}
+          description={`busiest month, ${formatRuntime(habits.busiestMonth.runtimeMinutes)}`}
         />
       )}
       {habits.quietestMonth && (
         <InsightRow
             value={habits.quietestMonth.label}
-          description={`quietest month, ${titleCountLabel(habits.quietestMonth.titleCount)}`}
+          description={`least busy month, ${formatRuntime(habits.quietestMonth.runtimeMinutes)}`}
         />
       )}
-      {habits.topWeekday && <InsightRow value={habits.topWeekday} description="day you watch most" />}
+      {habits.topWeekday && <InsightRow value={habits.topWeekday} description="day you watch the most" />}
       {habits.topDecade && <InsightRow value={habits.topDecade} description="decade you watch most" />}
     </InsightRows>
   );
@@ -139,10 +138,7 @@ function ThisYearRows({
 
   return (
     <InsightRows>
-      <InsightRow
-        value={`${formatRuntime(withCompanion.runtimeMinutes)} · ${formatPercent(thisYear.companionSharePercent)}`}
-        description="time, and share of all watching"
-      />
+      <InsightRow value={totalsValue(withCompanion)} description={`titles and time with ${companion}`} />
       {hasComparison && (
         <InsightRow
             value={`${signed(withCompanion.titleCount - withCompanionLastYear.titleCount)} · ${signedRuntime(
@@ -151,14 +147,14 @@ function ThisYearRows({
           description="titles and time vs last year"
         />
       )}
-      {thisYear.highestRated && <InsightRow value={thisYear.highestRated.title} description={`highest-rated, ${thisYear.highestRated.rating.toFixed(1)}`} />}
-      {thisYear.lowestRated && <InsightRow value={thisYear.lowestRated.title} description={`lowest-rated, ${thisYear.lowestRated.rating.toFixed(1)}`} />}
+      {thisYear.highestRated && <InsightRow value={thisYear.highestRated.title} description={`highest-rated, ${thisYear.highestRated.rating}`} />}
+      {thisYear.lowestRated && <InsightRow value={thisYear.lowestRated.title} description={`lowest-rated, ${thisYear.lowestRated.rating}`} />}
       {thisYear.avgRating !== null && (
         <InsightRow
-          value={thisYear.avgRating.toFixed(1)}
+          value={thisYear.avgRating}
           description={
             thisYear.avgRatingLastYear !== null
-              ? `average rating, vs ${thisYear.avgRatingLastYear.toFixed(1)} last year`
+              ? `average rating, vs ${thisYear.avgRatingLastYear} last year`
               : "average rating"
           }
         />
@@ -170,8 +166,4 @@ function ThisYearRows({
 
 function totalsValue(totals: InsightsPeriodTotals) {
   return `${totals.titleCount} · ${formatRuntime(totals.runtimeMinutes)}`;
-}
-
-function titleCountLabel(count: number) {
-  return `${count} ${count === 1 ? "title" : "titles"}`;
 }

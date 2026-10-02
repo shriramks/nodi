@@ -53,6 +53,10 @@ const rating = (mediaId: string, value: number): MediaStatsRatingRow => ({
 describe("buildInsights", () => {
   it("splits this year into with and without the companion, counting titles not episodes", () => {
     const insights = buildInsights({
+      seasonEpisodes: [
+        { id: "e1", show_id: "show-a", season_number: 1 },
+        { id: "e2", show_id: "show-a", season_number: 1 },
+      ],
       watchRows: [
         watch("1", "movie-a", "2026-03-01T20:00:00Z", { runtime: 120 }),
         watch("2", "movie-b", "2026-04-01T20:00:00Z", { runtime: 90 }),
@@ -68,11 +72,37 @@ describe("buildInsights", () => {
 
     expect(insights.thisYear.withCompanion).toEqual({ titleCount: 1, runtimeMinutes: 80 });
     expect(insights.thisYear.withoutCompanion).toEqual({ titleCount: 2, runtimeMinutes: 210 });
-    expect(insights.thisYear.companionSharePercent).toBe(27.6);
+  });
+
+  it("counts a completed season as one title and ignores partial seasons", () => {
+    const insights = buildInsights({
+      watchRows: [
+        watch("1", "show-a", "2026-05-01T20:00:00Z", { type: "show", episodeId: "a1", episodeRuntime: 40 }),
+        watch("2", "show-a", "2026-05-02T20:00:00Z", { type: "show", episodeId: "a2", episodeRuntime: 40 }),
+        watch("3", "show-a", "2026-06-01T20:00:00Z", { type: "show", episodeId: "a3", episodeRuntime: 40 }),
+        watch("4", "show-b", "2026-05-03T20:00:00Z", { type: "show", episodeId: "b1", episodeRuntime: 30 }),
+      ],
+      seasonEpisodes: [
+        { id: "a1", show_id: "show-a", season_number: 1 },
+        { id: "a2", show_id: "show-a", season_number: 1 },
+        { id: "a3", show_id: "show-a", season_number: 2 },
+        { id: "a4", show_id: "show-a", season_number: 2 },
+        { id: "b1", show_id: "show-b", season_number: 1 },
+        { id: "b2", show_id: "show-b", season_number: 1 },
+      ],
+      tagRows: [amele("show-a"), amele("show-b")],
+      ratingRows: [],
+      companionTag: "amele",
+      now,
+    });
+
+    // Season 1 of show-a is complete; season 2 and show-b season 1 are partial.
+    expect(insights.thisYear.withCompanion).toEqual({ titleCount: 1, runtimeMinutes: 150 });
   });
 
   it("matches the companion tag case-insensitively and ignores other tags", () => {
     const insights = buildInsights({
+      seasonEpisodes: [],
       watchRows: [watch("1", "movie-a", "2026-03-01T20:00:00Z")],
       tagRows: [{ media_id: "movie-a", tags: { id: "t", name: " AMELE " } }],
       ratingRows: [],
@@ -82,6 +112,7 @@ describe("buildInsights", () => {
     expect(insights.hasCompanionData).toBe(true);
 
     const none = buildInsights({
+      seasonEpisodes: [],
       watchRows: [watch("1", "movie-a", "2026-03-01T20:00:00Z")],
       tagRows: [{ media_id: "movie-a", tags: { id: "t", name: "Noir" } }],
       ratingRows: [],
@@ -93,6 +124,7 @@ describe("buildInsights", () => {
 
   it("compares against the same span of last year", () => {
     const insights = buildInsights({
+      seasonEpisodes: [],
       watchRows: [
         watch("1", "movie-a", "2026-01-15T20:00:00Z", { runtime: 100 }),
         watch("2", "movie-b", "2025-02-15T20:00:00Z", { runtime: 110 }),
@@ -111,6 +143,7 @@ describe("buildInsights", () => {
 
   it("picks highest and lowest rated, preferring the most recent on ties", () => {
     const insights = buildInsights({
+      seasonEpisodes: [],
       watchRows: [
         watch("1", "a", "2026-01-01T20:00:00Z", { title: "Alpha" }),
         watch("2", "b", "2026-02-01T20:00:00Z", { title: "Beta" }),
@@ -126,12 +159,13 @@ describe("buildInsights", () => {
 
     expect(insights.thisYear.highestRated).toMatchObject({ title: "Beta", rating: 9 });
     expect(insights.thisYear.lowestRated).toMatchObject({ title: "Delta", rating: 4 });
-    expect(insights.thisYear.avgRating).toBe(6.5);
+    expect(insights.thisYear.avgRating).toBe(7);
     expect(insights.thisYear.avgRatingLastYear).toBe(8);
   });
 
   it("hides the lowest-rated title when it is the only rated one", () => {
     const insights = buildInsights({
+      seasonEpisodes: [],
       watchRows: [watch("1", "a", "2026-01-01T20:00:00Z", { title: "Alpha" })],
       tagRows: [amele("a")],
       ratingRows: [rating("a", 7)],
@@ -145,6 +179,7 @@ describe("buildInsights", () => {
 
   it("returns empty ratings when nothing watched with the companion is rated", () => {
     const insights = buildInsights({
+      seasonEpisodes: [],
       watchRows: [watch("1", "a", "2026-01-01T20:00:00Z")],
       tagRows: [amele("a")],
       ratingRows: [],
@@ -159,13 +194,13 @@ describe("buildInsights", () => {
 
   it("derives habits from companion titles only", () => {
     const insights = buildInsights({
+      seasonEpisodes: [],
       watchRows: [
         // 2023-10-01 is a Sunday.
         watch("1", "a", "2023-10-01T20:00:00Z", { releaseYear: 2012 }),
         watch("2", "b", "2024-02-11T20:00:00Z", { releaseYear: 2018 }),
         watch("3", "c", "2024-02-04T20:00:00Z", { releaseYear: 1999 }),
         watch("4", "solo", "2024-03-06T20:00:00Z", { releaseYear: 1980 }),
-        // Binged on one day: counts once for the weekday.
         watch("5", "show", "2024-02-05T10:00:00Z", { type: "show", episodeId: "e1" }),
         watch("6", "show", "2024-02-05T11:00:00Z", { type: "show", episodeId: "e2" }),
       ],
@@ -175,14 +210,15 @@ describe("buildInsights", () => {
       now,
     });
 
-    expect(insights.habits.busiestMonth).toEqual({ key: "2024-02", label: "Feb 2024", titleCount: 3 });
-    expect(insights.habits.quietestMonth).toEqual({ key: "2023-10", label: "Oct 2023", titleCount: 1 });
+    expect(insights.habits.busiestMonth).toEqual({ key: "2024-02", label: "Feb 2024", runtimeMinutes: 400 });
+    expect(insights.habits.quietestMonth).toEqual({ key: "2023-10", label: "Oct 2023", runtimeMinutes: 100 });
     expect(insights.habits.topWeekday).toBe("Sunday");
     expect(insights.habits.topDecade).toBe("2010s");
   });
 
   it("hides the quietest month when it is the busiest month", () => {
     const insights = buildInsights({
+      seasonEpisodes: [],
       watchRows: [watch("1", "a", "2024-02-04T20:00:00Z")],
       tagRows: [amele("a")],
       ratingRows: [],
@@ -198,6 +234,7 @@ describe("buildInsights", () => {
 describe("buildCompanionMonth", () => {
   it("compares the previous calendar month with the one before it", () => {
     const month = buildCompanionMonth({
+      seasonEpisodes: [],
       watchRows: [
         watch("1", "movie-a", "2026-09-05T20:00:00Z", { runtime: 100 }),
         watch("2", "movie-b", "2026-09-12T20:00:00Z", { runtime: 120 }),
@@ -221,6 +258,7 @@ describe("buildCompanionMonth", () => {
 
   it("rolls over the year boundary in January", () => {
     const month = buildCompanionMonth({
+      seasonEpisodes: [],
       watchRows: [watch("1", "movie-a", "2025-12-10T20:00:00Z")],
       tagRows: [amele("movie-a")],
       ratingRows: [],
@@ -235,6 +273,7 @@ describe("buildCompanionMonth", () => {
 
   it("returns empty totals when nothing was watched together", () => {
     const month = buildCompanionMonth({
+      seasonEpisodes: [],
       watchRows: [watch("1", "movie-a", "2026-09-05T20:00:00Z")],
       tagRows: [],
       ratingRows: [],

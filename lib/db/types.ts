@@ -805,7 +805,7 @@ export type InsightsRatedTitle = {
 export type InsightsMonth = {
   key: string;
   label: string;
-  titleCount: number;
+  runtimeMinutes: number;
 };
 
 // Everything below is scoped to the viewing companion (the "Amele" tag), except `withoutCompanion`.
@@ -822,7 +822,6 @@ export type Insights = {
     withCompanion: InsightsPeriodTotals;
     withCompanionLastYear: InsightsPeriodTotals;
     withoutCompanion: InsightsPeriodTotals;
-    companionSharePercent: number | null;
     highestRated: InsightsRatedTitle | null;
     lowestRated: InsightsRatedTitle | null;
     avgRating: number | null;
