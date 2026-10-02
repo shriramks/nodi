@@ -1,7 +1,8 @@
 "use client";
 
 import { type FormEvent, useState, useTransition } from "react";
-import { Bookmark, Check, ChevronDown, Heart, LoaderCircle, Plus, RefreshCw, X } from "lucide-react";
+import { Bookmark, ChevronDown, Heart, LoaderCircle, Plus, RefreshCw, X } from "lucide-react";
+import { RatingOptions } from "@/components/media/rating-options";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -20,19 +21,6 @@ type ShowStatus = "watching" | "done" | "stopped" | "wishlist" | null;
 type ShowTag = {
   id: string;
   name: string;
-};
-
-const RATING_LABELS: Record<number, string> = {
-  1: "Awful",
-  2: "Bad",
-  3: "Poor",
-  4: "Below Average",
-  5: "Average",
-  6: "Fine",
-  7: "Good",
-  8: "Great",
-  9: "Excellent",
-  10: "Masterpiece",
 };
 
 export function RemoteShowStateActions({
@@ -379,59 +367,15 @@ export function ShowRatingSheet({
 
       {open ? (
         <BottomSheet ariaLabel="Your Rating" onClose={() => setOpen(false)}>
-          <p className="mb-2 text-[17px] font-semibold text-foreground">Your Rating</p>
-
-          <div>
-            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-              <button
-                className="flex w-full items-center gap-3 border-b border-divider py-3 text-left last:border-b-0 active:opacity-70 disabled:opacity-50"
-                disabled={isPending}
-                key={n}
-                onClick={() => handleRate(n)}
-                type="button"
-              >
-                <span
-                  className={[
-                    "tabnum w-5 shrink-0 text-[17px] font-semibold",
-                    currentRating === n ? "text-accent" : "text-foreground",
-                  ].join(" ")}
-                >
-                  {n}
-                </span>
-                <span
-                  className={[
-                    "flex-1 text-[15px]",
-                    currentRating === n ? "text-accent" : "text-text-2",
-                  ].join(" ")}
-                >
-                  {RATING_LABELS[n]}
-                </span>
-                {pendingRating === n ? (
-                  <LoaderCircle
-                    aria-hidden="true"
-                    className="h-4 w-4 shrink-0 animate-spin text-accent"
-                    strokeWidth={2.2}
-                  />
-                ) : currentRating === n ? (
-                  <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-accent" strokeWidth={2.5} />
-                ) : null}
-              </button>
-            ))}
-          </div>
-
-          {currentRating !== null ? (
-            <button
-              className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border text-[15px] font-semibold text-text-2 active:opacity-70 disabled:opacity-50"
-              disabled={isPending}
-              onClick={() => handleRate(null)}
-              type="button"
-            >
-              {pendingRating === "clear" ? (
-                <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
-              ) : null}
-              Clear rating
-            </button>
-          ) : null}
+          <RatingOptions
+            currentRating={currentRating}
+            disabled={isPending}
+            excludeIds={[showId]}
+            onCancel={() => setOpen(false)}
+            onSelect={handleRate}
+            pendingRating={pendingRating}
+            title="Your Rating"
+          />
 
           {error ? <p className="mt-2 text-[13px] text-unsynced">{error}</p> : null}
         </BottomSheet>

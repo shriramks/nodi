@@ -34,6 +34,9 @@ filters should be available on library, wishlist, and stats surfaces.
 TV-specific product rules:
 - tags live at the show level, not episode level
 - personal ratings live at the show level, not episode level
+- the rating sheet (movie, show and bulk) is a radio list: Not rated, then 3-10; each row shows a random
+  title you rated that number plus a fixed word ("Entourage energy"), re-rolled on every open and never the
+  title being rated
 - TMDB rating and vote count should flow into show detail the same way they flow into movie detail
 - episode pages may display inherited show tags/ratings, but editing those controls opens show-level
   controls
@@ -659,8 +662,8 @@ Reason:
 - hero "Continue" card is the most recently watched show: next unwatched aired episode and an
   episodes-watched progress bar; only the 3 most recently watched shows appear (hero plus two rows)
 - no type filter and no tabs
-- "Last month with Amele": previous calendar month, scoped to the companion tag. Titles and time, change
-  vs the month before, share of all watching that month, highest-rated, weekday watched most. Movies and
+- "Last month with Amele": previous calendar month, scoped to the companion tag. Time together only (no title counts), change
+  in time vs the month before, share of all watching that month, highest-rated, weekday watched most. Movies and
   shows both count here.
 - in-progress shows also appear in Library; its watched view is `status in ('done', 'stopped', 'watching')`
 

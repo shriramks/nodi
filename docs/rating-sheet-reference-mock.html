@@ -1,0 +1,22 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Rating sheet mock</title>
+<style>
+:root{color-scheme:light dark;--bg:#fff;--sheet:#f2f2f7;--text:#000;--text-2:rgba(0,0,0,.62);--text-muted:rgba(0,0,0,.45);--border:rgba(0,0,0,.18);--accent:#ff9f0a}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--sheet:#1c1c1e;--text:#fff;--text-2:rgba(255,255,255,.64);--text-muted:rgba(255,255,255,.5);--border:rgba(255,255,255,.2)}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif}
+main{max-width:430px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;justify-content:flex-end}
+.sheet{background:var(--sheet);border-radius:24px 24px 0 0;padding:12px 20px 40px}
+.handle{width:36px;height:5px;border-radius:3px;background:var(--border);margin:0 auto 18px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+h1{font-size:22px;margin:0}.cancel{font-size:16px;font-weight:600;color:var(--accent)}
+.row{display:flex;align-items:center;gap:12px;min-height:52px}
+.radio{width:26px;height:26px;border-radius:50%;border:2px solid var(--border);flex:none}
+.on .radio{border-color:var(--accent);background:radial-gradient(var(--accent) 0 46%,transparent 50%)}
+.n{width:20px;font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+.lbl{font-size:17px;white-space:nowrap}.on .lbl{font-weight:700}
+.ref{margin-left:auto;font-size:14px;font-style:italic;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.note{margin:18px 0 0;font-size:12px;line-height:1.5;color:var(--text-muted)}
+</style></head><body><main><div class="sheet"><div class="handle"></div>
+<div class="top"><h1>Rating</h1><span class="cancel">Cancel</span></div>
+<div class="row"><span class="radio"></span><span class="lbl">Not rated</span></div><div class="row"><span class="radio"></span><span class="n">3</span><span class="lbl">Poor</span><span class="ref">2.0 level</span></div><div class="row"><span class="radio"></span><span class="n">4</span><span class="lbl">Below Average</span><span class="ref">Gone in Sixty Seconds vibes</span></div><div class="row"><span class="radio"></span><span class="n">5</span><span class="lbl">Average</span><span class="ref">Entourage energy</span></div><div class="row"><span class="radio"></span><span class="n">6</span><span class="lbl">Fine</span><span class="ref">Batman v Superman tier</span></div><div class="row on"><span class="radio"></span><span class="n">7</span><span class="lbl">Good</span><span class="ref">Valkyrie caliber</span></div><div class="row"><span class="radio"></span><span class="n">8</span><span class="lbl">Great</span><span class="ref">Panchatanthiram territory</span></div><div class="row"><span class="radio"></span><span class="n">9</span><span class="lbl">Excellent</span><span class="ref">Slow Horses class</span></div><div class="row"><span class="radio"></span><span class="n">10</span><span class="lbl">Masterpiece</span><span class="ref">Gran Torino peak</span></div>
+<p class="note">Mock. 3-10 only. The italic text is a random title from your library at that rating plus a fixed word for that row (level, vibes, energy...). The title changes each time the sheet opens; the word never does.</p>
+</div></main></body></html>
