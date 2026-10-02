@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
     });
 
     revalidatePath("/library");
+    revalidatePath("/watching");
     revalidatePath("/wishlist");
     revalidatePath("/insights");
     revalidatePath("/search");

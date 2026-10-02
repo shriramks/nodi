@@ -653,8 +653,19 @@ Reason:
 - if marked watched, auto-remove from To Watch
 - multi-select: same Select flow; bulk bar offers Tag, Rate, and Mark Watched
 
+### Now Watching
+- tab destination at `/watching`, first in the bottom nav (Now Watching / Library / Wishlist / Insights)
+- shows only: every show with `user_media.status = 'watching'`; movies never have an in-progress state
+- hero "Continue" card is the most recently watched show: next unwatched aired episode and an
+  episodes-watched progress bar; remaining in-progress shows follow as a compact list
+- no type filter and no tabs
+- "Last month with Amele": previous calendar month, scoped to the companion tag. Titles and time, change
+  vs the month before, share of all watching that month, highest-rated, weekday watched most. Movies and
+  shows both count here.
+- in-progress shows no longer appear in Library; its watched view is `status in ('done', 'stopped')`
+
 ### Insights (formerly Stats)
-- three blocks, top to bottom: All-time, Habits, This year; the All / Movies / Shows filter drives all of them
+- three blocks, top to bottom: All-time, Habits, This year; no type filter; everything covers movies and shows together
 - All-time: a Movies card and a Shows card, each with its own title count and total watched duration
   (a single card when the filter narrows to one type)
 - Habits and This year are scoped to the viewing companion, the title carrying the "Amele" tag
@@ -662,7 +673,7 @@ Reason:
   user watched with, never as "a tag"
 - Habits with the companion: busiest month, quietest month, weekday watched most, decade watched most
 - This year with the companion: time and share of all watching, titles and time vs the same span of
-  last year, highest-rated, lowest-rated, average rating vs last year, titles and time without them
+  last year, highest-rated and lowest-rated (with their rating), average rating vs last year, titles and time without them
 - a title is a movie or a show, never an episode; time sums every watched runtime
 - rows with no data are hidden; ties for highest/lowest rated go to the most recently watched title
 - no genre, language, tag, or rating-distribution breakdowns, and no money/spend metrics

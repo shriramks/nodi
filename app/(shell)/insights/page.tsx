@@ -1,45 +1,35 @@
-import type { ReactNode } from "react";
-import Link from "next/link";
 import type { Metadata } from "next";
 import { getCompanionTagName, getInsightsPageData } from "@/lib/db/queries";
-import type { Insights, InsightsPeriodTotals, LibraryStats, MediaTypeFilter } from "@/lib/db/types";
+import type { Insights, InsightsPeriodTotals, LibraryStats } from "@/lib/db/types";
 import { SettingsSheet } from "@/components/settings/settings-sheet";
+import { InsightRow, InsightRows } from "@/components/ui/insight-row";
 import { PageHeader, Section, SectionHeader } from "@/components/ui/section";
+import {
+  companionLabel,
+  formatPercent,
+  formatRuntime,
+  signed,
+  signedRuntime,
+} from "@/lib/media/format";
 
 export const metadata: Metadata = {
   title: "Insights",
 };
 
-const typeOptions: Array<{ value: MediaTypeFilter; label: string }> = [
-  { value: "all", label: "All" },
-  { value: "movie", label: "Movies" },
-  { value: "show", label: "Shows" },
-];
-
-export default async function InsightsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ type?: string }>;
-}) {
-  const { type } = await searchParams;
-  const typeFilter = parseInsightsType(type);
-  const { stats, insights } = await getInsightsPageData(typeFilter);
+export default async function InsightsPage() {
+  const { stats, insights } = await getInsightsPageData();
   const companion = companionLabel(getCompanionTagName());
   const hasData = stats.watchedCount > 0 || stats.watchEventCount > 0;
 
   return (
     <main>
-      <PageHeader title="Insights" className="pb-3" action={<SettingsSheet />} />
-
-      <div className="pb-4">
-        <TypeFilter current={typeFilter} />
-      </div>
+      <PageHeader title="Insights" className="pb-4" action={<SettingsSheet />} />
 
       {hasData ? (
         <>
           <Section className="pb-5">
             <SectionHeader>All-time</SectionHeader>
-            <AllTimeCards stats={stats} type={typeFilter} />
+            <AllTimeCards stats={stats} />
           </Section>
 
           {insights.hasCompanionData ? (
@@ -71,52 +61,21 @@ export default async function InsightsPage({
   );
 }
 
-function TypeFilter({ current }: { current: MediaTypeFilter }) {
+function AllTimeCards({ stats }: { stats: LibraryStats }) {
   return (
-    <div className="flex items-center gap-2">
-      {typeOptions.map((option) => {
-        const active = option.value === current;
-        return (
-          <Link
-            key={option.value}
-            href={option.value === "all" ? "/insights" : `/insights?type=${option.value}`}
-            className="inline-flex h-9 items-center rounded-full px-3 text-[13px] font-medium"
-            style={{
-              border: `1px solid ${active ? "var(--color-accent)" : "var(--color-divider)"}`,
-              color: active ? "var(--color-accent)" : "var(--color-text-2)",
-            }}
-            aria-current={active ? "page" : undefined}
-          >
-            {option.label}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
-function AllTimeCards({ stats, type }: { stats: LibraryStats; type: MediaTypeFilter }) {
-  const showMovies = type !== "show";
-  const showShows = type !== "movie";
-
-  return (
-    <div className={`grid gap-2.5 ${showMovies && showShows ? "grid-cols-2" : "grid-cols-1"}`}>
-      {showMovies && (
-        <TotalsCard
-          kind="Movies"
-          count={stats.movieCount}
-          unit={stats.movieCount === 1 ? "movie" : "movies"}
-          runtimeMinutes={stats.movieRuntimeMinutes}
-        />
-      )}
-      {showShows && (
-        <TotalsCard
-          kind="Shows"
-          count={stats.showCount}
-          unit={stats.showCount === 1 ? "show" : "shows"}
-          runtimeMinutes={stats.showRuntimeMinutes}
-        />
-      )}
+    <div className="grid grid-cols-2 gap-2.5">
+      <TotalsCard
+        kind="Movies"
+        count={stats.movieCount}
+        unit={stats.movieCount === 1 ? "movie" : "movies"}
+        runtimeMinutes={stats.movieRuntimeMinutes}
+      />
+      <TotalsCard
+        kind="Shows"
+        count={stats.showCount}
+        unit={stats.showCount === 1 ? "show" : "shows"}
+        runtimeMinutes={stats.showRuntimeMinutes}
+      />
     </div>
   );
 }
@@ -149,24 +108,22 @@ function TotalsCard({
 
 function HabitRows({ habits }: { habits: Insights["habits"] }) {
   return (
-    <div>
+    <InsightRows>
       {habits.busiestMonth && (
         <InsightRow
-          accent
-          value={habits.busiestMonth.label}
+            value={habits.busiestMonth.label}
           description={`busiest month, ${titleCountLabel(habits.busiestMonth.titleCount)}`}
         />
       )}
       {habits.quietestMonth && (
         <InsightRow
-          accent
-          value={habits.quietestMonth.label}
+            value={habits.quietestMonth.label}
           description={`quietest month, ${titleCountLabel(habits.quietestMonth.titleCount)}`}
         />
       )}
       {habits.topWeekday && <InsightRow value={habits.topWeekday} description="day you watch most" />}
       {habits.topDecade && <InsightRow value={habits.topDecade} description="decade you watch most" />}
-    </div>
+    </InsightRows>
   );
 }
 
@@ -181,23 +138,21 @@ function ThisYearRows({
   const hasComparison = withCompanion.titleCount > 0 || withCompanionLastYear.titleCount > 0;
 
   return (
-    <div>
+    <InsightRows>
       <InsightRow
-        accent
         value={`${formatRuntime(withCompanion.runtimeMinutes)} · ${formatPercent(thisYear.companionSharePercent)}`}
         description="time, and share of all watching"
       />
       {hasComparison && (
         <InsightRow
-          accent
-          value={`${signed(withCompanion.titleCount - withCompanionLastYear.titleCount)} · ${signedRuntime(
+            value={`${signed(withCompanion.titleCount - withCompanionLastYear.titleCount)} · ${signedRuntime(
             withCompanion.runtimeMinutes - withCompanionLastYear.runtimeMinutes,
           )}`}
           description="titles and time vs last year"
         />
       )}
-      {thisYear.highestRated && <InsightRow value={thisYear.highestRated.title} description="highest-rated" />}
-      {thisYear.lowestRated && <InsightRow value={thisYear.lowestRated.title} description="lowest-rated" />}
+      {thisYear.highestRated && <InsightRow value={thisYear.highestRated.title} description={`highest-rated, ${thisYear.highestRated.rating.toFixed(1)}`} />}
+      {thisYear.lowestRated && <InsightRow value={thisYear.lowestRated.title} description={`lowest-rated, ${thisYear.lowestRated.rating.toFixed(1)}`} />}
       {thisYear.avgRating !== null && (
         <InsightRow
           value={thisYear.avgRating.toFixed(1)}
@@ -209,30 +164,7 @@ function ThisYearRows({
         />
       )}
       <InsightRow value={totalsValue(withoutCompanion)} description={`titles and time without ${companion}`} />
-    </div>
-  );
-}
-
-function InsightRow({
-  accent = false,
-  description,
-  value,
-}: {
-  accent?: boolean;
-  description: string;
-  value: ReactNode;
-}) {
-  return (
-    <div className="flex items-baseline gap-3.5 border-b border-divider py-3 last:border-b-0">
-      <p
-        className={`tabnum w-[42%] shrink-0 break-words text-[17px] font-bold leading-[1.2] ${
-          accent ? "text-accent" : "text-foreground"
-        }`}
-      >
-        {value}
-      </p>
-      <p className="min-w-0 text-[14px] leading-[1.35] text-text-2">{description}</p>
-    </div>
+    </InsightRows>
   );
 }
 
@@ -242,43 +174,4 @@ function totalsValue(totals: InsightsPeriodTotals) {
 
 function titleCountLabel(count: number) {
   return `${count} ${count === 1 ? "title" : "titles"}`;
-}
-
-function formatPercent(value: number | null) {
-  return value === null ? "0%" : `${Number.isInteger(value) ? value : value.toFixed(1)}%`;
-}
-
-function signed(value: number) {
-  if (value === 0) return "0";
-  return value > 0 ? `+${value}` : `-${Math.abs(value)}`;
-}
-
-function signedRuntime(minutes: number) {
-  if (minutes === 0) return "0m";
-  return `${minutes > 0 ? "+" : "-"}${formatRuntime(Math.abs(minutes))}`;
-}
-
-function companionLabel(tagName: string) {
-  return tagName.charAt(0).toUpperCase() + tagName.slice(1);
-}
-
-function parseInsightsType(value: string | undefined): MediaTypeFilter {
-  return value === "movie" || value === "show" ? value : "all";
-}
-
-function formatRuntime(minutes: number) {
-  if (minutes <= 0) return "0m";
-  const days = Math.floor(minutes / 1440);
-  const dayHours = Math.floor((minutes % 1440) / 60);
-  const remainingMinutes = Math.floor(minutes % 60);
-  const hours = Math.floor(minutes / 60);
-
-  if (days > 0) {
-    if (dayHours > 0 && remainingMinutes > 0) return `${days}d ${dayHours}h ${remainingMinutes}m`;
-    if (dayHours > 0) return `${days}d ${dayHours}h`;
-    if (remainingMinutes > 0) return `${days}d ${remainingMinutes}m`;
-    return `${days}d`;
-  }
-  if (hours > 0) return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
-  return `${remainingMinutes}m`;
 }

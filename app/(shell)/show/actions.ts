@@ -27,6 +27,7 @@ type ShowSaveStatus = "watching" | "wishlist";
 
 function revalidateShowState(showId: string) {
   revalidatePath(`/show/${showId}`);
+  revalidatePath("/watching");
   revalidatePath("/library");
   revalidatePath("/wishlist");
   revalidatePath("/search");
@@ -43,6 +44,7 @@ export async function saveTmdbShowToLibraryAction(
 ): Promise<string> {
   const show = await saveTmdbShow(payload, "watching");
   revalidatePath("/library");
+  revalidatePath("/watching");
   return `/show/${show.id}`;
 }
 

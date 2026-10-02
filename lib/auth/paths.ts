@@ -2,6 +2,7 @@ export const AUTH_ROUTE = "/auth";
 export const DEFAULT_AUTHENTICATED_PATH = "/library";
 
 const protectedRoutePrefixes = [
+  "/watching",
   "/library",
   "/media",
   "/wishlist",

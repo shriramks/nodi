@@ -1,4 +1,5 @@
 import type {
+  CompanionMonth,
   Insights,
   InsightsMonth,
   InsightsPeriodTotals,
@@ -207,4 +208,58 @@ function topKey(map: Map<number, Set<string>>, tie: "first" | "last"): number | 
     if (size > bestSize || (size === bestSize && tie === "last")) best = key;
   }
   return best;
+}
+
+// "Last month" is the previous calendar month, compared with the month before it.
+export function buildCompanionMonth({
+  watchRows,
+  tagRows,
+  ratingRows,
+  companionTag,
+  now = new Date(),
+}: {
+  watchRows: MediaStatsWatchRow[];
+  tagRows: MediaStatsTagRow[];
+  ratingRows: MediaStatsRatingRow[];
+  companionTag: string;
+  now?: Date;
+}): CompanionMonth {
+  const companionIds = companionMediaIds(tagRows, companionTag);
+  const datedRows = datedWatchRows(watchRows);
+  const ratings = new Map<string, number>();
+  for (const row of ratingRows) {
+    if (row.personal_rating !== null) ratings.set(row.media_id, row.personal_rating);
+  }
+
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+  const last = { start: Date.UTC(year, month - 1, 1), end: Date.UTC(year, month, 1) };
+  const previous = { start: Date.UTC(year, month - 2, 1), end: last.start };
+
+  const lastRows = rowsInWindow(datedRows, last);
+  const withLast = lastRows.filter(({ row }) => companionIds.has(row.media_id));
+  const withPrevious = rowsInWindow(datedRows, previous).filter(({ row }) => companionIds.has(row.media_id));
+
+  const withTotals = periodTotals(withLast);
+  const allMinutes = periodTotals(lastRows).runtimeMinutes;
+  const weekdayDays = new Map<number, Set<string>>();
+  for (const { row, ts } of withLast) {
+    const date = new Date(ts);
+    addToSetMap(weekdayDays, date.getUTCDay(), `${row.media_id}:${date.toISOString().slice(0, 10)}`);
+  }
+  const topWeekday = topKey(weekdayDays, "first");
+
+  return {
+    label: monthName(last.start),
+    withCompanion: withTotals,
+    withCompanionPreviousMonth: periodTotals(withPrevious),
+    previousMonthLabel: monthName(previous.start),
+    sharePercent: allMinutes > 0 ? Math.round((withTotals.runtimeMinutes / allMinutes) * 1000) / 10 : null,
+    highestRated: pickExtremes(ratedTitles(withLast, ratings)).highestRated,
+    topWeekday: topWeekday === null ? null : weekdayLabels[topWeekday],
+  };
+}
+
+function monthName(ts: number) {
+  return new Intl.DateTimeFormat("en-US", { month: "long", timeZone: "UTC" }).format(new Date(ts));
 }

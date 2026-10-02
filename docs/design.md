@@ -144,12 +144,27 @@ Page routes should normally start with `PageHeader` from `components/ui/section.
 - Insights may use divider-led sections instead of a single main `space-y-*` stack because its
   blocks are intentionally separated by full-width divider lines.
 
+### Now Watching
+
+- One screen, no tabs or type filter, shows only. Top to bottom: "Continue" hero card (backdrop, title,
+  next episode, progress bar), "Shows in progress" compact list (poster, title, "N of M episodes",
+  60px progress bar), then "Last month with Amele".
+- Last month rows reuse the Insights row pattern (bold value left, description right, no wrapping):
+  titles and time together, change vs the month before, share of everything watched, highest-rated
+  together, day watched together most. Rows with no data are hidden; with no titles the section is
+  one muted sentence.
+- No movies on this screen: movies have no in-progress state.
+
 ### Insights rows
 
-- All-time is two `bg-surface` cards (Movies, Shows), each with a count and a duration; a single card
-  when the type filter narrows to one type.
-- Habits and This year are lists of sentence rows: a bold `tabnum` value on the left (about 42% wide,
-  wraps for long titles) and a muted description on the right. Never reverse the order.
+- No type filter. All-time is always two `bg-surface` cards (Movies, Shows), each with a count and a
+  duration.
+- Insight row values are never accent-coloured; all rows use the foreground colour. Highest-rated and
+  lowest-rated descriptions include the rating value ("highest-rated, 4.5").
+- Habits and This year are lists of sentence rows: a bold `tabnum` value on the left and a muted
+  description on the right. Never reverse the order. The value column is sized to the widest value
+  (capped at 10rem) and never wraps; long titles truncate. Shared via `InsightRows` / `InsightRow`
+  in `components/ui/insight-row.tsx`, also used by Now Watching.
 - Section headers carry the viewing companion ("Habits with Amele"), so rows do not repeat it.
 - Descriptions use short sentences and commas, no em-dashes. Rows with no data are hidden.
 - No charts on this page; resist adding secondary breakdowns just to fill space.
@@ -250,17 +265,18 @@ Rules:
 ### BottomPillNav
 
 ```text
-[RetroTvIcon  Library] [Bookmark  Wishlist] [BarChart2  Insights]   (+)   <- expanded: 3-tab pill + separate Add FAB
-      [Library]              [Wishlist]         [Insights]       +    <- collapsed: icon-only pill + FAB tucked in
+[Play Watching] [RetroTvIcon Library] [Bookmark Wishlist] [BarChart2 Insights]   (+)   <- expanded: 4-tab pill + separate Add FAB
+     [Watching]        [Library]            [Wishlist]         [Insights]          +    <- collapsed: icon-only pill + FAB tucked in
 ```
 
-The nav is two elements, not one: a 3-tab pill (Library / Wishlist / Insights) and a separate circular
+The nav is two elements, not one: a 4-tab pill (Now Watching / Library / Wishlist / Insights; the tab label is "Watching" so it fits, the aria-label stays "Now Watching") and a separate circular
 "Add" button next to it. The Add button is not a 4th pill item — it routes to `/search` (the TMDB
 search-and-ingest flow for adding a new movie or show), so its icon is `Plus`, not `Search`, and it
 uses `bg-accent text-black` like other primary CTAs rather than the pill's `bg-accent/10 text-accent`
 tab treatment.
 
 Icon assignments (lucide-react unless noted):
+- Now Watching → `Play`
 - Library → `RetroTvIcon` (custom, `components/icons/retro-tv.tsx`)
 - Wishlist → `Bookmark`
 - Insights → `BarChart2`
@@ -315,7 +331,6 @@ Rules:
 Use for:
 - Library
 - Wishlist
-- Insights
 
 Rules:
 - Default selection is `All`.

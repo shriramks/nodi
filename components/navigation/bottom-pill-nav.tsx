@@ -1,12 +1,13 @@
 "use client";
 
-import { BarChart2, Bookmark, Plus } from "lucide-react";
+import { BarChart2, Bookmark, Play, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { RetroTvIcon } from "@/components/icons/retro-tv";
 
 const tabs = [
+  { href: "/watching", label: "Watching", Icon: Play },
   { href: "/library", label: "Library", Icon: RetroTvIcon },
   { href: "/wishlist", label: "Wishlist", Icon: Bookmark },
   { href: "/insights", label: "Insights", Icon: BarChart2 },

@@ -19,6 +19,7 @@ import { normalizeTmdbId, watchDateToTimestamp } from "../action-utils";
 
 function revalidateMovieState(movieId: string) {
   revalidatePath(`/movie/${movieId}`);
+  revalidatePath("/watching");
   revalidatePath("/library");
   revalidatePath("/wishlist");
   revalidatePath("/search");

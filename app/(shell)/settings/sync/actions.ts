@@ -77,6 +77,7 @@ function revalidateSettings() {
   revalidatePath("/settings/sync/trakt");
   revalidatePath("/settings/sync/tmdb");
   revalidatePath("/library");
+  revalidatePath("/watching");
   revalidatePath("/wishlist");
   revalidatePath("/search");
 }

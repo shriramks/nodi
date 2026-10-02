@@ -127,6 +127,14 @@ start with the listed files and only expand outward if those files point elsewhe
 Use this section for common repo questions before scanning. The goal is to start from the known owner
 files, then inspect only direct imports, direct callers, or the relevant route boundary.
 
+### Now Watching
+
+- Route: `app/(shell)/watching/page.tsx`. Shows only, no filter.
+  - Loads in-progress shows and last month with the companion via `getWatchingPageData()` in
+    `lib/db/queries/watching.ts`; pure logic in `watching-transforms.ts` and
+    `buildCompanionMonth()` in `insights-transforms.ts`.
+  - Rows use `components/ui/insight-row.tsx`, shared with Insights.
+
 ### Library
 
 - Library route: `app/(shell)/library/page.tsx`

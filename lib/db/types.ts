@@ -830,6 +830,32 @@ export type Insights = {
   };
 };
 
+export type CompanionMonth = {
+  label: string;
+  withCompanion: InsightsPeriodTotals;
+  withCompanionPreviousMonth: InsightsPeriodTotals;
+  previousMonthLabel: string;
+  sharePercent: number | null;
+  highestRated: InsightsRatedTitle | null;
+  topWeekday: string | null;
+};
+
+export type WatchingShow = {
+  id: string;
+  title: string;
+  posterPath: string | null;
+  backdropPath: string | null;
+  lastWatchedAt: string | null;
+  watchedEpisodeCount: number;
+  totalEpisodeCount: number;
+  nextEpisode: {
+    id: string;
+    seasonNumber: number;
+    episodeNumber: number;
+    title: string;
+  } | null;
+};
+
 export type WatchedLibrarySummary = {
   watchedCount: number;
   monthBuckets: LibraryStatsTimeBucket[];

@@ -15,6 +15,7 @@ import type { Tag } from "@/lib/db/types";
 function revalidateLibrary() {
   revalidatePath("/library");
   revalidatePath("/wishlist");
+  revalidatePath("/watching");
   revalidatePath("/insights");
 }
 

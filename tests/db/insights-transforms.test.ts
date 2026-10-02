@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildInsights } from "@/lib/db/queries/insights-transforms";
+import { buildCompanionMonth, buildInsights } from "@/lib/db/queries/insights-transforms";
 import type {
   MediaStatsRatingRow,
   MediaStatsTagRow,
@@ -192,5 +192,58 @@ describe("buildInsights", () => {
 
     expect(insights.habits.busiestMonth?.key).toBe("2024-02");
     expect(insights.habits.quietestMonth).toBeNull();
+  });
+});
+
+describe("buildCompanionMonth", () => {
+  it("compares the previous calendar month with the one before it", () => {
+    const month = buildCompanionMonth({
+      watchRows: [
+        watch("1", "movie-a", "2026-09-05T20:00:00Z", { runtime: 100 }),
+        watch("2", "movie-b", "2026-09-12T20:00:00Z", { runtime: 120 }),
+        watch("3", "movie-other", "2026-09-20T20:00:00Z", { runtime: 100 }),
+        watch("4", "movie-c", "2026-08-31T20:00:00Z", { runtime: 90 }),
+        watch("5", "movie-d", "2026-10-01T20:00:00Z", { runtime: 500 }),
+      ],
+      tagRows: [amele("movie-a"), amele("movie-b"), amele("movie-c"), amele("movie-d")],
+      ratingRows: [rating("movie-a", 3), rating("movie-b", 4.5)],
+      companionTag: "amele",
+      now,
+    });
+
+    expect(month.label).toBe("September");
+    expect(month.previousMonthLabel).toBe("August");
+    expect(month.withCompanion).toEqual({ titleCount: 2, runtimeMinutes: 220 });
+    expect(month.withCompanionPreviousMonth).toEqual({ titleCount: 1, runtimeMinutes: 90 });
+    expect(month.sharePercent).toBe(68.8);
+    expect(month.highestRated?.title).toBe("movie-b");
+  });
+
+  it("rolls over the year boundary in January", () => {
+    const month = buildCompanionMonth({
+      watchRows: [watch("1", "movie-a", "2025-12-10T20:00:00Z")],
+      tagRows: [amele("movie-a")],
+      ratingRows: [],
+      companionTag: "amele",
+      now: new Date("2026-01-05T12:00:00Z"),
+    });
+
+    expect(month.label).toBe("December");
+    expect(month.previousMonthLabel).toBe("November");
+    expect(month.withCompanion.titleCount).toBe(1);
+  });
+
+  it("returns empty totals when nothing was watched together", () => {
+    const month = buildCompanionMonth({
+      watchRows: [watch("1", "movie-a", "2026-09-05T20:00:00Z")],
+      tagRows: [],
+      ratingRows: [],
+      companionTag: "amele",
+      now,
+    });
+
+    expect(month.withCompanion.titleCount).toBe(0);
+    expect(month.topWeekday).toBeNull();
+    expect(month.highestRated).toBeNull();
   });
 });
