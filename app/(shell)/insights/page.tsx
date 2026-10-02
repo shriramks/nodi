@@ -99,7 +99,6 @@ function TotalsCard({
       </p>
       <p className="tabnum mt-1.5 text-[15px] font-semibold text-accent">
         {formatRuntime(runtimeMinutes)}
-        <span className="ml-1 text-[12px] font-medium text-text-muted">watched</span>
       </p>
     </div>
   );

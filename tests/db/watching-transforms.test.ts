@@ -35,6 +35,18 @@ describe("buildWatchingShows", () => {
     expect(result.totalEpisodeCount).toBe(3);
   });
 
+  it("ignores specials for the next episode and progress", () => {
+    const [result] = buildWatchingShows({
+      showRows: [show("a", null)],
+      episodeRows: [episode("sp1", "a", 0, 1, "2026-01-01"), episode("e1", "a", 1, 1, "2026-01-02")],
+      watchedEpisodeIds: new Set(),
+      today: "2026-10-02",
+    });
+
+    expect(result.nextEpisode?.id).toBe("e1");
+    expect(result.totalEpisodeCount).toBe(1);
+  });
+
   it("never picks an unaired episode as next", () => {
     const [result] = buildWatchingShows({
       showRows: [show("a", null)],

@@ -15,7 +15,8 @@ export type WatchingEpisodeRow = {
   air_date: string | null;
 };
 
-// The next episode is the first unwatched, already-aired one in season order. Unaired episodes are
+// Specials (season 0) are hidden on show detail by default, so they never count toward progress or
+// become the next episode here. The next episode is the first unwatched, already-aired one in season order. Unaired episodes are
 // never "next", so a show that is waiting on new episodes shows no episode line.
 export function buildWatchingShows({
   showRows,
@@ -37,7 +38,7 @@ export function buildWatchingShows({
 
   const shows = showRows.flatMap((row) => {
     if (!row.media_items) return [];
-    const episodes = (episodesByShow.get(row.media_id) ?? []).sort(
+    const episodes = (episodesByShow.get(row.media_id) ?? []).filter((episode) => episode.season_number !== 0).sort(
       (a, b) => a.season_number - b.season_number || a.episode_number - b.episode_number,
     );
     const next = episodes.find(
