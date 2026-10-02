@@ -105,6 +105,7 @@ start with the listed files and only expand outward if those files point elsewhe
 | TMDB provider logic | `lib/providers/tmdb/client.ts`, `lib/providers/tmdb/adapters.ts` | search/detail routes that call them |
 | TMDB images | `lib/providers/tmdb/images.ts` | components rendering TMDB images |
 | Search UI and API | `components/search/movie-search.tsx`, `app/(shell)/search/page.tsx` | `app/api/search/movies/route.ts`, TMDB adapter/client |
+| Search Discover rails (empty state, rail list) | `components/search/discover-rails.tsx`, `app/api/search/discover/route.ts` | `components/search/discover-grid.tsx`, `app/(shell)/search/discover/[rail]/page.tsx`, `lib/media/discover-rails.ts`, `lib/db/queries/search-local-state.ts` |
 | Remote TMDB detail before ingestion | `app/(shell)/movie/tmdb/[tmdbId]/page.tsx` | `app/(shell)/movie/tmdb/[tmdbId]/tmdb-movie-detail-client.tsx`, `app/(shell)/movie/actions.ts` |
 | Local movie detail | `app/(shell)/movie/[movieId]/page.tsx` | `app/(shell)/movie/[movieId]/movie-detail-client.tsx`, `components/movie/movie-detail-view.tsx`, `app/(shell)/movie/[movieId]/actions.ts` |
 | Shared detail presentation | `components/ui/detail.tsx`, `components/movie/movie-detail-view.tsx` | `components/movie/overview-text.tsx`, `components/media/credit-poster-card.tsx`, `components/media/cast-member-card.tsx`, `components/media/media-info-panel.tsx`, `components/media/detail-hero-section.tsx` |

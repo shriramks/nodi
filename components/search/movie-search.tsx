@@ -5,6 +5,8 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { DiscoverRails } from "@/components/search/discover-rails";
+import { searchResultHref } from "@/components/search/search-result-href";
 import { TmdbImagePrefetcher } from "@/components/media/tmdb-image-prefetcher";
 import type {
   MediaSearchResult,
@@ -106,17 +108,7 @@ export function MovieSearch() {
 
     setOpeningResultKey(searchResultKey(result));
 
-    if (result.mediaType === "movie" && result.localMovieId) {
-      router.push(`/movie/${result.localMovieId}`);
-      return;
-    }
-
-    if (result.mediaType === "show" && result.localMediaId) {
-      router.push(`/show/${result.localMediaId}/episodes`);
-      return;
-    }
-
-    router.push(result.detailUrl);
+    router.push(searchResultHref(result));
   }
 
   return (
@@ -156,6 +148,8 @@ export function MovieSearch() {
       {activeStatus === "error" ? (
         <p className="px-1 text-[13px] text-danger">{errorMessage ?? "Search failed."}</p>
       ) : null}
+
+      {normalizedQuery.length < minimumQueryLength ? <DiscoverRails /> : null}
 
       {activeStatus === "success" && results.length === 0 ? (
         <p className="px-1 text-[13px] text-text-2">No movies or shows found.</p>

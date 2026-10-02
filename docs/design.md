@@ -506,6 +506,28 @@ Search results specifically: title (headline) + one footnote metadata line only.
 snippet — plot belongs on the detail page, not in search. Consistent row height is more important
 than extra context.
 
+### DiscoverRails
+
+Use `DiscoverRails` / `DiscoverCard` / `DiscoverGrid` from `components/search/` for the Search tab's
+empty state and the rail list page.
+
+```text
+Trending                                     >
+[poster] [poster] [poster] [poster]      <- SectionScrollBleed rail
+ title    title    title
+ Show · 2025
+```
+
+Rules:
+- Rail header is title-2 (20px, 600) with a trailing accent chevron; the whole row is a 44px tap target.
+- Rail cards follow CreditPosterCard (poster, 12px semibold title, footnote "Show · 2025"); the grid
+  page shows posters only.
+- A `bg-watched` check badge (top right of the poster) marks titles already in the library. Never
+  show ratings or status text on these cards.
+- Discover only renders while the search field is empty; results replace it, never sit beside it.
+- The rail page uses `BackButton` (fallback `/search`) and the All / Movies / Shows chip row
+  (active `bg-accent/15 font-semibold text-accent`).
+
 ### CastMemberCard
 
 Use `CastMemberCard` from `components/media/cast-member-card.tsx` for cast carousels in both movie

@@ -58,6 +58,18 @@ export type TmdbTvSearchResponse = {
   total_results: number;
 };
 
+// /trending/movie and /trending/tv omit media_type, so it is optional here.
+export type TmdbTrendingResult =
+  | (TmdbMovieSearchResult & { media_type?: "movie" })
+  | (TmdbTvSearchResult & { media_type?: "tv" });
+
+export type TmdbTrendingResponse = {
+  page: number;
+  results: TmdbTrendingResult[];
+  total_pages: number;
+  total_results: number;
+};
+
 export type TmdbMovieDetails = {
   id: number;
   imdb_id?: string | null;
@@ -365,20 +377,23 @@ export const loadTmdbAuthForCurrentUser = cache(async (): Promise<TmdbAuth> => {
 async function fetchTmdbJson<T>(
   path: string,
   params?: Record<string, string | number | boolean | null | undefined>,
+  revalidateSeconds?: number,
 ) {
   const auth = await loadTmdbAuthForCurrentUser();
-  return fetchTmdbJsonWithAuth<T>(auth, path, params);
+  return fetchTmdbJsonWithAuth<T>(auth, path, params, revalidateSeconds);
 }
 
 function fetchTmdbJsonWithAuth<T>(
   auth: TmdbAuth,
   path: string,
   params?: Record<string, string | number | boolean | null | undefined>,
+  revalidateSeconds?: number,
 ) {
   return fetchJson<T>(tmdbUrl(path, params), {
     headers: {
       authorization: `Bearer ${auth.apiToken}`,
     },
+    ...(revalidateSeconds ? { next: { revalidate: revalidateSeconds } } : {}),
   });
 }
 
@@ -406,6 +421,51 @@ export function searchTmdbTv({
     language,
     include_adult: false,
   });
+}
+
+// Discover rails change slowly, so TMDB responses are cached for a few hours.
+const discoverRevalidateSeconds = 3 * 60 * 60;
+
+export function getTmdbTrending(mediaType: "all" | "movie" | "tv" = "all", page = 1) {
+  return fetchTmdbJson<TmdbTrendingResponse>(
+    `/trending/${mediaType}/week`,
+    { page },
+    discoverRevalidateSeconds,
+  );
+}
+
+export function getTmdbPopularMovies(page = 1) {
+  return fetchTmdbJson<TmdbMovieListResponse>(
+    "/movie/popular",
+    { page },
+    discoverRevalidateSeconds,
+  );
+}
+
+export function getTmdbPopularTv(page = 1) {
+  return fetchTmdbJson<TmdbTvSearchResponse>("/tv/popular", { page }, discoverRevalidateSeconds);
+}
+
+export function getTmdbUpcomingMovies(page = 1) {
+  return fetchTmdbJson<TmdbMovieListResponse>(
+    "/movie/upcoming",
+    { page },
+    discoverRevalidateSeconds,
+  );
+}
+
+// TMDB has no upcoming-TV list, so approximate it with the most popular shows that premiere later.
+export function getTmdbUpcomingTv(firstAirDateGte: string, page = 1) {
+  return fetchTmdbJson<TmdbTvSearchResponse>(
+    "/discover/tv",
+    {
+      include_adult: false,
+      page,
+      "first_air_date.gte": firstAirDateGte,
+      sort_by: "popularity.desc",
+    },
+    discoverRevalidateSeconds,
+  );
 }
 
 export function getTmdbMovieDetails(tmdbId: number, language?: string | null) {

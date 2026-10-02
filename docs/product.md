@@ -694,6 +694,12 @@ These all become cleaner if runtime and watch logs are stored explicitly.
 - expose an explicit clear control while the query has text
 - keep searching feedback inside the search field and opening feedback on the selected result
 - tapping a search result opens detail first
+- while the query is empty the screen shows Discover: Trending, Anticipated and Popular rails of
+  about 10 movies and shows mixed (TMDB `trending/all/week`, `movie/popular` + `tv/popular`,
+  `movie/upcoming` + `discover/tv` with future first-air dates); a green check marks titles already
+  in the library, and Anticipated hides them; typing replaces Discover with search results
+- a rail's chevron opens `/search/discover/[rail]`: All / Movies / Shows chips, a 3-column poster
+  grid, and Load more; cards open detail first like search results
 
 ### Movie detail presentation
 - keep poster and compact metadata together in the hero area
