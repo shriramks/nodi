@@ -8,7 +8,7 @@ import { SettingsSheet } from "@/components/settings/settings-sheet";
 import { PageHeader, Section, SectionHeader } from "@/components/ui/section";
 import { getCompanionTagName, getWatchingPageData } from "@/lib/db/queries";
 import type { CompanionMonth, WatchingShow } from "@/lib/db/types";
-import { companionLabel, formatPercent, formatRuntime, signed, signedRuntime } from "@/lib/media/format";
+import { companionLabel, formatPercent, formatRuntime, signedRuntime } from "@/lib/media/format";
 import { tmdbImage } from "@/lib/providers/tmdb/images";
 
 export const metadata: Metadata = {
@@ -147,13 +147,11 @@ function CompanionMonthRows({ month, companion }: { month: CompanionMonth; compa
   return (
     <InsightRows>
       <InsightRow
-        value={`${withCompanion.titleCount} · ${formatRuntime(withCompanion.runtimeMinutes)}`}
-        description="titles and time together"
+        value={formatRuntime(withCompanion.runtimeMinutes)}
+        description="time together"
       />
       <InsightRow
-        value={`${signed(withCompanion.titleCount - withCompanionPreviousMonth.titleCount)} · ${signedRuntime(
-          withCompanion.runtimeMinutes - withCompanionPreviousMonth.runtimeMinutes,
-        )}`}
+        value={signedRuntime(withCompanion.runtimeMinutes - withCompanionPreviousMonth.runtimeMinutes)}
         description={`vs ${month.previousMonthLabel}`}
       />
       <InsightRow value={formatPercent(month.sharePercent)} description="of everything you watched" />
