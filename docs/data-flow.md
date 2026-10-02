@@ -43,7 +43,7 @@ flowchart TD
         LIB["/library · /wishlist\nlist_media_library_movies_page RPC"]
         MOVIEDETAIL["/movie/id\ngetMediaDetail"]
         SHOWDETAIL["/show/id\ngetShowDetail"]
-        STATS["/stats\ngetMediaStatsInput"]
+        STATS["/insights\ngetMediaStatsInput"]
         SEARCH["/search\nTMDB + media_provider_mappings + user_media"]
     end
 

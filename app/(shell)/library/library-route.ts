@@ -44,7 +44,7 @@ export function cleanParam(value: string | undefined) {
 }
 
 export function safeStatsHref(value: string | undefined) {
-  return value?.startsWith("/stats") ? value : "/stats";
+  return value?.startsWith("/insights") ? value : "/insights";
 }
 
 export function queryHref(

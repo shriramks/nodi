@@ -791,6 +791,45 @@ export type LibraryStats = {
   ratingBreakdown: LibraryStatsRatingBucket[];
 };
 
+export type InsightsPeriodTotals = {
+  titleCount: number;
+  runtimeMinutes: number;
+};
+
+export type InsightsRatedTitle = {
+  mediaId: string;
+  title: string;
+  rating: number;
+};
+
+export type InsightsMonth = {
+  key: string;
+  label: string;
+  titleCount: number;
+};
+
+// Everything below is scoped to the viewing companion (the "Amele" tag), except `withoutCompanion`.
+export type Insights = {
+  hasCompanionData: boolean;
+  habits: {
+    busiestMonth: InsightsMonth | null;
+    quietestMonth: InsightsMonth | null;
+    topWeekday: string | null;
+    topDecade: string | null;
+  };
+  thisYear: {
+    year: number;
+    withCompanion: InsightsPeriodTotals;
+    withCompanionLastYear: InsightsPeriodTotals;
+    withoutCompanion: InsightsPeriodTotals;
+    companionSharePercent: number | null;
+    highestRated: InsightsRatedTitle | null;
+    lowestRated: InsightsRatedTitle | null;
+    avgRating: number | null;
+    avgRatingLastYear: number | null;
+  };
+};
+
 export type WatchedLibrarySummary = {
   watchedCount: number;
   monthBuckets: LibraryStatsTimeBucket[];

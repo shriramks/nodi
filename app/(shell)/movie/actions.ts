@@ -22,7 +22,7 @@ function revalidateMovieState(movieId: string) {
   revalidatePath("/library");
   revalidatePath("/wishlist");
   revalidatePath("/search");
-  revalidatePath("/stats");
+  revalidatePath("/insights");
 }
 
 export async function markWatchedAction(movieId: string): Promise<void> {

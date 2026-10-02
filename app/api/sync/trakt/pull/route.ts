@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
 
     revalidatePath("/library");
     revalidatePath("/wishlist");
-    revalidatePath("/stats");
+    revalidatePath("/insights");
     revalidatePath("/search");
 
     return NextResponse.json(result);

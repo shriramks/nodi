@@ -60,7 +60,7 @@ combined surfaces should be:
 ```text
 /library?type=all|movie|show
 /wishlist?type=all|movie|show
-/stats?type=all|movie|show
+/insights?type=all|movie|show
 ```
 
 Internally, shared behavior belongs in `media` modules while domain-specific detail screens remain
@@ -462,6 +462,7 @@ request. Current pure modules are:
 - `lib/providers/tmdb/adapters.ts`
 - `lib/providers/trakt/adapters.ts`
 - `lib/db/queries/stats-transforms.ts`
+- `lib/db/queries/insights-transforms.ts`
 - `lib/db/mutations/movie-state.ts`
 
 Tests live under `tests/` and run with `npm run test`. Vitest aliases `@/` to the repo root and
@@ -586,13 +587,13 @@ For v1, online-first is fine. No offline mutation support is required.
 - `/auth`
 - `/movies`
   - URL filters: `genre`, `language`, repeated `tag`, `ratingOp`, `rating`, `year`, `month`
-  - Stats drill-down helpers: `from=stats`, `returnTo=/stats...`
+  - Insights return helpers: `from=stats`, `returnTo=/insights...`
   - `month` (`YYYY-MM`) takes precedence over `year` (`YYYY`) when both are present
 - `/to-watch`
-- `/stats`
-  - `tag` scopes stats to movies with that tag
-  - `year` scopes stats to watch events in that watched year
-  - genre, language, month, and year breakdowns link to `/library` filters
+- `/insights` (`/stats` redirects here)
+  - `type=all|movie|show`, default `all`
+  - all-time totals come from `buildMediaLibraryStats`; companion habits and this-year numbers come
+    from `buildInsights` in `lib/db/queries/insights-transforms.ts`, both fed by one `getMediaStatsInput`
 
 ### Planned library routes
 
@@ -609,9 +610,8 @@ For v1, online-first is fine. No offline mutation support is required.
 - `/show/[showId]/episode/[episodeId]`
   - episode detail with poster, plot, airdate, studio, duration, show rating, TMDB rating/vote
     context, and show tags
-- `/stats`
+- `/insights`
   - `type=all|movie|show`, default `all`
-  - type filter propagates to `/library` drill-down links
 - `/search`
 - `/movie/[movieId]`
 - `/movie/tmdb/[tmdbId]`

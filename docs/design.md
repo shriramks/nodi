@@ -19,7 +19,7 @@ do. A 13px muted label reads as clearly tertiary as an 11px one, with better leg
 
 | Role | Size | Weight | Colour default | Use |
 |------|------|--------|----------------|-----|
-| `display` | 32px | 700 | text-primary | Page header titles ("Movies", "Stats"), top stat values |
+| `display` | 32px | 700 | text-primary | Page header titles ("Movies", "Insights"), top stat values |
 | `title-1` | 22px | 700 | text-primary | Movie titles in detail, important stat numbers, section titles |
 | `title-2` | 20px | 600 | text-primary | Card / section titles |
 | `headline` | 17px | 600 | text-primary | Primary list item: movie title, search result title |
@@ -141,8 +141,18 @@ Page routes should normally start with `PageHeader` from `components/ui/section.
 
 - `space-y-4` for dense poster-first pages where the grid begins immediately after the header.
 - `space-y-6` for settings, search, and form-heavy pages where sections need more breathing room.
-- Stats may use divider-led sections instead of a single main `space-y-*` stack because the chart
+- Insights may use divider-led sections instead of a single main `space-y-*` stack because its
   blocks are intentionally separated by full-width divider lines.
+
+### Insights rows
+
+- All-time is two `bg-surface` cards (Movies, Shows), each with a count and a duration; a single card
+  when the type filter narrows to one type.
+- Habits and This year are lists of sentence rows: a bold `tabnum` value on the left (about 42% wide,
+  wraps for long titles) and a muted description on the right. Never reverse the order.
+- Section headers carry the viewing companion ("Habits with Amele"), so rows do not repeat it.
+- Descriptions use short sentences and commas, no em-dashes. Rows with no data are hidden.
+- No charts on this page; resist adding secondary breakdowns just to fill space.
 
 `PageHeader` is the standard large-title row:
 
@@ -240,11 +250,11 @@ Rules:
 ### BottomPillNav
 
 ```text
-[RetroTvIcon  Library] [Bookmark  Wishlist] [BarChart2  Stats]   (+)   <- expanded: 3-tab pill + separate Add FAB
-      [Library]              [Wishlist]         [Stats]          +    <- collapsed: icon-only pill + FAB tucked in
+[RetroTvIcon  Library] [Bookmark  Wishlist] [BarChart2  Insights]   (+)   <- expanded: 3-tab pill + separate Add FAB
+      [Library]              [Wishlist]         [Insights]       +    <- collapsed: icon-only pill + FAB tucked in
 ```
 
-The nav is two elements, not one: a 3-tab pill (Library / Wishlist / Stats) and a separate circular
+The nav is two elements, not one: a 3-tab pill (Library / Wishlist / Insights) and a separate circular
 "Add" button next to it. The Add button is not a 4th pill item — it routes to `/search` (the TMDB
 search-and-ingest flow for adding a new movie or show), so its icon is `Plus`, not `Search`, and it
 uses `bg-accent text-black` like other primary CTAs rather than the pill's `bg-accent/10 text-accent`
@@ -253,7 +263,7 @@ tab treatment.
 Icon assignments (lucide-react unless noted):
 - Library → `RetroTvIcon` (custom, `components/icons/retro-tv.tsx`)
 - Wishlist → `Bookmark`
-- Stats → `BarChart2`
+- Insights → `BarChart2`
 - Add (separate FAB, routes to `/search`) → `Plus`
 
 Active state (pill tabs only): `bg-accent/10 text-accent` on the individual pill. Icon and label
@@ -305,13 +315,12 @@ Rules:
 Use for:
 - Library
 - Wishlist
-- Stats
+- Insights
 
 Rules:
 - Default selection is `All`.
 - Use segmented control styling when the filter is central to the page; use compact filter-bar
   styling when combined with tag/year/rating filters.
-- The type filter should propagate through stats drill-down links into Library.
 - Do not create separate movie and show apps or separate nav structures.
 
 ### MovieDetailHero

@@ -59,10 +59,12 @@ export type MediaStatsWatchRow = {
   media_id: string;
   episode_id: string | null;
   watched_at: string;
-  media_items: Pick<
-    MediaItem,
-    "id" | "type" | "runtime_minutes" | "original_language" | "primary_genre_name" | "release_year"
-  > | null;
+  media_items:
+    | (Pick<
+        MediaItem,
+        "id" | "type" | "runtime_minutes" | "original_language" | "primary_genre_name" | "release_year"
+      > & { title?: string | null })
+    | null;
   episodes?: Pick<Episode, "runtime_minutes"> | null;
 };
 
@@ -589,7 +591,7 @@ function rowRuntimeMinutes(row: TimeBucketSourceRow) {
   return runtimeMinutes(row.movies);
 }
 
-function mediaWatchRuntime(row: MediaStatsWatchRow) {
+export function mediaWatchRuntime(row: MediaStatsWatchRow) {
   if (row.media_items?.type === "show") {
     return row.episodes?.runtime_minutes ?? row.media_items.runtime_minutes ?? 0;
   }

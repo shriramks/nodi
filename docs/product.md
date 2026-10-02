@@ -25,7 +25,7 @@ tag it, sync it, and understand personal viewing habits.
 Planned route direction:
 - `/library`: replaces `/movies`, showing movies and shows together by default
 - `/wishlist`: replaces `/to-watch`, showing queued movies and shows together by default
-- `/stats?type=all|movie|show`: filters analytics by media type, defaulting to `all`
+- `/insights?type=all|movie|show`: filters analytics by media type, defaulting to `all` (`/stats` redirects here)
 - old `/movies` and `/to-watch` routes should redirect during the transition
 
 The UI should still allow narrowing by type. Combined should be the default, but `movie` and `show`
@@ -102,7 +102,8 @@ app/
     wishlist/page.tsx         ← primary to-watch grid (replaces /to-watch)
     movies/page.tsx           ← redirects to /library
     to-watch/page.tsx         ← redirects to /wishlist
-    stats/page.tsx
+    insights/page.tsx
+    stats/page.tsx           ← redirects to /insights
     search/page.tsx
     movie/[movieId]/page.tsx
     movie/tmdb/[tmdbId]/page.tsx
@@ -652,21 +653,19 @@ Reason:
 - if marked watched, auto-remove from To Watch
 - multi-select: same Select flow; bulk bar offers Tag, Rate, and Mark Watched
 
-### Stats
-- total watched
-- total hours/minutes watched
-- language breakdown
-- tag breakdown
-- movie count by tag
-- watched over time
-- genre breakdown
-- monthly summary
-- yearly summary
-- stats can be scoped by watched year while retaining all-time as the default
-- when scoped to one year, the over-time chart shows months within that year instead of the all-time month/year toggle
-- genre, language, month, and year breakdown items link into `/movies` with the matching filters
-- stats drill-down links include an explicit return path so the filtered Movies view can return to
-  the originating Stats screen
+### Insights (formerly Stats)
+- three blocks, top to bottom: All-time, Habits, This year; the All / Movies / Shows filter drives all of them
+- All-time: a Movies card and a Shows card, each with its own title count and total watched duration
+  (a single card when the filter narrows to one type)
+- Habits and This year are scoped to the viewing companion, the title carrying the "Amele" tag
+  (looked up by normalized tag name, overridable with `STAT_CO_WATCH_TAG`); copy frames it as who the
+  user watched with, never as "a tag"
+- Habits with the companion: busiest month, quietest month, weekday watched most, decade watched most
+- This year with the companion: time and share of all watching, titles and time vs the same span of
+  last year, highest-rated, lowest-rated, average rating vs last year, titles and time without them
+- a title is a movie or a show, never an episode; time sums every watched runtime
+- rows with no data are hidden; ties for highest/lowest rated go to the most recently watched title
+- no genre, language, tag, or rating-distribution breakdowns, and no money/spend metrics
 
 These all become cleaner if runtime and watch logs are stored explicitly.
 

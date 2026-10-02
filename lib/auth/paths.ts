@@ -8,6 +8,7 @@ const protectedRoutePrefixes = [
   "/movies",
   "/to-watch",
   "/stats",
+  "/insights",
   "/search",
   "/movie",
 ] as const;

@@ -9,7 +9,7 @@ import { RetroTvIcon } from "@/components/icons/retro-tv";
 const tabs = [
   { href: "/library", label: "Library", Icon: RetroTvIcon },
   { href: "/wishlist", label: "Wishlist", Icon: Bookmark },
-  { href: "/stats", label: "Stats", Icon: BarChart2 },
+  { href: "/insights", label: "Insights", Icon: BarChart2 },
 ];
 
 const addHref = "/search";

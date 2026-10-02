@@ -609,7 +609,7 @@ async function listMediaWatchActivityAnalyticsRowsForUser(
     let query = supabase
       .from("media_watch_activity")
       .select(
-        "id, media_id, episode_id, watched_at, media_items!inner(id, type, runtime_minutes, original_language, primary_genre_name, release_year), episodes(runtime_minutes)",
+        "id, media_id, episode_id, watched_at, media_items!inner(id, type, title, runtime_minutes, original_language, primary_genre_name, release_year), episodes(runtime_minutes)",
       )
       .eq("user_id", userId);
 

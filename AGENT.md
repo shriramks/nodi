@@ -114,7 +114,7 @@ start with the listed files and only expand outward if those files point elsewhe
 | Wishlist page | `app/(shell)/wishlist/page.tsx` | `components/library/library-grid.tsx`, `components/movie/poster-card.tsx` |
 | Route redirects (legacy) | `app/(shell)/movies/page.tsx` → `/library`, `app/(shell)/to-watch/page.tsx` → `/wishlist` | `app/(shell)/library/library-route.ts` |
 | Poster grid/card behavior | `components/movie/poster-card.tsx`, `components/library/library-grid.tsx` | `components/search/movie-search.tsx` if search posters are involved |
-| Stats page | `app/(shell)/stats/page.tsx` | `lib/db/queries/movies.ts` |
+| Insights page (formerly Stats) | `app/(shell)/insights/page.tsx` | `lib/db/queries/stats.ts`, `lib/db/queries/insights-transforms.ts` |
 | PWA manifest and icons | `app/manifest.ts`, `public/` | `app/layout.tsx` |
 | Design decisions | `docs/design.md` | the component being changed |
 | Product or architecture questions | `docs/product.md`, `docs/architecture.md` | `supabase/db_guide.md` for DB-specific questions |
@@ -171,41 +171,27 @@ files, then inspect only direct imports, direct callers, or the relevant route b
   - `MediaItem` is the shared show/movie metadata row.
 - Tags query owner: `lib/db/queries/tags.ts`
 
-### Stats
+### Insights (formerly Stats)
 
-- Stats route: `app/(shell)/stats/page.tsx`
-  - Reads optional `tag` and `year` search params for stats-level filtering.
-  - Loads `getLibraryStats(tagFilter, yearFilter)` and `listTags()`.
-  - Renders hero metrics, `MoviesOverTime`, genre breakdown, rating distribution, language breakdown, and tag breakdown.
-  - Genre and language visual components currently live in this file.
-  - Genre and language breakdown items link to `/library` with matching filters, the active watched year if present, and `from=stats`.
-- Time chart: `app/(shell)/stats/movies-over-time.tsx`
-  - Client component.
-  - Toggles month/year view internally for all-time stats.
-  - When stats are filtered to one watched year, renders month buckets for that year only and hides the month/year toggle.
-  - Consumes `LibraryStatsTimeBucket[]` for month and year buckets.
-  - Buckets have `key`, `label`, `count`, and `runtimeMinutes`.
-  - Non-empty month/year bars link to `/movies` with `month` or `year` filters.
-- Stats tag selector: `app/(shell)/stats/stats-tag-filter.tsx`
-  - Client component.
-  - Renders tag and year selector pills.
-  - Navigates to `/stats?tag=<tag name>`, `/stats?year=<YYYY>`, or both while preserving the other active filter.
-- Stats query owner: `lib/db/queries/stats.ts`
-  - Loads media analytics rows and delegates aggregation to `buildMediaLibraryStats()`.
-- Stats transforms: `lib/db/queries/stats-transforms.ts`
-  - Builds watched summaries from media activity rows.
-  - Builds genre, language, tag, rating, month, and year stats.
-  - `availableYearBuckets` is computed after tag filtering but before year filtering so the stats year selector remains populated.
-  - Year-filtered stats use watched years from `media_watch_activity.watched_at`; month buckets are fixed to Jan-Dec for that selected year.
-  - Month bucket keys are `YYYY-MM`.
-  - Year bucket keys are `YYYY`.
-  - Genre breakdown keys are lower-cased genre labels.
-  - Language breakdown keys are lower-cased original language codes, labels use `Intl.DisplayNames`.
+- Route: `app/(shell)/insights/page.tsx`; `/stats` redirects to it (`app/(shell)/stats/page.tsx`).
+  - Reads only `type` (`all|movie|show`) and renders three blocks: All-time cards, Habits, This year.
+  - Habits and This year are scoped to the viewing companion (the "Amele" tag, name from
+    `STAT_CO_WATCH_TAG`, default `amele`). Frame it as a viewing companion, never "a tag".
+- Query owner: `lib/db/queries/stats.ts`
+  - `getInsightsPageData(type)` loads `getMediaStatsInput` once and feeds both transforms below.
+- All-time totals: `buildMediaLibraryStats()` in `lib/db/queries/stats-transforms.ts`
+  (`movieCount`, `showCount`, `movieRuntimeMinutes`, `showRuntimeMinutes`).
+- Companion habits and this-year numbers: `buildInsights()` in `lib/db/queries/insights-transforms.ts`.
+  - A title is a movie or show, never an episode; time sums every watched runtime.
+  - This year compares year-to-date with the same span of last year (UTC).
+  - Highest/lowest rated ties go to the most recently watched title.
+- Dropped on purpose: genre treemap, language donut, tag selector, year selector, rating
+  distribution, over-time chart.
 
 ### Navigation and return paths
 
 - Shell layout and bottom nav: `app/(shell)/layout.tsx`, `components/navigation/bottom-pill-nav.tsx`
-  - Bottom nav is a 3-tab pill (`/library`, `/wishlist`, `/stats`) plus a separate circular Add
+  - Bottom nav is a 3-tab pill (`/library`, `/wishlist`, `/insights`) plus a separate circular Add
     button that routes to `/search` (the TMDB search-and-ingest flow), not a 4th pill tab.
     (`/movies` and `/to-watch` redirect to `/library` and `/wishlist`.)
   - The pill and the Add button collapse together on scroll; see `docs/design.md` §BottomPillNav.

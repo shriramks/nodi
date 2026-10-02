@@ -63,7 +63,7 @@ export default async function LibraryPage({
             href={returnToStatsHref}
             className="-ml-1 inline-flex min-h-11 items-center text-[17px] text-accent"
           >
-            ‹ Stats
+            ‹ Insights
           </Link>
         ) : null}
         subtitle={(

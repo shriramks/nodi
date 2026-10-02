@@ -15,7 +15,7 @@ import type { Tag } from "@/lib/db/types";
 function revalidateLibrary() {
   revalidatePath("/library");
   revalidatePath("/wishlist");
-  revalidatePath("/stats");
+  revalidatePath("/insights");
 }
 
 export async function bulkMarkWatchedAction(movieIds: string[]): Promise<void> {

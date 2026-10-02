@@ -30,7 +30,7 @@ function revalidateShowState(showId: string) {
   revalidatePath("/library");
   revalidatePath("/wishlist");
   revalidatePath("/search");
-  revalidatePath("/stats");
+  revalidatePath("/insights");
 }
 
 function revalidateEpisodeState(showId: string, episodeId: string) {
