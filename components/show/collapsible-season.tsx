@@ -9,6 +9,7 @@ type CollapsibleSeasonProps = {
   defaultExpanded: boolean;
   episodeCount: number;
   seasonNumber: number;
+  seasonRating?: ReactNode;
   seasonWatchControl?: ReactNode;
   watchedCount: number;
 };
@@ -18,6 +19,7 @@ export function CollapsibleSeason({
   defaultExpanded,
   episodeCount,
   seasonNumber,
+  seasonRating,
   seasonWatchControl,
   watchedCount,
 }: CollapsibleSeasonProps) {
@@ -43,11 +45,12 @@ export function CollapsibleSeason({
           <h2 className="text-[17px] font-bold text-text-muted">
             {seasonNumber === 0 ? "Specials" : `Season ${seasonNumber}`}
           </h2>
-        </button>
-        <div className="flex shrink-0 items-center gap-2 pr-4">
           <span className="tabnum text-[13px] text-text-muted">
             {watchedCount}/{episodeCount}
           </span>
+        </button>
+        <div className="flex shrink-0 items-center gap-2 pr-4">
+          {seasonRating}
           {seasonWatchControl}
         </div>
       </div>

@@ -19,6 +19,7 @@ import type {
 import {
   validateRatingPayload,
   validateUuid,
+  validationError,
   validateWatchActionPayload,
 } from "@/lib/db/validation";
 import type {
@@ -30,6 +31,7 @@ import {
 } from "@/lib/providers/tmdb/adapters";
 import type { TmdbTvDetails, TmdbTvSeasonDetails } from "@/lib/providers/tmdb/client";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabase/server";
+import { computeShowRating, isValidSeasonRating, type SeasonRatings } from "@/lib/media/season-rating";
 import { objectPayload } from "@/lib/utils/invariant";
 import { queueTraktPushEvent } from "./sync";
 import { upsertTag } from "./tags";
@@ -1355,6 +1357,74 @@ export async function updateMediaShowRating(
     clearEvent: "show.rating.clear",
     notFoundMessage: "Show is not in the user's library.",
   });
+}
+
+export async function updateMediaSeasonRating(
+  showId: string,
+  seasonNumber: number,
+  rating: number | null,
+): Promise<UserMedia> {
+  const user = await requireUser();
+  const supabase = await createSupabaseServerClient();
+  const id = validateUuid(showId, "showId");
+
+  if (!Number.isInteger(seasonNumber) || seasonNumber < 1) {
+    validationError("seasonNumber must be a positive whole number.");
+  }
+  if (rating !== null && !isValidSeasonRating(rating)) {
+    validationError("Season rating must be a whole number from 3 to 10.");
+  }
+
+  const { data: current, error: currentError } = await supabase
+    .from("user_media")
+    .select("id, season_ratings, personal_rating")
+    .eq("user_id", user.id)
+    .eq("media_id", id)
+    .maybeSingle();
+
+  if (currentError) {
+    throwDatabaseError("Failed to load season ratings.", currentError);
+  }
+
+  if (!current) {
+    throwNotFound("Show is not in the user's library.");
+  }
+
+  const seasonRatings: SeasonRatings = { ...current.season_ratings };
+  if (rating === null) {
+    delete seasonRatings[String(seasonNumber)];
+  } else {
+    seasonRatings[String(seasonNumber)] = rating;
+  }
+
+  // Season ratings always drive the show rating; with none left, the show rating is untouched.
+  const showRating = computeShowRating(seasonRatings);
+  const update: { season_ratings: SeasonRatings; personal_rating?: number } = {
+    season_ratings: seasonRatings,
+  };
+  if (showRating !== null) update.personal_rating = showRating;
+
+  const { data, error } = await supabase
+    .from("user_media")
+    .update(update)
+    .eq("user_id", user.id)
+    .eq("media_id", id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throwDatabaseError("Failed to update season rating.", error);
+  }
+
+  if (showRating !== null && showRating !== current.personal_rating) {
+    await queueTraktPushEvent("show.rating.set", {
+      showId: id,
+      userMediaId: data.id,
+      personalRating: showRating,
+    });
+  }
+
+  return data;
 }
 
 async function attachTagToMedia(mediaId: string, tagId: string) {

@@ -9,6 +9,7 @@ import { BackButton } from "@/components/navigation/back-button";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { CollapsibleSeason } from "@/components/show/collapsible-season";
 import { MediaInfoPanel } from "@/components/media/media-info-panel";
+import { SeasonRatingSheet } from "@/components/show/show-state-actions";
 import {
   AutoSyncFailedNotice,
   type RefreshResult,
@@ -39,6 +40,7 @@ type EpisodeListShow = {
   seasons: ShowSeason[];
   userStatus?: MediaStatus | null;
   personalRating?: number | null;
+  seasonRatings?: Record<string, number>;
 };
 
 type ShowEpisodeListViewProps = {
@@ -136,6 +138,15 @@ export function ShowEpisodeListView({
                 episodeCount={season.episodes.length}
                 key={season.seasonNumber}
                 seasonNumber={season.seasonNumber}
+                seasonRating={
+                  seasonWatched > 0 && season.seasonNumber !== 0 ? (
+                    <SeasonRatingSheet
+                      currentRating={show.seasonRatings?.[String(season.seasonNumber)] ?? null}
+                      seasonNumber={season.seasonNumber}
+                      showId={show.id}
+                    />
+                  ) : null
+                }
                 seasonWatchControl={
                   unwatchedCount > 0 ? (
                     <SeasonWatchButton

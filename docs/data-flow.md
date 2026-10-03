@@ -112,6 +112,7 @@ setMediaMovieWatchStatus
 | Move to wishlist | `setMediaMovieWatchStatus` -> `user_media` |
 | Remove from library | `removeUserMediaMovie` -> `user_media`, `media_watch_activity`, `user_media_tags` |
 | Update rating | `updateMediaMovieRating` -> `user_media.personal_rating` |
+| Rate a season (shows) | `updateMediaSeasonRating` -> `user_media.season_ratings`, plus `user_media.personal_rating` (rounded-up average) and a `show.rating.set` push event |
 | Edit/delete watch date | `updateMediaMovieWatchActivityDate` / `deleteMediaMovieWatchActivity` -> `media_watch_activity`, then refreshes `user_media.last_watched_at` |
 | Add/remove tag | media tag mutations -> `tags` + `user_media_tags` |
 

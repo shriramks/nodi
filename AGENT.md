@@ -295,6 +295,8 @@ files, then inspect only direct imports, direct callers, or the relevant route b
 - Movie detail should keep hero metadata compact, plot below, and cast presented visually.
 - Search results should surface local state like watched or to-watch status when available.
 - Sync and settings UI should make connection state, sync health, and last sync time visible.
+- No explanatory hints, helper captions, or "why is this value this" labels in the app UI (for
+  example a "from seasons" note on a computed rating). Show the value; the owner knows what it is.
 - Avoid inventing finance-style color semantics, metric framing, or terminology; this app is about movies, viewing history, and personal tracking.
 
 ## Response rules for this repo

@@ -76,6 +76,7 @@ export default async function ShowDetailPage({ params }: ShowDetailPageProps) {
         cast,
         userStatus: status,
         personalRating,
+        seasonRatings: show.userMedia?.season_ratings ?? {},
       }}
       tagEditor={<ShowTagEditor allTags={allTags} showId={show.id} tags={show.tags} />}
     />

@@ -84,7 +84,7 @@ export type ProviderConnectionSecretPayload = {
   refreshTokenSecretId?: string | null;
 };
 
-function validationError(message: string): never {
+export function validationError(message: string): never {
   throw new AppError(message, {
     code: "VALIDATION_ERROR",
     status: 400,

@@ -33,7 +33,12 @@ filters should be available on library, wishlist, and stats surfaces.
 
 TV-specific product rules:
 - tags live at the show level, not episode level
-- personal ratings live at the show level, not episode level
+- personal ratings live at the show and season level, not episode level
+- a season can be rated (3-10, same sheet) once at least one of its episodes is watched; rating,
+  editing or clearing any season overwrites the show rating with the rounded-up average of rated
+  seasons, and with no rated season the show rating is left alone; the show can still be rated
+  manually until the next season rating changes. Season ratings stay local (not synced to Trakt);
+  the computed show rating syncs as the show rating
 - the rating sheet (movie, show and bulk) is a radio list: Not rated, then 3-10; each row shows a random
   title you rated that number plus a fixed word ("Entourage energy"), re-rolled on every open and never the
   title being rated

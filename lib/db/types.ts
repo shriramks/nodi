@@ -159,6 +159,7 @@ export type Database = {
           media_id: string;
           status: MediaStatus;
           personal_rating: number | null;
+          season_ratings: Record<string, number>;
           added_at: string;
           watchlisted_at: string | null;
           last_watched_at: string | null;
@@ -172,6 +173,7 @@ export type Database = {
           media_id: string;
           status: MediaStatus;
           personal_rating?: number | null;
+          season_ratings?: Record<string, number>;
           added_at?: string;
           watchlisted_at?: string | null;
           last_watched_at?: string | null;
@@ -185,6 +187,7 @@ export type Database = {
           media_id?: string;
           status?: MediaStatus;
           personal_rating?: number | null;
+          season_ratings?: Record<string, number>;
           added_at?: string;
           watchlisted_at?: string | null;
           last_watched_at?: string | null;

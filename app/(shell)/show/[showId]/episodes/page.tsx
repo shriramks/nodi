@@ -68,6 +68,7 @@ export default async function ShowEpisodesPage({
         ...show,
         userStatus,
         personalRating,
+        seasonRatings: show.userMedia?.season_ratings ?? {},
       }}
     />
     </>

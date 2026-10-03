@@ -45,6 +45,7 @@ import {
   removeUserMediaMovie,
   setMediaShowStatus,
   setMediaMovieWatchStatus,
+  updateMediaSeasonRating,
   updateMediaShowRating,
   updateMediaMovieRating,
 } from "@/lib/db/mutations/media";
@@ -65,6 +66,7 @@ const watchedUserMedia = {
   last_watched_at: watchedAt,
   media_id: movieId,
   personal_rating: null,
+  season_ratings: {},
   status: "done" as const,
   updated_at: watchedAt,
   user_id: userId,
@@ -975,6 +977,53 @@ describe("media movie mutations", () => {
       provider: "trakt",
       status: "pending",
     });
+  });
+
+  it("rates a season, overwrites the show rating with the rounded-up average, and queues a sync", async () => {
+    const load = createQuery({
+      data: { id: userMediaId, personal_rating: 10, season_ratings: { "1": 9 } },
+      error: null,
+    });
+    const save = createQuery({
+      data: { ...watchedUserMedia, media_id: showId, personal_rating: 9, season_ratings: { "1": 9, "2": 8 } },
+      error: null,
+    });
+    createSupabaseWithQueues({ user_media: [load, save] });
+
+    await updateMediaSeasonRating(showId, 2, 8);
+
+    expect(save.update).toHaveBeenCalledWith({
+      personal_rating: 9,
+      season_ratings: { "1": 9, "2": 8 },
+    });
+    expect(mocks.createSyncEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "show.rating.set",
+        payload: { personalRating: 9, showId, userMediaId },
+      }),
+    );
+  });
+
+  it("clearing the last season rating leaves the show rating untouched", async () => {
+    const load = createQuery({
+      data: { id: userMediaId, personal_rating: 9, season_ratings: { "1": 9 } },
+      error: null,
+    });
+    const save = createQuery({
+      data: { ...watchedUserMedia, media_id: showId, personal_rating: 9 },
+      error: null,
+    });
+    createSupabaseWithQueues({ user_media: [load, save] });
+
+    await updateMediaSeasonRating(showId, 1, null);
+
+    expect(save.update).toHaveBeenCalledWith({ season_ratings: {} });
+    expect(mocks.createSyncEvent).not.toHaveBeenCalled();
+  });
+
+  it("rejects out-of-range season ratings and season numbers", async () => {
+    await expect(updateMediaSeasonRating(showId, 1, 2)).rejects.toThrow();
+    await expect(updateMediaSeasonRating(showId, 0, 8)).rejects.toThrow();
   });
 
   it("creates, attaches, and detaches tags through user_media_tags", async () => {

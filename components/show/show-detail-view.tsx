@@ -55,6 +55,7 @@ type DetailShow = {
   seasons?: ShowSeason[];
   userStatus?: MediaStatus | null;
   personalRating?: number | null;
+  seasonRatings?: Record<string, number>;
 };
 
 type ShowDetailViewProps = {
@@ -96,6 +97,9 @@ export function ShowDetailView({
         }
       : null,
   ].filter((row): row is { label: string; value: string } => row !== null);
+  const seasonRatingRows = Object.entries(show.seasonRatings ?? {})
+    .map(([season, rating]) => ({ label: `Season ${season}`, season: Number(season), value: String(rating) }))
+    .sort((a, b) => a.season - b.season);
 
   return (
     <main className="-mt-6 space-y-4 pb-4">
@@ -159,6 +163,17 @@ export function ShowDetailView({
       </Section>
 
       {show.userStatus ? tagEditor : null}
+
+      {seasonRatingRows.length > 0 ? (
+        <Section>
+          <SectionHeader>Seasons</SectionHeader>
+          <div>
+            {seasonRatingRows.map((row) => (
+              <DetailRow key={row.label} label={row.label} value={row.value} divider={false} />
+            ))}
+          </div>
+        </Section>
+      ) : null}
 
       <CollapsibleSection title="Details">
         {detailRows.length > 0 ? (

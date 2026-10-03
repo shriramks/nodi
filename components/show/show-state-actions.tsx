@@ -12,6 +12,7 @@ import {
   addShowTagAction,
   attachShowTagByIdAction,
   removeShowTagAction,
+  updateSeasonRatingAction,
   updateShowRatingAction,
 } from "@/app/(shell)/show/actions";
 
@@ -375,6 +376,77 @@ export function ShowRatingSheet({
             onSelect={handleRate}
             pendingRating={pendingRating}
             title="Your Rating"
+          />
+
+          {error ? <p className="mt-2 text-[13px] text-unsynced">{error}</p> : null}
+        </BottomSheet>
+      ) : null}
+    </>
+  );
+}
+
+export function SeasonRatingSheet({
+  currentRating,
+  seasonNumber,
+  showId,
+}: {
+  currentRating: number | null;
+  seasonNumber: number;
+  showId: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [pendingRating, setPendingRating] = useState<number | "clear" | null>(null);
+
+  function handleRate(n: number | null) {
+    setError(null);
+    setPendingRating(n ?? "clear");
+    startTransition(async () => {
+      try {
+        await updateSeasonRatingAction(showId, seasonNumber, n);
+        setOpen(false);
+      } catch {
+        setError("Rating was not saved. Try again.");
+      } finally {
+        setPendingRating(null);
+      }
+    });
+  }
+
+  return (
+    <>
+      <button
+        aria-label={
+          currentRating !== null
+            ? `Season ${seasonNumber} rating: ${currentRating}. Tap to change`
+            : `Rate season ${seasonNumber}`
+        }
+        className={[
+          "flex min-h-11 items-center gap-1 px-1 text-[15px] active:opacity-70",
+          currentRating !== null ? "font-semibold text-accent" : "text-accent",
+        ].join(" ")}
+        onClick={() => setOpen(true)}
+        type="button"
+      >
+        <Heart
+          aria-hidden="true"
+          className={["h-4 w-4 shrink-0", currentRating !== null ? "fill-accent/20" : ""].join(" ")}
+          strokeWidth={1.8}
+        />
+        <span>{currentRating !== null ? currentRating : "Rate"}</span>
+      </button>
+
+      {open ? (
+        <BottomSheet ariaLabel={`Rate Season ${seasonNumber}`} onClose={() => setOpen(false)}>
+          <RatingOptions
+            currentRating={currentRating}
+            disabled={isPending}
+            excludeIds={[showId]}
+            onCancel={() => setOpen(false)}
+            onSelect={handleRate}
+            pendingRating={pendingRating}
+            title={`Rate Season ${seasonNumber}`}
           />
 
           {error ? <p className="mt-2 text-[13px] text-unsynced">{error}</p> : null}

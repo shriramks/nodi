@@ -14,6 +14,7 @@ import {
   markMediaEpisodeWatched,
   removeUserMediaShow,
   setMediaShowStatus,
+  updateMediaSeasonRating,
   updateMediaShowRating,
   updateMediaEpisodeWatchActivityDate,
 } from "@/lib/db/mutations";
@@ -119,6 +120,15 @@ export async function updateShowRatingAction(
   rating: number | null,
 ): Promise<void> {
   await updateMediaShowRating(showId, { personalRating: rating });
+  revalidateShowState(showId);
+}
+
+export async function updateSeasonRatingAction(
+  showId: string,
+  seasonNumber: number,
+  rating: number | null,
+): Promise<void> {
+  await updateMediaSeasonRating(showId, seasonNumber, rating);
   revalidateShowState(showId);
 }
 

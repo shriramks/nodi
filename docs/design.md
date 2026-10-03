@@ -369,7 +369,7 @@ Watched · 9/18 episodes
 Action · Crime · English
 [heart rating] [TMDB rating · votes] [tags...]
 
-Season 1                                      9/9
+Season 1  9/9                           [♥ 8]
 Heaven's Half Hour
 S01E01 · 48m
 5 Mar 2025                                  [✓]
@@ -386,6 +386,9 @@ Rules:
   when the heart treatment already implies personal rating.
 - TMDB show rating and vote count appear on the show screen, matching movie detail's source-labeled
   rating pattern.
+- Season headers keep the watched count "N/M" beside the season name and carry a trailing season
+  rating (`♥ 8`, or `♡ Rate` when unrated) that opens the shared rating sheet titled "Rate Season N".
+  It appears only once the season has a watched episode, and never on Specials.
 - Tags are shown and edited at the show level, not episode level.
 - Avoid helper copy that explains obvious behavior such as skipped episodes or manual completion.
   The user is assumed to understand their tracking choices.
@@ -400,6 +403,7 @@ Rules:
 Plot
 Cast
 Tags
+Seasons          (read-only rating per rated season; label left, value right)
 Details
 ```
 
