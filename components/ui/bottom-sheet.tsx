@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 import { useEffect, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 type BottomSheetProps = {
   ariaLabel: string;
@@ -38,7 +39,9 @@ export function BottomSheet({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
-  return (
+  // Portaled to body: a fixed sheet inside a filtered/transformed ancestor (e.g. a backdrop-blur
+  // header) would be sized to that ancestor instead of the viewport.
+  return createPortal(
     <>
       <div
         aria-hidden="true"
@@ -70,6 +73,7 @@ export function BottomSheet({
         {showHandle && <div className="mx-auto mb-5 mt-2 h-1 w-9 rounded-full bg-surface-muted" />}
         {children}
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
