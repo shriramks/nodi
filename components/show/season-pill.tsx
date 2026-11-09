@@ -185,12 +185,12 @@ export function SeasonPill({
         className="flex h-full items-center overflow-x-auto [&::-webkit-scrollbar]:hidden"
         onScroll={handleStripScroll}
         ref={stripRef}
-        style={{ paddingInline: "calc(50% - 3px)", scrollbarWidth: "none" }}
+        style={{ paddingInline: "calc(50% - 2px)", scrollbarWidth: "none" }}
       >
         {ticks.map((tick, index) =>
           tick.kind === "season" ? (
             <div
-              className="grid h-full w-8 flex-none place-items-center"
+              className="grid h-full w-7 flex-none place-items-center"
               key={tick.domId}
               ref={(el) => {
                 tickRefs.current[index] = el;
@@ -209,13 +209,13 @@ export function SeasonPill({
             </div>
           ) : (
             <div
-              className="grid h-full w-1.5 flex-none place-items-center"
+              className="grid h-full w-1 flex-none place-items-center"
               key={tick.domId}
               ref={(el) => {
                 tickRefs.current[index] = el;
               }}
             >
-              <i className="block h-3.5 w-0.5 rounded-sm bg-white/30" />
+              <i className="block h-3 w-px rounded-sm bg-white/40" />
             </div>
           ),
         )}
