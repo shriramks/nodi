@@ -12,7 +12,7 @@ import {
   type TmdbTvAggregateCredits,
   type TmdbTvEpisodeDetails,
 } from "@/lib/providers/tmdb/client";
-import { EpisodeDetailActions, EpisodeWatchHistoryEditor } from "../../episode-watch-client";
+import { EpisodeHeaderControls } from "../../episode-watch-client";
 
 type EpisodeDetailPageProps = {
   params: Promise<{
@@ -34,15 +34,14 @@ export default async function EpisodeDetailPage({
 }: EpisodeDetailPageProps) {
   const { episodeId, showId } = await params;
   const { episode, show } = await loadEpisodeOrNotFound(showId, episodeId);
-  const isWatched = episode.watchActivity.length > 0;
   const { cast, tmdbRating } = await loadEpisodeTmdb(show, episode);
 
   return (
     <EpisodeDetailView
-      actions={
-        <EpisodeDetailActions
+      headerActions={
+        <EpisodeHeaderControls
+          activity={episode.watchActivity}
           episodeId={episode.id}
-          isWatched={isWatched}
           showId={show.id}
         />
       }
@@ -53,13 +52,6 @@ export default async function EpisodeDetailPage({
         userMedia: show.userMedia,
       }}
       tmdbRating={tmdbRating}
-      watchHistory={
-        <EpisodeWatchHistoryEditor
-          activity={episode.watchActivity}
-          episodeId={episode.id}
-          showId={show.id}
-        />
-      }
     />
   );
 }

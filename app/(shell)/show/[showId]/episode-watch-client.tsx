@@ -1,13 +1,19 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import Link from "next/link";
+import { createPortal } from "react-dom";
+import { useRef, useState, useTransition } from "react";
 import {
+  CalendarDays,
   Check,
   ChevronDown,
-  ChevronRight,
+  Ellipsis,
+  History,
   LoaderCircle,
   Pencil,
+  RefreshCw,
   Trash2,
+  Tv,
   X,
 } from "lucide-react";
 
@@ -174,110 +180,7 @@ export function SeasonWatchButton({
   );
 }
 
-export function EpisodeDetailActions({
-  episodeId,
-  isWatched,
-  showId,
-}: {
-  episodeId: string;
-  isWatched: boolean;
-  showId: string;
-}) {
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const [pendingAction, setPendingAction] = useState<"toggle" | "date" | null>(null);
-  const [watchedDate, setWatchedDate] = useState(() => todayDateValue());
-  const today = todayDateValue();
-
-  function runToggle() {
-    setError(null);
-    setPendingAction("toggle");
-    startTransition(async () => {
-      try {
-        await toggleEpisodeWatchedAction(showId, episodeId, !isWatched);
-      } catch {
-        setError("Episode state was not saved. Try again.");
-      } finally {
-        setPendingAction(null);
-      }
-    });
-  }
-
-  function addDate() {
-    if (!watchedDate) return;
-    setError(null);
-    setPendingAction("date");
-    startTransition(async () => {
-      try {
-        await addEpisodeWatchDateAction(showId, episodeId, watchedDate);
-      } catch {
-        setError("Watch date was not saved. Try again.");
-      } finally {
-        setPendingAction(null);
-      }
-    });
-  }
-
-  return (
-    <div className="space-y-2 border-b border-divider px-4 py-4">
-      <div className="grid grid-cols-2 gap-2">
-        <button
-          className={[
-            "flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-[14px] font-semibold active:opacity-70 disabled:opacity-50",
-            isWatched ? "bg-surface text-foreground" : "bg-accent text-black",
-          ].join(" ")}
-          disabled={isPending}
-          onClick={runToggle}
-          type="button"
-        >
-          {pendingAction === "toggle" ? (
-            <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
-          ) : null}
-          {isWatched ? "Mark unwatched" : "Mark watched"}
-        </button>
-
-        <label className="relative flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-surface px-3 text-[14px] font-semibold text-foreground active:opacity-70">
-          <span>
-            {watchedDate
-              ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(
-                  parseLocalDate(watchedDate),
-                )
-              : "Watch date"}
-          </span>
-          <ChevronDown
-            aria-hidden="true"
-            className="h-3.5 w-3.5 shrink-0 text-text-muted"
-            strokeWidth={2}
-          />
-          <input
-            aria-label="Watch date"
-            className="absolute inset-0 cursor-pointer opacity-0"
-            max={today}
-            onChange={(event) => setWatchedDate(event.target.value)}
-            type="date"
-            value={watchedDate}
-          />
-        </label>
-      </div>
-
-      <button
-        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-accent/15 px-3 text-[14px] font-semibold text-accent active:opacity-70 disabled:opacity-50"
-        disabled={isPending || !watchedDate}
-        onClick={addDate}
-        type="button"
-      >
-        {pendingAction === "date" ? (
-          <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" strokeWidth={2.2} />
-        ) : null}
-        Add watch date
-      </button>
-
-      {error ? <p className="text-[13px] text-unsynced">{error}</p> : null}
-    </div>
-  );
-}
-
-export function EpisodeWatchHistoryEditor({
+export function EpisodeHeaderControls({
   activity,
   episodeId,
   showId,
@@ -286,7 +189,186 @@ export function EpisodeWatchHistoryEditor({
   episodeId: string;
   showId: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const isWatched = activity.length > 0;
+  const today = todayDateValue();
+
+  function run(task: () => Promise<unknown>, failure: string) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await task();
+      } catch {
+        setError(failure);
+      }
+    });
+  }
+
+  function toggle() {
+    run(
+      () => toggleEpisodeWatchedAction(showId, episodeId, !isWatched),
+      "Episode state was not saved. Try again.",
+    );
+  }
+
+  function logRewatch(date: string) {
+    if (!date) return;
+    run(
+      () => addEpisodeWatchDateAction(showId, episodeId, date),
+      "Watch date was not saved. Try again.",
+    );
+  }
+
+  function pickDate() {
+    setMenuOpen(false);
+    const input = dateInputRef.current;
+    if (!input) return;
+    input.value = today;
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+    } else {
+      input.click();
+    }
+  }
+
+  const itemClass =
+    "flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-[15px] text-foreground active:bg-surface-muted disabled:opacity-50";
+
+  return (
+    <div className="relative flex items-center gap-2">
+      <button
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
+        aria-label="More actions"
+        className="grid h-11 w-11 place-items-center rounded-full bg-surface text-foreground active:opacity-70"
+        onClick={() => setMenuOpen((value) => !value)}
+        type="button"
+      >
+        <Ellipsis aria-hidden="true" className="h-5 w-5" strokeWidth={2.4} />
+      </button>
+
+      <button
+        aria-label={isWatched ? "Mark episode unwatched" : "Mark episode watched"}
+        className={[
+          "grid h-11 w-11 place-items-center rounded-full active:opacity-70 disabled:opacity-50",
+          isWatched ? "bg-accent text-black" : "bg-surface text-text-muted",
+        ].join(" ")}
+        disabled={isPending}
+        onClick={toggle}
+        type="button"
+      >
+        {isPending ? (
+          <LoaderCircle aria-hidden="true" className="h-5 w-5 animate-spin" strokeWidth={2.2} />
+        ) : (
+          <Check aria-hidden="true" className="h-5 w-5" strokeWidth={2.7} />
+        )}
+      </button>
+
+      {/* Hidden native picker, opened from the "Watched again on" menu row. */}
+      <input
+        aria-label="Rewatch date"
+        className="pointer-events-none absolute right-0 top-full h-0 w-0 opacity-0"
+        max={today}
+        onChange={(event) => logRewatch(event.target.value)}
+        ref={dateInputRef}
+        tabIndex={-1}
+        type="date"
+      />
+
+      {menuOpen ? (
+        <>
+          {/* Portaled: the blurred header is a containing block for fixed children. */}
+          {createPortal(
+            <button
+              aria-label="Close menu"
+              className="fixed inset-0 z-10 cursor-default"
+              onClick={() => setMenuOpen(false)}
+              type="button"
+            />,
+            document.body,
+          )}
+          <div
+            className="absolute right-0 top-[calc(100%+8px)] z-40 w-[252px] rounded-2xl border border-divider bg-surface p-1.5 shadow-xl"
+            role="menu"
+          >
+            {isWatched ? (
+              <>
+                <button
+                  className={itemClass}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    logRewatch(today);
+                  }}
+                  role="menuitem"
+                  type="button"
+                >
+                  <RefreshCw aria-hidden="true" className="h-[18px] w-[18px] text-text-2" strokeWidth={2} />
+                  Watched again today
+                </button>
+                <button className={itemClass} onClick={pickDate} role="menuitem" type="button">
+                  <CalendarDays aria-hidden="true" className="h-[18px] w-[18px] text-text-2" strokeWidth={2} />
+                  Watched again on…
+                </button>
+                <button
+                  className={itemClass}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setHistoryOpen(true);
+                  }}
+                  role="menuitem"
+                  type="button"
+                >
+                  <History aria-hidden="true" className="h-[18px] w-[18px] text-text-2" strokeWidth={2} />
+                  Watch history
+                  <span className="ml-auto text-[13px] text-text-muted">
+                    {activity.length} {activity.length === 1 ? "watch" : "watches"}
+                  </span>
+                </button>
+                <div className="mx-2 my-1 h-px bg-divider" />
+              </>
+            ) : null}
+            <Link className={itemClass} href={`/show/${showId}`} role="menuitem">
+              <Tv aria-hidden="true" className="h-[18px] w-[18px] text-text-2" strokeWidth={2} />
+              Go to show
+            </Link>
+          </div>
+        </>
+      ) : null}
+
+      <EpisodeWatchHistoryEditor
+        activity={activity}
+        episodeId={episodeId}
+        onOpenChange={setHistoryOpen}
+        open={historyOpen}
+        showId={showId}
+      />
+
+      {error ? (
+        <p className="absolute right-0 top-full mt-2 whitespace-nowrap text-[13px] text-unsynced">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function EpisodeWatchHistoryEditor({
+  activity,
+  episodeId,
+  onOpenChange,
+  open,
+  showId,
+}: {
+  activity: WatchActivity[];
+  episodeId: string;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  showId: string;
+}) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editDate, setEditDate] = useState("");
@@ -303,7 +385,7 @@ export function EpisodeWatchHistoryEditor({
   }
 
   function closeSheet() {
-    setOpen(false);
+    onOpenChange(false);
     setEditingId(null);
     setDeleteConfirmId(null);
     setEditDate("");
@@ -351,18 +433,6 @@ export function EpisodeWatchHistoryEditor({
 
   return (
     <>
-      <button
-        className="flex min-h-11 w-full items-center justify-between border-b border-divider px-4 text-left active:opacity-70"
-        onClick={() => setOpen(true)}
-        type="button"
-      >
-        <span className="text-[15px] text-foreground">Watch history</span>
-        <span className="flex items-center gap-1 text-[13px] text-text-muted">
-          {activity.length} {activity.length === 1 ? "watch" : "watches"}
-          <ChevronRight aria-hidden="true" className="h-4 w-4 text-text-faint" strokeWidth={2} />
-        </span>
-      </button>
-
       {open ? (
         <BottomSheet
           ariaLabel="Episode watch history"

@@ -29,21 +29,19 @@ type EpisodeCastMember = {
 };
 
 type EpisodeDetailViewProps = {
-  actions?: ReactNode;
+  headerActions?: ReactNode;
   cast?: EpisodeCastMember[];
   episode: DetailEpisode;
   show: EpisodeDetailShow;
   tmdbRating?: TmdbRating | null;
-  watchHistory?: ReactNode;
 };
 
 export function EpisodeDetailView({
-  actions,
+  headerActions,
   cast,
   episode,
   show,
   tmdbRating,
-  watchHistory,
 }: EpisodeDetailViewProps) {
   // The episode still (16:9 frame) is the episode-specific image; poster_path
   // holds the season poster and is only a fallback.
@@ -69,13 +67,14 @@ export function EpisodeDetailView({
         className="sticky top-0 z-20 flex min-h-[68px] items-center justify-between border-b border-divider bg-background/90 px-4 backdrop-blur"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
-        <BackButton className="-ml-1 flex h-11 items-center gap-0.5 text-foreground" />
+        <BackButton className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-surface text-foreground [&>span]:hidden" />
         <Link
-          className="inline-flex min-h-10 items-center rounded-full bg-accent/15 px-4 text-[14px] font-bold text-accent active:opacity-70"
+          className="min-w-0 flex-1 truncate px-2 text-center text-[17px] font-bold active:opacity-70"
           href={`/show/${show.id}`}
         >
-          Show
+          {show.title}
         </Link>
+        {headerActions}
       </header>
 
       <section className="border-b border-divider">
@@ -95,8 +94,7 @@ export function EpisodeDetailView({
         <div className="px-4 py-4">
           <div className="flex items-end justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-[13px] font-semibold leading-[1.3] text-text-2">{show.title}</p>
-              <h1 className="mt-1 text-[29px] font-bold leading-[1.05]">{episode.title}</h1>
+              <h1 className="text-[29px] font-bold leading-[1.05]">{episode.title}</h1>
             </div>
             {tmdbRating ? (
               <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-accent/15 px-2.5 py-1.5">
@@ -117,9 +115,6 @@ export function EpisodeDetailView({
           ) : null}
         </div>
       </section>
-
-      {actions}
-      {watchHistory}
 
       <div className="px-4">
         <Section className="border-b border-divider py-4">
