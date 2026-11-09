@@ -66,8 +66,9 @@ export function ShowEpisodeListView({
   const specialsSeasons = show.seasons.filter((s) => s.seasonNumber === 0);
   const hasSpecials = specialsSeasons.some((s) => s.episodes.length > 0);
   const visibleSeasons = showSpecials ? show.seasons : regularSeasons;
+  const lastWatched = lastWatchedEpisode(regularSeasons);
   const [expandedSeasons, setExpandedSeasons] = useState<ReadonlySet<number>>(() => {
-    const current = currentSeasonNumber(regularSeasons);
+    const current = lastWatched?.season_number ?? currentSeasonNumber(regularSeasons);
     return new Set(current === null ? [] : [current]);
   });
 
@@ -208,6 +209,7 @@ export function ShowEpisodeListView({
       {regularSeasons.length > 1 ? (
         <SeasonPill
           expandedSeasons={expandedSeasons}
+          initialEpisodeId={lastWatched?.id ?? null}
           onExpandSeason={expandSeason}
           seasons={regularSeasons.map((season) => ({
             episodeIds: season.episodes.map((episode) => episode.id),
@@ -217,6 +219,23 @@ export function ShowEpisodeListView({
       ) : null}
     </main>
   );
+}
+
+function lastWatchedEpisode(seasons: ShowSeason[]): ShowEpisode | null {
+  let latest: ShowEpisode | null = null;
+  let latestAt = Number.NEGATIVE_INFINITY;
+  for (const season of seasons) {
+    for (const episode of season.episodes) {
+      for (const log of episode.watchActivity ?? []) {
+        const at = Date.parse(log.watched_at);
+        if (at > latestAt) {
+          latestAt = at;
+          latest = episode;
+        }
+      }
+    }
+  }
+  return latest;
 }
 
 function currentSeasonNumber(seasons: ShowSeason[]): number | null {

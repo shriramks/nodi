@@ -30,10 +30,12 @@ export function episodeDomId(episodeId: string) {
 // scrolls the page to the picked season/episode; scrolling the page moves the centre line.
 export function SeasonPill({
   expandedSeasons,
+  initialEpisodeId,
   onExpandSeason,
   seasons,
 }: {
   expandedSeasons: ReadonlySet<number>;
+  initialEpisodeId?: string | null;
   onExpandSeason: (seasonNumber: number) => void;
   seasons: SeasonPillSeason[];
 }) {
@@ -42,7 +44,6 @@ export function SeasonPill({
   const driverRef = useRef<"strip" | "page" | null>(null);
   const releaseRef = useRef<number | undefined>(undefined);
   const expandedRef = useRef(expandedSeasons);
-  const [current, setCurrent] = useState(0);
 
   useEffect(() => {
     expandedRef.current = expandedSeasons;
@@ -64,6 +65,11 @@ export function SeasonPill({
       ]),
     [seasons],
   );
+  const initialIndex = initialEpisodeId
+    ? ticks.findIndex((tick) => tick.domId === episodeDomId(initialEpisodeId))
+    : -1;
+
+  const [current, setCurrent] = useState(() => Math.max(0, initialIndex));
 
   function claim(driver: "strip" | "page") {
     driverRef.current = driver;
@@ -152,8 +158,19 @@ export function SeasonPill({
     };
   }, [ticks]);
 
+  // On landing, open at the last watched episode: centre the pill on it and bring it into view.
   useEffect(() => {
-    centerStripOn(0);
+    const index = initialIndex;
+    if (index < 0) {
+      centerStripOn(0);
+      return;
+    }
+    claim("page");
+    centerStripOn(index);
+    // Skip the jump when the browser already restored a scroll position (back navigation).
+    if (window.scrollY <= 1) scrollPageTo(ticks[index]);
+    // Mount only; claim/centerStripOn/scrollPageTo touch refs and the DOM.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const currentSeason = ticks[current]?.seasonNumber;
@@ -168,12 +185,12 @@ export function SeasonPill({
         className="flex h-full items-center overflow-x-auto [&::-webkit-scrollbar]:hidden"
         onScroll={handleStripScroll}
         ref={stripRef}
-        style={{ paddingInline: "calc(50% - 20px)", scrollbarWidth: "none" }}
+        style={{ paddingInline: "calc(50% - 3px)", scrollbarWidth: "none" }}
       >
         {ticks.map((tick, index) =>
           tick.kind === "season" ? (
             <div
-              className="grid h-full w-10 flex-none place-items-center"
+              className="grid h-full w-8 flex-none place-items-center"
               key={tick.domId}
               ref={(el) => {
                 tickRefs.current[index] = el;
@@ -192,7 +209,7 @@ export function SeasonPill({
             </div>
           ) : (
             <div
-              className="grid h-full w-3 flex-none place-items-center"
+              className="grid h-full w-1.5 flex-none place-items-center"
               key={tick.domId}
               ref={(el) => {
                 tickRefs.current[index] = el;
