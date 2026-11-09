@@ -8,6 +8,7 @@ import { Check, LoaderCircle } from "lucide-react";
 import { BackButton } from "@/components/navigation/back-button";
 import { BottomSheet } from "@/components/ui/bottom-sheet";
 import { CollapsibleSeason } from "@/components/show/collapsible-season";
+import { episodeDomId, SeasonPill } from "@/components/show/season-pill";
 import { MediaInfoPanel } from "@/components/media/media-info-panel";
 import { SeasonRatingSheet } from "@/components/show/show-state-actions";
 import {
@@ -65,6 +66,24 @@ export function ShowEpisodeListView({
   const specialsSeasons = show.seasons.filter((s) => s.seasonNumber === 0);
   const hasSpecials = specialsSeasons.some((s) => s.episodes.length > 0);
   const visibleSeasons = showSpecials ? show.seasons : regularSeasons;
+  const [expandedSeasons, setExpandedSeasons] = useState<ReadonlySet<number>>(() => {
+    const current = currentSeasonNumber(regularSeasons);
+    return new Set(current === null ? [] : [current]);
+  });
+
+  function toggleSeason(seasonNumber: number) {
+    setExpandedSeasons((previous) => {
+      const next = new Set(previous);
+      if (!next.delete(seasonNumber)) next.add(seasonNumber);
+      return next;
+    });
+  }
+
+  function expandSeason(seasonNumber: number) {
+    setExpandedSeasons((previous) =>
+      previous.has(seasonNumber) ? previous : new Set(previous).add(seasonNumber),
+    );
+  }
 
   const { watched: watchedCount, total: totalCount } = countShowProgress(show.seasons);
   const status = show.userStatus ? effectiveStatus(show.userStatus, watchedCount, totalCount) : null;
@@ -86,7 +105,7 @@ export function ShowEpisodeListView({
         : null;
 
   return (
-    <main className="-mx-4 -mt-6 pb-4">
+    <main className={["-mx-4 -mt-6", regularSeasons.length > 1 ? "pb-24" : "pb-4"].join(" ")}>
       <header
         className="sticky top-0 z-20 grid min-h-[78px] grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2 border-b border-divider bg-background/90 px-4 pb-2 backdrop-blur"
         style={{ paddingTop: "calc(0.875rem + env(safe-area-inset-top))" }}
@@ -134,8 +153,9 @@ export function ShowEpisodeListView({
             const unwatchedCount = season.episodes.length - seasonWatched;
             return (
               <CollapsibleSeason
-                defaultExpanded={season.seasonNumber === currentSeasonNumber(regularSeasons)}
                 episodeCount={season.episodes.length}
+                expanded={expandedSeasons.has(season.seasonNumber)}
+                onToggle={() => toggleSeason(season.seasonNumber)}
                 key={season.seasonNumber}
                 seasonNumber={season.seasonNumber}
                 seasonRating={
@@ -185,6 +205,16 @@ export function ShowEpisodeListView({
           No episode details available.
         </p>
       )}
+      {regularSeasons.length > 1 ? (
+        <SeasonPill
+          expandedSeasons={expandedSeasons}
+          onExpandSeason={expandSeason}
+          seasons={regularSeasons.map((season) => ({
+            episodeIds: season.episodes.map((episode) => episode.id),
+            seasonNumber: season.seasonNumber,
+          }))}
+        />
+      ) : null}
     </main>
   );
 }
@@ -357,7 +387,7 @@ function EpisodeRow({
   const airDate = episode.air_date ? formatDate(episode.air_date) : null;
 
   return (
-    <div className="grid min-h-[48px] grid-cols-[56px_minmax(0,1fr)_auto_44px] items-center gap-2 border-b border-divider px-4 py-1 last:border-b-0">
+    <div id={episodeDomId(episode.id)} className="grid min-h-[48px] grid-cols-[56px_minmax(0,1fr)_auto_44px] items-center gap-2 border-b border-divider px-4 py-1 last:border-b-0">
       <Link
         aria-label={`${episode.title} episode detail`}
         className="tabnum text-[13px] font-semibold leading-[1.2] text-text-2 active:opacity-70"

@@ -381,6 +381,9 @@ Rules:
 - The `Show` button opens the show overview/detail screen.
 - Season headers are structural and may stick below the top bar.
 - Row tap opens episode detail.
+- A floating season pill (`SeasonPill`) sits at the bottom when the show has 2+ regular seasons: season
+  numbers are labels, ticks are episodes. Dragging scrolls the list to that season/episode (expanding a
+  collapsed season); scrolling the list moves the centre line. Specials are not in the pill.
 - The trailing check target toggles that episode's watched state without navigating.
 - Show-level personal rating uses the same heart treatment as movie detail. Do not label it "Mine"
   when the heart treatment already implies personal rating.
